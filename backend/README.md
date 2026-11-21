@@ -1,17 +1,28 @@
 # Minders API
 
-FastAPI starter service. The current scaffold exposes only `GET /health`.
+Node.js 20+ and Express 5 API foundation for the Minders Digital Farm Records MVP.
 
-## Run locally
+## Install and run
 
-```bash
-python -m venv .venv
-# Windows PowerShell: .venv\\Scripts\\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
+~~~bash
+npm install
+cp .env.example .env
+npm run dev
+~~~
 
-API docs: http://localhost:8000/docs
+Configure DATABASE_URL in .env before expecting PostgreSQL readiness. The API listens on http://localhost:8000 by default.
 
-**Not production-ready:** farmer authentication, Admin authorization, database persistence and cloud synchronization are not implemented.
+## Endpoints
+
+- GET /health — process liveness; does not require PostgreSQL.
+- GET /ready — readiness check; returns HTTP 503 until PostgreSQL is configured and reachable.
+
+## PostgreSQL
+
+Create a database, set DATABASE_URL in .env, and apply db/migrations/001_initial_schema.sql using psql.
+
+## Current scope
+
+This is an API foundation, not a finished backend. Farmer/Admin authentication, PIN hashing, authorization, farmer/farm/activity CRUD routes, audit logging and synchronization endpoints still need implementation. The local Admin preview is not a real Admin portal.
+
+Never commit .env or production credentials.
