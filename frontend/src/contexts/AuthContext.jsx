@@ -6,6 +6,7 @@ import {
   rememberOfflineLogin,
   signInOffline
 } from "../lib/offlineAuth.js";
+import { clearGroupCaches } from "../lib/groupCache.js";
 import { deleteLocalData, hasUnsentWork } from "../lib/localStore.js";
 import {
   clearUnlocked,
@@ -296,6 +297,7 @@ export function AuthProvider({ children }) {
       }
       await forgetOfflineLogin(profile.user.phoneNumber).catch(() => {});
       await deleteLocalData(userId).catch(() => {});
+      clearGroupCaches(userId);
       dropProfile(userId);
       if (userRef.current?.id === userId) {
         clearUnlocked();

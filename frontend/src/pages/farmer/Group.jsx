@@ -8,34 +8,27 @@ import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { api } from "../../lib/api.js";
 import { formatMoney, sayMoney } from "../../lib/ledger.js";
-import { GRADES, WORDS, growEmoji, unitText } from "../../lib/words.js";
+import { CropIcon, GradeBadge } from "../../components/Choices.jsx";
+import {
+  dashboardName,
+  dropGroupCache,
+  forgetGroupOnError,
+  readGroupCache,
+  reconcileGroupCaches,
+  writeGroupCache
+} from "../../lib/groupCache.js";
+import { ICONS } from "../../lib/icons.js";
+import { GRADES, WORDS, unitText } from "../../lib/words.js";
 
 // Farmer groups (cooperatives). Group information comes from the server, so
-// the last copy is kept on the phone to show when there is no network.
-function cacheKey(userId, name) {
-  return `minders.group.${userId}.${name}`;
-}
-function readCache(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "null");
-  } catch {
-    return null;
-  }
-}
-function writeCache(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore
-  }
-}
-
-function useGroupData(path, key) {
-  const { token } = useAuth();
+// the last copy is kept on the phone (lib/groupCache.js) to show when there is
+// no network, and thrown away when it can no longer be right.
+function useGroupData(path, name, { groupId = null } = {}) {
+  const { token, user } = useAuth();
   const { online } = useSync();
-  const [data, setData] = useState(() => readCache(key));
+  const [data, setData] = useState(() => readGroupCache(user.id, name));
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!readCache(key));
+  const [loading, setLoading] = useState(() => !readGroupCache(user.id, name));
 
   const load = useCallback(async () => {
     if (!token || !online) {
@@ -45,38 +38,45 @@ function useGroupData(path, key) {
     try {
       const result = await api.get(path, { token });
       setData(result);
-      writeCache(key, result);
+      writeGroupCache(user.id, name, result);
+      if (name === "mine") reconcileGroupCaches(user.id, result);
       setError("");
     } catch (requestError) {
-      setError(requestError.message);
+      if (groupId && forgetGroupOnError(user.id, groupId, requestError)) {
+        setData(null);
+        setError("You are not in this group any more.");
+      } else {
+        setError(requestError.message);
+      }
     } finally {
       setLoading(false);
     }
-  }, [token, online, path, key]);
+  }, [token, online, path, name, groupId, user.id]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  return { data, error, loading, reload: load, online, token };
+  return { data, error, loading, reload: load, online, token, user };
 }
 
 export default function Group() {
-  const { user } = useAuth();
   const toast = useToast();
-  const { data, error, loading, reload, online, token } = useGroupData("/api/cooperatives/mine", cacheKey(user.id, "mine"));
+  const { data, error, loading, reload, online, token, user } = useGroupData("/api/cooperatives/mine", "mine");
   const [code, setCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function join() {
-    if (!code.trim()) return setJoinError("Put the group code.");
+    if (!code.trim()) return setJoinError("Enter the group code.");
     setBusy(true);
     setJoinError("");
     try {
       const result = await api.post("/api/cooperatives/join", { joinCode: code.trim() }, { token });
       toast.success(result.message);
       setCode("");
+      // The saved list is out of date now.
+      dropGroupCache(user.id, "mine");
       reload();
     } catch (requestError) {
       setJoinError(requestError.message);
@@ -109,7 +109,9 @@ export default function Group() {
               data-say={`${group.name}. ${group.memberCount} people.`}
               className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
             >
-              <span className="text-4xl" aria-hidden="true">👥</span>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-800">
+                <ICONS.group size={26} aria-hidden="true" />
+              </span>
               <div className="flex-1">
                 <p className="text-base font-bold text-ink">{group.name}</p>
                 <p className="text-xs text-ink-soft">
@@ -160,7 +162,7 @@ function Totals({ totals, title }) {
                   className="rounded-xl bg-canvas p-3"
                   data-say={`${row.quantity} ${unitText(row.unit)} ${row.crop}.`}
                 >
-                  <p className="text-2xl" aria-hidden="true">{growEmoji(row.crop)}</p>
+                  <CropIcon name={row.crop} size={20} />
                   <p className="text-sm font-bold text-ink">
                     {row.quantity} {unitText(row.unit)}
                   </p>
@@ -175,7 +177,9 @@ function Totals({ totals, title }) {
               className="flex items-center justify-between rounded-xl bg-success/10 px-3 py-2.5"
               data-say={`${WORDS.sold.say} ${sayMoney(money.sold[currency], currency)}.`}
             >
-              <span className="text-sm font-semibold text-ink">💵 {WORDS.sold.text}</span>
+              <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <ICONS.sale size={18} aria-hidden="true" /> {WORDS.totalSales.text}
+              </span>
               <span className="text-lg font-bold text-success">{formatMoney(money.sold[currency], currency)}</span>
             </div>
           ))}
@@ -184,10 +188,10 @@ function Totals({ totals, title }) {
               {Object.entries(grades).map(([grade, count]) => (
                 <span
                   key={grade}
-                  className="rounded-full bg-canvas px-3 py-1.5 text-sm font-semibold"
+                  className="inline-flex items-center gap-1 rounded-full bg-canvas px-2 py-1 text-sm font-semibold"
                   data-say={`${count} harvest ${GRADES[grade]?.text}.`}
                 >
-                  {GRADES[grade]?.emoji} {count}
+                  <GradeBadge grade={grade} words={GRADES[grade]} /> × {count}
                 </span>
               ))}
             </div>
@@ -200,19 +204,17 @@ function Totals({ totals, title }) {
 
 export function GroupDashboard() {
   const { groupId } = useParams();
-  const { user } = useAuth();
   const toast = useToast();
-  const { data, error, loading, online } = useGroupData(
-    `/api/cooperatives/${groupId}/dashboard`,
-    cacheKey(user.id, `dash.${groupId}`)
-  );
+  const { data, error, loading, online } = useGroupData(`/api/cooperatives/${groupId}/dashboard`, dashboardName(groupId), {
+    groupId
+  });
 
   if (loading && !data) return <PageLoading label="Opening your group…" />;
   if (!data) {
     return (
       <div>
         <PageHeader title={WORDS.groupTitle.text} backTo="/app/group" />
-        <ErrorBanner message={error || "This group is not saved on this phone. Open it when network come."} />
+        <ErrorBanner message={error || "This group is not saved on this phone. Open it when you are online."} />
       </div>
     );
   }
@@ -247,7 +249,8 @@ export function GroupDashboard() {
           <ul className="space-y-1 text-sm text-ink">
             {leaders.map((leader) => (
               <li key={leader.fullName} data-say={leader.fullName}>
-                ⭐ {leader.fullName}
+                <ICONS.leader size={14} className="mr-1 inline text-amber-500" aria-hidden="true" />
+                {leader.fullName}
                 {leader.community ? ` · ${leader.community}` : ""}
               </li>
             ))}
@@ -277,7 +280,7 @@ export function GroupDashboard() {
                 data-say={`${member.fullName}. ${member.harvestCount} harvest. ${member.workLast30Days} work this month.`}
               >
                 <p className="text-sm font-bold text-ink">
-                  {member.role === "leader" ? "⭐ " : ""}
+                  {member.role === "leader" ? <ICONS.leader size={14} className="mr-1 inline text-amber-500" aria-hidden="true" /> : null}
                   {member.fullName}
                 </p>
                 <p className="text-xs text-ink-soft">

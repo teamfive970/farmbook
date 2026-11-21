@@ -260,10 +260,10 @@ export function AdminCooperativeDetail() {
         <Card className="lg:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Group totals</p>
           <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-            <MoneyRow label="Sold" money={totals.money.sold} />
-            <MoneyRow label="Received" money={totals.money.received} />
-            <MoneyRow label="Owed to members" money={totals.money.owed} />
-            <MoneyRow label="Spent" money={totals.money.spent} />
+            <MoneyRow label="Total sales" money={totals.money.sold} />
+            <MoneyRow label="Total income" money={totals.money.received} />
+            <MoneyRow label="Total expenses" money={totals.money.spent} />
+            <MoneyRow label="Profit" money={totals.money.profit} />
           </div>
           {totals.harvest.length > 0 && (
             <p className="mt-3 text-sm text-ink">

@@ -35,9 +35,13 @@ export const ACTIVITY_TYPES = [
   "fertilizer_application",
   "pesticide_application",
   "weeding",
+  "monitoring",
   "feeding",
   "vaccination",
   "cleaning",
+  "breeding",
+  "health_check",
+  "production",
   "other"
 ];
 
@@ -60,3 +64,13 @@ export const EXPENSE_CATEGORIES = [
   "land",
   "other"
 ];
+
+// Production records (crop plantings and animal groups) — see migration 008.
+export const PRODUCTION_KINDS = ["crop", "animal"];
+export const PRODUCTION_SOURCES = ["own", "bought", "given", "group", "born"];
+export const CROP_METHODS = ["seeds", "seedlings", "cuttings", "suckers", "other"];
+export const AGE_GROUPS = ["young", "grown", "mixed"];
+export const ANIMAL_ADD_EVENTS = ["born", "bought", "given_in"];
+export const ANIMAL_REMOVE_EVENTS = ["died", "sold", "eaten", "given_out"];
+export const ANIMAL_EVENT_TYPES = [...ANIMAL_ADD_EVENTS, ...ANIMAL_REMOVE_EVENTS];
+export const DEATH_CAUSES = ["sickness", "accident", "predator", "weather", "unknown", "other"];

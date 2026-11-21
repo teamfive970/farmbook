@@ -185,6 +185,248 @@ function buildExtraFarmers(pinHash) {
   return farmers;
 }
 
+
+// ---------- a season of harvests, sales and groups (for the admin charts) ----------
+
+// Small deterministic random generator so every demo database looks the same.
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+const HARVEST_UNITS = { "Layer chickens": "eggs", Goats: "pieces" };
+const PRICE_LRD = { bags: 3200, eggs: 25, pieces: 9000 };
+const SIZE_BY_TYPE = {
+  crop_farming: () => ({ unit: "acres", min: 1, max: 6 }),
+  mixed_farming: () => ({ unit: "hectares", min: 0.5, max: 3 }),
+  livestock: () => ({ unit: "lots", min: 1, max: 4 }),
+  poultry: () => ({ unit: "lots", min: 1, max: 2 })
+};
+const EXTRA_ACTIVITY_TYPES = {
+  crop_farming: ["land_preparation", "planting", "weeding", "fertilizer_application", "pesticide_application", "watering"],
+  mixed_farming: ["planting", "watering", "feeding", "weeding"],
+  livestock: ["feeding", "vaccination", "cleaning"],
+  poultry: ["feeding", "cleaning", "vaccination"]
+};
+const BUYERS = [
+  ["Ma Hawa", "market_woman"],
+  ["Gbarnga Market Traders", "trader"],
+  ["Old Road Wholesale", "company"],
+  ["Neighbour Kollie", "neighbor"]
+];
+const DEMO_GROUPS = [
+  { name: "Bong Rice Growers", county: "Bong", district: "Gbarnga", code: "GRP-DEMOBG" },
+  { name: "Nimba Women Farmers Group", county: "Nimba", district: "Saclepea", code: "GRP-DEMONM" },
+  { name: "Lofa Cassava Union", county: "Lofa", district: "Voinjama", code: "GRP-DEMOLF" },
+  { name: "Margibi Poultry Association", county: "Margibi", district: "Kakata", code: "GRP-DEMOMG" }
+];
+
+function passportCode(rand) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "LR-";
+  for (let i = 0; i < 10; i += 1) code += alphabet[Math.floor(rand() * alphabet.length)];
+  return code;
+}
+
+async function seedSeason(client) {
+  const already = await client.query("SELECT 1 FROM harvests WHERE client_id LIKE 'demo-harvest-%' LIMIT 1");
+  if (already.rows[0]) return false;
+  const rand = seededRandom(20260401);
+
+  const { rows: farmers } = await client.query(
+    `SELECT id, county, district, created_at FROM farmers
+     WHERE phone_number LIKE '+23177000%' ORDER BY phone_number`
+  );
+
+  // Spread registrations over the last year so the trend charts have a shape.
+  // Records are only dated after the farmer joined.
+  const ageDays = new Map();
+  for (const [i, farmer] of farmers.entries()) {
+    const age = i === 0 ? 350 : Math.floor(((farmers.length - i) / farmers.length) * 330 + rand() * 20) + 1;
+    ageDays.set(farmer.id, age);
+    await client.query(
+      "UPDATE farmers SET created_at = now() - make_interval(days => $2) WHERE id = $1 AND created_at > now() - interval '2 days'",
+      [farmer.id, age]
+    );
+  }
+  const within = (farmerId, maxDays) => Math.floor(rand() * Math.min(maxDays, ageDays.get(farmerId) || maxDays)) + 1;
+
+  let n = 0;
+  for (const farmer of farmers) {
+    const { rows: farms } = await client.query(
+      "SELECT id, client_id, farm_type, main_crop_or_livestock, size FROM farms WHERE farmer_id = $1",
+      [farmer.id]
+    );
+    const buyerIds = [];
+    for (const [b, [name, type]] of BUYERS.entries()) {
+      if (rand() < 0.5 && b > 0) continue;
+      const buyer = await client.query(
+        `INSERT INTO buyers (farmer_id, client_id, name, buyer_type) VALUES ($1, $2, $3, $4) RETURNING id, client_id`,
+        [farmer.id, `demo-buyer-${farmer.id.slice(0, 8)}-${b}`, name, type]
+      );
+      buyerIds.push(buyer.rows[0]);
+    }
+
+    for (const farm of farms) {
+      // Size (one farm in ten is left without a size, like real data).
+      const sizeRule = SIZE_BY_TYPE[farm.farm_type]?.();
+      if (sizeRule && farm.size === null && rand() > 0.1) {
+        const size = Math.round((sizeRule.min + rand() * (sizeRule.max - sizeRule.min)) * 2) / 2;
+        await client.query("UPDATE farms SET size = $2, size_unit = $3 WHERE id = $1", [farm.id, size, sizeRule.unit]);
+      }
+
+      // The farm's planting or animal group (the guide's production record).
+      const isAnimalFarm = farm.farm_type === "livestock" || farm.farm_type === "poultry";
+      const mainName = (farm.main_crop_or_livestock || "Rice").split(" and ")[0];
+      n += 1;
+      const productionClientId = `demo-production-${n}`;
+      const startAge = within(farmer.id, 330) + 10;
+      const production = await client.query(
+        `INSERT INTO productions (farmer_id, client_id, farm_id, farm_client_id, kind, name, start_date, source, method, start_count, age_group)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+        [farmer.id, productionClientId, farm.id, farm.client_id, isAnimalFarm ? "animal" : "crop", mainName, daysAgo(startAge),
+          rand() < 0.5 ? "own" : "bought", isAnimalFarm ? null : mainName === "Cassava" ? "cuttings" : "seeds",
+          isAnimalFarm ? 10 + Math.floor(rand() * 40) : null, isAnimalFarm ? "young" : null]
+      );
+      const productionId = production.rows[0].id;
+      if (isAnimalFarm) {
+        for (const [eventType, quantity, cause] of [["born", 2 + Math.floor(rand() * 5), null], ["died", 1, rand() < 0.5 ? "sickness" : "predator"]]) {
+          n += 1;
+          await client.query(
+            `INSERT INTO animal_events (farmer_id, client_id, production_id, production_client_id, event_type, quantity, event_date, cause)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [farmer.id, `demo-animal-${n}`, productionId, productionClientId, eventType, quantity, daysAgo(Math.max(1, startAge - 20)), cause]
+          );
+        }
+      }
+
+      // Work spread across the year.
+      const types = EXTRA_ACTIVITY_TYPES[farm.farm_type] || ["feeding"];
+      const count = 3 + Math.floor(rand() * 6);
+      for (let a = 0; a < count; a += 1) {
+        n += 1;
+        await client.query(
+          `INSERT INTO farm_activities (farmer_id, farm_id, client_id, activity_type, activity_date, description, production_id, production_client_id)
+           VALUES ($1, $2, $3, $4, $5, NULL, $6, $7)`,
+          [farmer.id, farm.id, `demo-season-activity-${n}`, types[Math.floor(rand() * types.length)], daysAgo(within(farmer.id, 340)),
+            productionId, productionClientId]
+        );
+      }
+
+      // Harvests, quality checks, sales and payments.
+      const crop = farm.main_crop_or_livestock || "Rice";
+      const unit = HARVEST_UNITS[crop] || "bags";
+      // Crops come from the planting; a chicken group gives eggs.
+      const harvestCrop = unit === "eggs" ? "Eggs" : crop.split(" and ")[0];
+      const linkHarvest = !isAnimalFarm || unit === "eggs";
+      const harvestCount = 1 + Math.floor(rand() * 3);
+      for (let h = 0; h < harvestCount; h += 1) {
+        n += 1;
+        const age = within(farmer.id, 300) + 4;
+        const quantity =
+          unit === "pieces" ? 2 + Math.floor(rand() * 6) : unit === "eggs" ? 150 + Math.floor(rand() * 600) : 5 + Math.floor(rand() * 40);
+        const harvestClientId = `demo-harvest-${n}`;
+        const harvest = await client.query(
+          `INSERT INTO harvests (farmer_id, client_id, farm_id, farm_client_id, crop, harvest_date, quantity, unit, passport_code, passport_public,
+             production_id, production_client_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+          [farmer.id, harvestClientId, farm.id, farm.client_id, harvestCrop, daysAgo(age), quantity, unit, passportCode(rand), rand() < 0.4,
+            linkHarvest ? productionId : null, linkHarvest ? productionClientId : null]
+        );
+        const harvestId = harvest.rows[0].id;
+
+        if (rand() < 0.7) {
+          const roll = rand();
+          const grade = roll < 0.45 ? "A" : roll < 0.8 ? "B" : roll < 0.95 ? "C" : "rejected";
+          await client.query(
+            `INSERT INTO quality_inspections (farmer_id, client_id, harvest_id, harvest_client_id, inspection_date, grade, checks)
+             VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb)`,
+            [farmer.id, `demo-check-${n}`, harvestId, harvestClientId, daysAgo(Math.max(1, age - 1)), grade]
+          );
+        }
+
+        if (rand() < 0.8 && buyerIds.length) {
+          const buyer = buyerIds[Math.floor(rand() * buyerIds.length)];
+          const sold = Math.max(1, Math.floor(quantity * (0.4 + rand() * 0.6)));
+          const usd = rand() < 0.15;
+          const basePrice = PRICE_LRD[unit] || 3000;
+          const unitPrice = usd
+            ? Math.max(0.1, Math.round((basePrice / 190) * 100) / 100)
+            : Math.round(basePrice * (0.8 + rand() * 0.4));
+          const total = Math.round(sold * unitPrice * 100) / 100;
+          const saleClientId = `demo-sale-${n}`;
+          const sale = await client.query(
+            `INSERT INTO sales (farmer_id, client_id, harvest_id, harvest_client_id, buyer_id, buyer_client_id,
+               sale_date, crop, quantity, unit, unit_price, total_amount, currency, production_id, production_client_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+            [farmer.id, saleClientId, harvestId, harvestClientId, buyer.id, buyer.client_id, daysAgo(Math.max(1, age - 3)),
+              harvestCrop, sold, unit, unitPrice, total, usd ? "USD" : "LRD",
+              linkHarvest ? productionId : null, linkHarvest ? productionClientId : null]
+          );
+          const paidShare = rand() < 0.65 ? 1 : rand() < 0.5 ? 0.5 : 0;
+          if (paidShare > 0) {
+            await client.query(
+              `INSERT INTO payments (farmer_id, client_id, sale_id, sale_client_id, amount, paid_date, method)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [farmer.id, `demo-pay-${n}`, sale.rows[0].id, saleClientId, Math.round(total * paidShare),
+                daysAgo(Math.max(1, age - 4)), rand() < 0.3 ? "mobile_money" : "cash"]
+            );
+          }
+        }
+      }
+
+      // Farm costs.
+      const categories = farm.farm_type === "poultry" || farm.farm_type === "livestock"
+        ? ["feed", "medicine", "labour", "transport"]
+        : ["seeds", "fertilizer", "labour", "tools", "transport", "pesticide"];
+      const costs = 2 + Math.floor(rand() * 4);
+      for (let c = 0; c < costs; c += 1) {
+        n += 1;
+        const usd = rand() < 0.1;
+        await client.query(
+          `INSERT INTO expenses (farmer_id, client_id, farm_id, farm_client_id, expense_date, category, amount, currency)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [farmer.id, `demo-cost-${n}`, farm.id, farm.client_id, daysAgo(within(farmer.id, 330)),
+            categories[Math.floor(rand() * categories.length)], usd ? 5 + Math.floor(rand() * 40) : 500 + Math.floor(rand() * 6000),
+            usd ? "USD" : "LRD"]
+        );
+      }
+    }
+  }
+
+  // Pretend each record reached the server on the day it happened, so the
+  // engagement chart looks like a real pilot rather than "everyone today".
+  await client.query(
+    "UPDATE farm_activities SET created_at = activity_date + interval '18 hours' WHERE client_id LIKE 'demo-%' AND activity_date < now()::date"
+  );
+  for (const [table, column] of [["harvests", "harvest_date"], ["sales", "sale_date"], ["expenses", "expense_date"]]) {
+    await client.query(
+      `UPDATE ${table} SET created_at = ${column} + interval '18 hours' WHERE client_id LIKE 'demo-%' AND ${column} < now()::date`
+    );
+  }
+
+  // Cooperatives with the demo farmers of each county as members.
+  for (const group of DEMO_GROUPS) {
+    const coop = await client.query(
+      `INSERT INTO cooperatives (name, county, district, join_code, description)
+       VALUES ($1, $2, $3, $4, 'Demo group') ON CONFLICT (join_code) DO NOTHING RETURNING id`,
+      [group.name, group.county, group.district, group.code]
+    );
+    if (!coop.rows[0]) continue;
+    const members = farmers.filter((f) => f.county === group.county);
+    for (const [i, member] of members.entries()) {
+      await client.query(
+        `INSERT INTO cooperative_members (cooperative_id, farmer_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [coop.rows[0].id, member.id, i === 0 ? "leader" : "member"]
+      );
+    }
+  }
+  return true;
+}
+
 async function main() {
   // Demo accounts share a published PIN; never create them on a live server.
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
@@ -314,10 +556,24 @@ async function main() {
       else skipped += 1;
     }
 
-    return { created, skipped };
+    // Fill each demo farm's crop list from its main crop text (as migration 005 does).
+    await client.query(
+      `UPDATE farms f SET crops = COALESCE((
+         SELECT array_agg(DISTINCT upper(left(trim(part), 1)) || substr(trim(part), 2))
+         FROM regexp_split_to_table(f.main_crop_or_livestock, '\\s*(,|&|/|\\mand\\M)\\s*', 'i') AS part
+         WHERE trim(part) <> ''), '{}')
+       WHERE f.client_id LIKE 'demo-%' AND f.crops = '{}' AND f.main_crop_or_livestock IS NOT NULL`
+    );
+    const season = await seedSeason(client);
+    return { created, skipped, season };
   });
 
   console.log(`Demo data ready: ${result.created} farmers created, ${result.skipped} already existed.`);
+  console.log(
+    result.season
+      ? "  Added a year of harvests, quality checks, sales, payments, costs and 4 cooperatives for the admin charts."
+      : "  Season data (harvests, sales, cooperatives) was already there."
+  );
   console.log(`  ${EXTRA_FARMERS + 1} demo farmers in total (enough to page through the admin list).`);
   console.log("  Farmer phone: +231 77 000 0001");
   console.log(`  Farmer PIN:   ${DEMO_PIN}`);

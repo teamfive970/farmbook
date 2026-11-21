@@ -33,6 +33,8 @@ function allowedOrigins() {
   return configured.length ? configured : defaultOrigins;
 }
 
+const STARTED_AT = new Date().toISOString();
+
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
@@ -45,13 +47,22 @@ export function createApp() {
       origin(origin, callback) {
         if (!origin || origins.includes(origin)) return callback(null, true);
         return callback(null, false);
-      }
+      },
+      // Lets the admin app read the CSV file name on cross-origin downloads.
+      exposedHeaders: ["Content-Disposition"]
     })
   );
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", service: "minders-api", time: new Date().toISOString() });
+    res.json({
+      status: "ok",
+      service: "minders-api",
+      // Lets you check that the running server has the latest code.
+      features: ["offline-sessions", "harvests", "sales", "cooperatives", "passport", "admin-analytics"],
+      startedAt: STARTED_AT,
+      time: new Date().toISOString()
+    });
   });
 
   app.get("/api/ready", async (req, res) => {
@@ -66,6 +77,8 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/farms", farmRoutes);
   app.use("/api/activities", activityRoutes);
+  app.use("/api/productions", resourceRouter("productions"));
+  app.use("/api/animalEvents", resourceRouter("animalEvents"));
   app.use("/api/harvests", resourceRouter("harvests"));
   app.use("/api/inspections", resourceRouter("inspections"));
   app.use("/api/buyers", resourceRouter("buyers"));

@@ -37,6 +37,20 @@ export function errorHandler(error, req, res, next) {
     });
   }
 
+  // 42P01 = missing table, 42703 = missing column: the code is newer than
+  // the database. Say so plainly instead of a stack trace per request.
+  if (error?.code === "42P01" || error?.code === "42703") {
+    console.error(
+      `Database is out of date (${error.message}). Run \`npm run migrate\` in the backend folder, then restart the server.`
+    );
+    return res.status(503).json({
+      error: {
+        code: "DATABASE_OUTDATED",
+        message: "The database needs updating. Run npm run migrate in the backend folder, then restart the server."
+      }
+    });
+  }
+
   console.error("Unhandled error:", error);
   return res.status(500).json({
     error: { code: "INTERNAL_ERROR", message: "Something went wrong. Please try again." }

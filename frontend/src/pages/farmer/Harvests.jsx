@@ -1,10 +1,12 @@
 import { Plus } from "lucide-react";
 import { Link } from "react-router-dom";
+import { CropIcon, GradeBadge } from "../../components/Choices.jsx";
 import { EmptyState, PageHeader, PageLoading, StatusChip, buttonClass } from "../../components/ui.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { formatDate } from "../../lib/format.js";
 import { batchStatus } from "../../lib/ledger.js";
-import { GRADES, WORDS, growEmoji, unitText } from "../../lib/words.js";
+import { ICONS } from "../../lib/icons.js";
+import { GRADES, WORDS, unitText } from "../../lib/words.js";
 
 export const BATCH_STATE_WORDS = {
   in_store: { ...WORDS.inStore, tone: "bg-sky-100 text-sky-800" },
@@ -37,7 +39,7 @@ export default function Harvests() {
           description="When you bring crops from the farm, put them here."
           action={
             <Link to="/app/harvests/new" className={buttonClass("primary", "md")}>
-              🧺 {WORDS.addHarvest.text}
+              <ICONS.harvest size={18} aria-hidden="true" /> {WORDS.addHarvest.text}
             </Link>
           }
         />
@@ -54,19 +56,13 @@ export default function Harvests() {
                 data-say={`${harvest.crop}. ${harvest.quantity} ${unitText(harvest.unit)}. ${state.say} ${grade ? grade.say : ""}`}
                 className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
               >
-                <span className="text-4xl" aria-hidden="true">
-                  {growEmoji(harvest.crop)}
-                </span>
+                <CropIcon name={harvest.crop} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="truncate text-base font-bold text-ink">
                       {harvest.crop} · {harvest.quantity} {unitText(harvest.unit)}
                     </p>
-                    {grade && (
-                      <span className="shrink-0 text-xl" title={grade.text} aria-label={grade.text}>
-                        {grade.emoji}
-                      </span>
-                    )}
+                    <GradeBadge grade={status.grade} words={grade} />
                   </div>
                   <p className="text-xs text-ink-soft">
                     {farmName(harvest.farmClientId)} · {formatDate(harvest.harvestDate)}

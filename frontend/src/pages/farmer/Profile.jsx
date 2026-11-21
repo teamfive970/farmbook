@@ -8,7 +8,8 @@ import {
   Phone,
   ShieldCheck,
   ShieldQuestion,
-  Sprout
+  Sprout,
+  Volume2
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -124,7 +125,9 @@ export default function Profile() {
         data-say={WORDS.voiceSwitch.say}
       >
         <div>
-          <p className="text-sm font-bold text-ink">🔊 {WORDS.voiceSwitch.text}</p>
+          <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
+            <Volume2 size={18} className="text-primary" aria-hidden="true" /> {WORDS.voiceSwitch.text}
+          </p>
           <p className="text-xs text-ink-soft">
             The phone will say the words when you touch them.
           </p>

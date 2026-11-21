@@ -1,4 +1,4 @@
-import { ArrowRight, CloudOff, NotebookPen, ShieldCheck } from "lucide-react";
+import { ArrowRight, CloudOff, NotebookPen, ShieldCheck, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
 import { SpeakButton, VoiceToggle, useSpeakOnOpen } from "../components/Voice.jsx";
@@ -44,7 +44,8 @@ export default function Welcome() {
         {/* The voice switch comes first, so someone who cannot read finds it. */}
         <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl border-2 border-primary/30 bg-white p-3 shadow-card">
           <p className="text-sm font-semibold leading-snug text-ink">
-            🔊 Can't read? Touch here. The phone will talk to you.
+            <Volume2 size={18} className="mr-1 inline text-primary" aria-hidden="true" />
+            Can't read? Touch here. The phone will talk to you.
           </p>
           <VoiceToggle />
         </div>

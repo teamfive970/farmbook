@@ -45,11 +45,14 @@ export async function getPassport(code) {
      WHERE m.farmer_id = $1 AND m.status = 'active' AND c.status = 'active' ORDER BY c.name`,
     [harvest.owner_id]
   );
+  // Only sales in the batch's own unit are counted (sales from a batch take
+  // its unit; very old records might not), and never more than the batch.
   const sold = await query(
     `SELECT COALESCE(sum(quantity), 0) AS quantity FROM sales
-     WHERE harvest_id = $1 AND deleted_at IS NULL`,
-    [harvest.id]
+     WHERE harvest_id = $1 AND deleted_at IS NULL AND unit = $2`,
+    [harvest.id, harvest.unit]
   );
+  const quantitySold = Math.min(Number(sold.rows[0].quantity), Number(harvest.quantity));
 
   const latest = inspection.rows[0];
   return {
@@ -59,7 +62,8 @@ export async function getPassport(code) {
       quantity: Number(harvest.quantity),
       unit: harvest.unit,
       harvestDate: harvest.harvest_date,
-      quantitySold: Number(sold.rows[0].quantity),
+      quantitySold,
+      quantityLeft: Math.max(Number(harvest.quantity) - quantitySold, 0),
       farmer: { firstName: firstNameOnly(harvest.full_name), groups: groups.rows.map((row) => row.name) },
       farm: {
         county: harvest.county,

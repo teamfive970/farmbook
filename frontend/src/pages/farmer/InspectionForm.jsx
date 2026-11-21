@@ -1,20 +1,33 @@
-import { ChevronDown, ChevronUp, PencilLine } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronUp, CircleCheck, CircleX, PencilLine, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChoiceButton, DateChoice, QuantityStepper, Section } from "../../components/Choices.jsx";
-import { Button, ErrorBanner, Field, PageHeader, PageLoading, TextInput, Textarea } from "../../components/ui.jsx";
+import {
+  Button,
+  ConfirmDialog,
+  ErrorBanner,
+  Field,
+  PageHeader,
+  PageLoading,
+  TextInput,
+  Textarea
+} from "../../components/ui.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { newClientId, todayInputValue } from "../../lib/format.js";
-import { GRADES, QUALITY_CHECKS, WORDS, growEmoji, suggestGrade } from "../../lib/words.js";
+import { ICONS } from "../../lib/icons.js";
+import { GRADES, QUALITY_CHECKS, WORDS, suggestGrade, unitText } from "../../lib/words.js";
 
 // Quality check by looking and smelling: yes/no for each picture. The grade is
-// suggested from the answers (all yes = A) and can be changed.
+// suggested from the checks that were answered (a skipped check does not count
+// against the crop) and can be changed. Opened with a check id, it changes or
+// deletes that check.
 export default function InspectionForm() {
-  const { clientId } = useParams();
+  const { clientId, checkId } = useParams();
+  const editing = Boolean(checkId);
   const { records, loading } = useFarmerData();
-  const { createRecord, online } = useSync();
+  const { createRecord, updateRecord, deleteRecord, online } = useSync();
   const navigate = useNavigate();
   const toast = useToast();
   const [checks, setChecks] = useState({});
@@ -26,33 +39,60 @@ export default function InspectionForm() {
   const [showWrite, setShowWrite] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [loaded, setLoaded] = useState(!editing);
 
   const harvest = records.harvests.find((item) => item.clientId === clientId);
-  if (!harvest) return loading ? <PageLoading label="Opening…" /> : <PageHeader title="Harvest not found" backTo="/app/harvests" />;
+  const existing = editing ? records.inspections.find((item) => item.clientId === checkId) : null;
+
+  useEffect(() => {
+    if (!editing || loaded || !existing) return;
+    setChecks(existing.checks || {});
+    setGrade(existing.grade);
+    setDate(existing.inspectionDate || todayInputValue());
+    setMoisture(existing.moisturePercent === null || existing.moisturePercent === undefined ? "" : String(existing.moisturePercent));
+    setInspector(existing.inspector || "");
+    setNotes(existing.notes || "");
+    setShowWrite(Boolean(existing.inspector || existing.notes || existing.moisturePercent));
+    setLoaded(true);
+  }, [editing, existing, loaded]);
+
+  if (!harvest || (editing && !existing)) {
+    if (loading) return <PageLoading label="Opening…" />;
+    return <PageHeader title={editing ? "Check not found" : "Harvest not found"} backTo={harvest ? `/app/harvests/${clientId}` : "/app/harvests"} />;
+  }
 
   const suggested = suggestGrade(checks);
   const chosenGrade = grade || suggested;
+  const answered = QUALITY_CHECKS.filter((item) => checks[item.value] !== undefined).length;
 
   function answer(key, value) {
-    setChecks((current) => ({ ...current, [key]: value }));
+    setChecks((current) => {
+      const next = { ...current };
+      // Touching the same answer again clears it (as if skipped).
+      if (next[key] === value) delete next[key];
+      else next[key] = value;
+      return next;
+    });
     setGrade(null);
+    setError("");
   }
 
   async function save() {
-    const answered = QUALITY_CHECKS.filter((item) => checks[item.value] !== undefined).length;
-    if (answered === 0) return setError("Touch yes or no for at least one check.");
+    if (answered === 0 && !grade) return setError("Touch yes or no for at least one check, or choose the grade.");
+    if (!chosenGrade) return setError("Choose the grade.");
+    const payload = {
+      inspectionDate: date,
+      grade: chosenGrade,
+      checks,
+      moisturePercent: moisture === "" ? null : Number(moisture),
+      inspector: inspector.trim() || null,
+      notes: notes.trim() || null
+    };
     setBusy(true);
     try {
-      await createRecord("inspections", {
-        clientId: newClientId(),
-        harvestClientId: harvest.clientId,
-        inspectionDate: date,
-        grade: chosenGrade,
-        checks,
-        moisturePercent: moisture === "" ? null : Number(moisture),
-        inspector: inspector.trim() || null,
-        notes: notes.trim() || null
-      });
+      if (editing) await updateRecord(existing, payload);
+      else await createRecord("inspections", { clientId: newClientId(), harvestClientId: harvest.clientId, ...payload });
       toast.success(`${GRADES[chosenGrade].text}. ${online ? WORDS.savedSending.text : WORDS.saved.say}`);
       navigate(`/app/harvests/${harvest.clientId}`, { replace: true });
     } catch (requestError) {
@@ -62,23 +102,33 @@ export default function InspectionForm() {
     }
   }
 
+  async function remove() {
+    setConfirmDelete(false);
+    try {
+      await deleteRecord(existing);
+      toast.success("The check is deleted.");
+      navigate(`/app/harvests/${harvest.clientId}`, { replace: true });
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
-        title={WORDS.checkQuality.text}
-        subtitle={`${growEmoji(harvest.crop)} ${harvest.crop} · ${harvest.quantity} ${harvest.unit}`}
+        title={editing ? "Change the check" : WORDS.checkQuality.text}
+        subtitle={`${harvest.crop} · ${harvest.quantity} ${unitText(harvest.unit)}`}
         backTo={`/app/harvests/${clientId}`}
         say={WORDS.checkQuality}
       />
       <ErrorBanner message={error} />
 
       <Section>
+        <p className="-mt-1 mb-3 text-xs text-ink-soft">You can leave a check you can't do. Touch an answer again to clear it.</p>
         <div className="space-y-2">
           {QUALITY_CHECKS.map((check) => (
             <div key={check.value} className="flex items-center gap-2" data-say={check.say}>
-              <span className="text-3xl" aria-hidden="true">
-                {check.emoji}
-              </span>
+              <check.Icon size={26} className="shrink-0 text-ink-soft" aria-hidden="true" />
               <span className="flex-1 text-sm font-bold text-ink">{check.text}</span>
               <ChoiceButton
                 words={{ say: `${check.text}: yes.` }}
@@ -86,7 +136,7 @@ export default function InspectionForm() {
                 onClick={() => answer(check.value, true)}
                 className="min-w-16"
               >
-                👍 Yes
+                <CircleCheck size={16} aria-hidden="true" /> Yes
               </ChoiceButton>
               <ChoiceButton
                 words={{ say: `${check.text}: no.` }}
@@ -94,7 +144,7 @@ export default function InspectionForm() {
                 onClick={() => answer(check.value, false)}
                 className="min-w-16"
               >
-                👎 No
+                <CircleX size={16} aria-hidden="true" /> No
               </ChoiceButton>
             </div>
           ))}
@@ -111,14 +161,17 @@ export default function InspectionForm() {
               onClick={() => setGrade(value)}
               className="flex-col gap-0.5 py-2"
             >
-              <span className="text-3xl" aria-hidden="true">
-                {item.emoji}
-              </span>
+              <item.Icon size={24} aria-hidden="true" />
               {item.text}
               {suggested === value && !grade && <span className="text-[10px] font-normal">(from the checks)</span>}
             </ChoiceButton>
           ))}
         </div>
+        {answered > 0 && answered < QUALITY_CHECKS.length && (
+          <p className="mt-2 text-xs text-ink-soft">
+            {answered} of {QUALITY_CHECKS.length} checks answered. The ones you left do not lower the grade.
+          </p>
+        )}
       </Section>
 
       <DateChoice value={date} onChange={setDate} />
@@ -153,8 +206,25 @@ export default function InspectionForm() {
       </Section>
 
       <Button size="lg" className="w-full text-lg" loading={busy} onClick={save} data-say={WORDS.save.say}>
-        {GRADES[chosenGrade].emoji} {WORDS.save.text}
+        <ICONS.quality size={20} aria-hidden="true" /> {WORDS.save.text}
+        {chosenGrade ? ` · ${GRADES[chosenGrade].text}` : ""}
       </Button>
+
+      {editing && (
+        <>
+          <Button variant="secondary" className="w-full text-danger" onClick={() => setConfirmDelete(true)}>
+            <Trash2 size={16} /> Delete this check
+          </Button>
+          <ConfirmDialog
+            open={confirmDelete}
+            title="Delete this check?"
+            message="The grade from this check will be taken off the harvest."
+            confirmLabel="Delete"
+            onConfirm={remove}
+            onCancel={() => setConfirmDelete(false)}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { getActivities, getAllRecords, getCachedFarms, getFarmIdMap } from "../l
 import { refreshActivities, refreshFarms, refreshRecords } from "../lib/syncEngine.js";
 
 const EMPTY_RECORDS = {
+  productions: [],
+  animalEvents: [],
   harvests: [],
   inspections: [],
   buyers: [],
@@ -14,11 +16,22 @@ const EMPTY_RECORDS = {
 };
 
 function groupRecords(list) {
-  const grouped = { harvests: [], inspections: [], buyers: [], sales: [], payments: [], expenses: [] };
+  const grouped = {
+    productions: [],
+    animalEvents: [],
+    harvests: [],
+    inspections: [],
+    buyers: [],
+    sales: [],
+    payments: [],
+    expenses: []
+  };
   for (const record of list) if (grouped[record.kind]) grouped[record.kind].push(record);
   const byDate = (field) => (a, b) =>
     String(b[field] || "").localeCompare(String(a[field] || "")) ||
     String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+  grouped.productions.sort(byDate("startDate"));
+  grouped.animalEvents.sort(byDate("eventDate"));
   grouped.harvests.sort(byDate("harvestDate"));
   grouped.inspections.sort(byDate("inspectionDate"));
   grouped.sales.sort(byDate("saleDate"));

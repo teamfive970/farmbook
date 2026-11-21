@@ -47,116 +47,119 @@ Please check every phrase with farmers in the pilot and change any that do not s
 | `voice.off` | Talk to me: off | Touch here and the phone will talk to you. |
 | `voice.switch` | Talk to me | Touch here and the phone will talk to you. |
 | `voice.hear` | Hear it | Listen. |
-| `welcome.title` | Keep your farm work in your phone | Welcome. This app can keep your farm work in your phone, even when network not there. |
+| `welcome.title` | Keep your farm records on your phone | Welcome. This app can keep your farm work in your phone, even when network not there. |
 | `welcome.new` | I am new | I am new. Make my account. |
-| `welcome.have` | I have account | I already have account. Let me go inside. |
+| `welcome.have` | I have an account | I already have account. Let me go inside. |
 | `login.phone` | Your phone number | Put your phone number. |
 | `login.pin` | Your PIN | Put your secret number, your PIN. |
-| `login.go` | Go inside | Go inside. |
-| `login.forgot` | I forget my PIN | I forget my PIN. Help me. |
+| `login.go` | Enter | Go inside. |
+| `login.forgot` | I forgot my PIN | I forget my PIN. Help me. |
 | `login.notyou` | Not me | This is not me. Use another phone number. |
-| `login.wrong` | PIN not correct | That PIN is not correct. Try it again. |
-| `login.wait` | Wait small | You try too many times. Wait small, then try again. |
-| `login.send` | Put your PIN to send your work | Network come back. Put your PIN one time so your work can go on the internet. |
-| `pad.delete` | Take it out | Take the last number out. |
+| `login.wrong` | Wrong PIN | That PIN is not correct. Try it again. |
+| `login.wait` | Please wait | You try too many times. Wait small, then try again. |
+| `login.send` | Enter your PIN to send your records | Network come back. Put your PIN one time so your work can go on the internet. |
+| `pad.delete` | Delete | Take the last number out. |
 | `pad.clear` | Clear | Clear all of it. |
 | `nav.home` | Home | Go home. |
 | `nav.farms` | My farms | See your farms. |
 | `nav.records` | My work | See all the work you did. |
 | `nav.me` | Me | Your name and your PIN. |
-| `home.record` | Put today work | Touch here to put the work you do on the farm. |
+| `home.record` | Record today's work | Touch here to put the work you do on the farm. |
 | `home.addfarm` | Add farm | Add new farm. |
 | `home.seework` | See my work | See all the work you did before. |
-| `home.recent` | Work you did lately | This is the work you did lately. |
+| `home.recent` | Recent work | This is the work you did lately. |
 | `home.nowork` | No work yet | You never put any work yet. Touch the green button to put your first work. |
 | `net.none` | No network | Network not there. No problem. Your work will stay on your phone and go later. |
 | `net.sent` | All sent | All your work gone on the internet. It safe. |
 | `net.sending` | Sending | Sending your work now. |
-| `record.title` | Put your work | Touch the pictures to show the work you did. You do not need to write. |
+| `record.title` | Record work | Touch the pictures to show the work you did. You do not need to write. |
 | `record.farm` | Which farm? | Which farm you work on? |
-| `record.what` | What work you do? | What work you do? Touch the picture. |
+| `record.what` | What work did you do? | What work you do? Touch the picture. |
 | `record.when` | When? | When you do the work? |
 | `record.today` | Today | Today. |
 | `record.yesterday` | Yesterday | Yesterday. |
-| `record.otherday` | Another day | Another day. Choose the day. |
+| `record.otherday` | Pick a day | Another day. Choose the day. |
 | `record.howmuch` | How much? | How much? You can leave it if you do not know. |
 | `record.more` | More | Put one more. |
 | `record.less` | Less | Take one away. |
-| `record.used` | What you use? | What you use for the work? Touch the picture. |
-| `record.how` | How it go? | How the work go? Touch the one that is true. |
+| `record.used` | What did you use? | What you use for the work? Touch the picture. |
+| `record.how` | How did it go? | How the work go? Touch the one that is true. |
 | `record.write` | Write it myself | Write it yourself, or ask somebody to write it for you. |
 | `record.save` | Save | Save it. |
-| `record.saved` | It saved | Your work saved on your phone. |
-| `record.savedsend` | It saved. It going now. | Your work saved. It going on the internet now. |
+| `record.saved` | Saved | Your work saved on your phone. |
+| `record.savedsend` | Saved. Sending now. | Your work saved. It going on the internet now. |
 | `status.pending` | On phone | This one on your phone. It will go when network come. |
 | `status.syncing` | Sending | This one going now. |
 | `status.synced` | Sent | This one gone on the internet. It safe, even if the phone lost. |
-| `status.failed` | Need help | This one get problem. Ask somebody to help you. |
+| `status.failed` | Needs help | This one get problem. Ask somebody to help you. |
 | `farm.title` | Add your farm | Tell the phone about your farm. Touch the pictures. |
-| `farm.what` | What you farm? | What kind of farm you get? |
-| `farm.grow` | What you grow or raise? | What you grow, or what animal you raise? Touch all the ones you get. |
+| `farm.what` | What kind of farm? | What kind of farm you get? |
+| `farm.grow` | What do you grow or raise? | What you grow, or what animal you raise? Touch all the ones you get. |
 | `farm.name` | Farm name | What you call this farm? Touch one. |
-| `farm.ownname` | Another name | Give it another name. Ask somebody to write it. |
-| `farm.where` | Where the farm is? | Where the farm is? |
-| `farm.same` | Same place I live | The farm is in the same place you live. |
-| `farm.other` | Another place | The farm is in another place. |
+| `farm.ownname` | Other name | Give it another name. Ask somebody to write it. |
+| `farm.where` | Where is the farm? | Where the farm is? |
+| `farm.same` | Where I live | The farm is in the same place you live. |
+| `farm.other` | Somewhere else | The farm is in another place. |
 | `farm.save` | Save farm | Save the farm. |
-| `me.signout` | Go out | Go out of the app. |
+| `me.signout` | Sign out | Go out of the app. |
 | `me.changepin` | Change PIN | Change your secret number. |
 | `profiles.who` | Who is using the phone? | Who is using the phone? Touch your name. |
 | `profiles.add` | Add another person | Add another person to this phone. |
 | `profiles.switch` | Change person | Give the phone to another person. |
-| `profiles.remove` | Take me off this phone | Take your name off this phone. |
+| `profiles.remove` | Remove me from this phone | Take your name off this phone. |
 | `farm.size` | How big is the farm? | How big is the farm? You can leave it if you do not know. |
 | `farm.dontknow` | I don't know | I don't know. |
 | `harvest.title` | My harvest | Your harvest. All the crops you brought from the farm. |
-| `harvest.add` | Put harvest | Put the crop you brought from the farm. |
-| `harvest.crop` | What you harvest? | What crop you harvest? Touch the picture. |
-| `harvest.howmuch` | How much you get? | How much you get? Touch plus to add. |
-| `harvest.where` | Where you keep it? | Where you keep it? You can leave it. |
-| `harvest.instore` | Still have it | You still have all of it. |
+| `harvest.add` | Harvest | Put the crop you brought from the farm. |
+| `harvest.crop` | What did you harvest? | What crop you harvest? Touch the picture. |
+| `harvest.howmuch` | How much did you get? | How much you get? Touch plus to add. |
+| `harvest.where` | Where is it stored? | Where you keep it? You can leave it. |
+| `harvest.instore` | In store | You still have all of it. |
 | `harvest.partsold` | Some sold | You sold some. Some still left. |
 | `harvest.soldout` | All sold | You sold all of it. |
 | `harvest.left` | Left | How much still left. |
 | `harvest.none` | No harvest yet | You never put any harvest yet. |
-| `quality.title` | Check if it good | Check if the crop good. Touch yes for each one that is true. |
+| `quality.title` | Quality check | Check if the crop good. Touch yes for each one that is true. |
 | `quality.grade` | Grade | The grade, how good it is. |
 | `passport.title` | Harvest Passport | Harvest passport. When you show this code, the buyer can see where your crop come from. |
 | `passport.on` | Buyers can see it | Buyers can scan the code and see where the crop come from. |
 | `passport.off` | Hidden | Nobody can see it. Touch to show buyers. |
 | `passport.show` | Let buyers see it | Let buyers see where the crop come from. |
 | `money.title` | My money | Your money. What you sell, what you spend, and what you keep. |
-| `money.sell` | I sell something | You sell something. |
-| `money.spend` | I spend money | You spend money for the farm. |
+| `money.sell` | What I sell | You sell something. |
+| `money.spend` | What I spend | You spend money for the farm. |
 | `money.sold` | Sold | Money from what you sold. |
-| `money.received` | Money in hand | Money you already get in your hand. |
-| `money.owed` | People owe me | Money people still owe you. |
-| `money.spent` | I spend | Money you spend for the farm. |
-| `money.profit` | What I keep | What you keep. Money in hand, take away what you spend. |
-| `money.loss` | I lost | You spend more than you get. |
-| `money.whobuy` | Who buy it? | Who buy it? Touch one, or leave it. |
+| `money.received` | Income | Income. The money you already get in your hand. |
+| `money.owed` | Owed to me | Money people still owe you. |
+| `money.spent` | Spent | Money you spend for the farm. |
+| `money.totalsales` | Total sales | Total sales. What all your sales are worth. |
+| `money.totalincome` | Total income | Total income. The money you already get in your hand. |
+| `money.totalexpenses` | Total expenses | Total expenses. The money you spend for the farm. |
+| `money.profit` | Profit | Profit. What you keep. Your income, take away what you spend. |
+| `money.loss` | Loss | You spend more than you get. |
+| `money.whobuy` | Who bought it? | Who buy it? Touch one, or leave it. |
 | `money.priceeach` | Price for each one | How much for each one? |
-| `money.total` | All the money | All the money together. |
+| `money.total` | Total price | All the money together. |
 | `money.type` | Which money? | Liberian dollars or US dollars? |
-| `money.paid` | They pay you? | They pay you the money? |
-| `money.paidall` | Pay all | They pay all the money. |
-| `money.paidsome` | Pay some | They pay some. Some still owe. |
-| `money.paidnone` | Not pay yet | They not pay yet. |
-| `money.addpay` | They pay me | Put the money they pay you. |
-| `money.spenton` | What you spend on? | What you spend the money on? Touch the picture. |
+| `money.paid` | Did they pay? | They pay you the money? |
+| `money.paidall` | Paid all | They pay all the money. |
+| `money.paidsome` | Paid some | They pay some. Some still owe. |
+| `money.paidnone` | Not paid yet | They not pay yet. |
+| `money.addpay` | Add payment | Put the money they pay you. |
+| `money.spenton` | What did you spend on? | What you spend the money on? Touch the picture. |
 | `money.howmuch` | How much money? | How much money? Use the numbers. |
 | `money.month` | This month | This month. |
 | `money.year` | This year | This year. |
-| `money.all` | All the time | All the time. |
+| `money.all` | All time | All the time. |
 | `group.title` | My group | Your farmer group, your cooperative. |
 | `group.join` | Join a group | Join a group. Put the group code. |
 | `group.code` | Group code | The group code. Ask your group leader. |
 | `group.none` | No group yet | You are not in any group yet. |
-| `group.total` | All the group | What all the group did together. |
-| `group.mine` | My part | What you did. |
+| `group.total` | Whole group | What all the group did together. |
+| `group.mine` | My share | What you did. |
 | `nav.money` | Money | Your money. What you sell and what you spend. |
 | `nav.harvest` | Harvest | Your harvest. |
-| `activity.land_preparation` | Brushing | Brushing and clearing the land. |
+| `activity.land_preparation` | Land clearing | Brushing and clearing the land. |
 | `activity.planting` | Planting | Planting. |
 | `activity.watering` | Watering | Giving water. |
 | `activity.fertilizer` | Fertilizer | Putting fertilizer. |
@@ -166,11 +169,11 @@ Please check every phrase with farmers in the pilot and change any that do not s
 | `activity.vaccination` | Animal medicine | Giving medicine to the animals. |
 | `activity.cleaning` | Cleaning | Cleaning the pen. |
 | `activity.other` | Other work | Other work. |
-| `farmtype.crops` | Crops | Crop farm, like rice, cassava and pepper. |
-| `farmtype.livestock` | Animals | Animals, like goat, pig and cow. |
-| `farmtype.poultry` | Chicken | Chicken and duck. |
-| `farmtype.mixed` | Crops and animals | Crops and animals together. |
-| `farmtype.other` | Other | Another kind of farm. |
+| `farmtype.crops` | Crop farm | Crop farm, like rice, cassava and pepper. |
+| `farmtype.livestock` | Animal farm | Animals, like goat, pig and cow. |
+| `farmtype.poultry` | Poultry farm | Chicken and duck. |
+| `farmtype.mixed` | Mixed farm | Crops and animals together. |
+| `farmtype.other` | Other farm | Another kind of farm. |
 | `unit.bags` | Bags | Bags. |
 | `unit.kg` | Kilo | Kilo. |
 | `unit.buckets` | Buckets | Buckets. |
@@ -187,7 +190,7 @@ Please check every phrase with farmers in the pilot and change any that do not s
 | `grade.a` | Grade A | Grade A. Very good. |
 | `grade.b` | Grade B | Grade B. Good. |
 | `grade.c` | Grade C | Grade C. Not too good. |
-| `grade.rejected` | Not good | Not good. Can't sell like this. |
+| `grade.rejected` | Rejected | Not good. Can't sell like this. |
 | `crop.rice` | Rice | Rice. |
 | `crop.cassava` | Cassava | Cassava. |
 | `crop.pepper` | Pepper | Pepper. |
@@ -226,74 +229,157 @@ Please check every phrase with farmers in the pilot and change any that do not s
 | `hunit.litres` | Litres | Litres, like gallon. |
 | `store.house` | In the house | In the house. |
 | `store.room` | Store room | Store room. |
-| `store.loft` | Kitchen top | On top of the kitchen fire. |
+| `store.loft` | Kitchen loft | On top of the kitchen fire. |
 | `store.group` | Group store | The group store. |
 | `store.farm` | On the farm | Still on the farm. |
 | `check.dry` | Dry | It dry well? |
 | `check.clean` | Clean | It clean, no dirt and no stones? |
 | `check.nopests` | No bugs | No bugs inside? |
-| `check.nomold` | No rotten | No rotten or mold? |
+| `check.nomold` | No mold | No rotten or mold? |
 | `check.sorted` | Sorted | The bad ones taken out? |
-| `check.smell` | Smell good | It smell good? |
+| `check.smell` | Smells good | It smell good? |
 | `buyer.marketwoman` | Market woman | Market woman. |
 | `buyer.trader` | Trader | Trader, business man. |
 | `buyer.coop` | My group | Your farmer group. |
 | `buyer.company` | Company | Company. |
 | `buyer.neighbor` | Neighbor | Neighbor, somebody in the town. |
-| `buyer.other` | Somebody else | Somebody else. |
+| `buyer.other` | Someone else | Somebody else. |
 | `pay.cash` | Cash | Cash money. |
 | `pay.mobile` | Mobile money | Mobile money. |
 | `pay.bank` | Bank | Bank. |
 | `pay.other` | Other way | Another way. |
 | `spend.seeds` | Seeds | Seeds. |
 | `spend.fertilizer` | Fertilizer | Fertilizer. |
-| `spend.pesticide` | Bug medicine | Medicine for bugs or grass. |
+| `spend.pesticide` | Pesticide | Medicine for bugs or grass. |
 | `spend.labour` | Workers | Paying people to work. |
 | `spend.tools` | Tools | Tools, like cutlass and hoe. |
 | `spend.transport` | Transport | Transport, car or keke. |
 | `spend.feed` | Animal feed | Animal feed. |
 | `spend.medicine` | Animal medicine | Animal medicine. |
 | `spend.land` | Land | Land rent. |
-| `spend.other` | Other things | Other things. |
+| `spend.other` | Other | Other things. |
 | `money.lrd` | Liberian dollars | Liberian dollars. |
 | `money.usd` | US dollars | US dollars. |
 | `farmname.swamp` | Swamp farm | Swamp farm, the low land with water. |
 | `farmname.upland` | Upland farm | Upland farm, the high land. |
-| `farmname.house` | Garden by the house | The garden by the house. |
+| `farmname.house` | Home garden | The garden by the house. |
 | `farmname.bush` | Bush farm | The farm in the bush. |
 | `farmname.pen` | Animal pen | The animal pen. |
 | `input.cutlass` | Cutlass | Cutlass. |
 | `input.hoe` | Hoe | Hoe. |
 | `input.fire` | Fire | Burning the bush. |
-| `phrase.finished` | I finish all | I finish all of it. |
-| `phrase.notfinished` | Some still left | Some still left to do. |
+| `phrase.finished` | All done | I finish all of it. |
+| `phrase.notfinished` | Not finished | Some still left to do. |
 | `phrase.swamp` | In the swamp | In the swamp. |
 | `phrase.upland` | On the upland | On the upland. |
-| `phrase.kuu` | Kuu help me | My kuu people help me. |
-| `phrase.rain` | Rain stop the work | Rain stop the work. |
+| `phrase.kuu` | Kuu group helped | My kuu people help me. |
+| `phrase.rain` | Rain stopped work | Rain stop the work. |
 | `input.riceseed` | Rice seed | Rice seed. |
 | `input.cassavasticks` | Cassava sticks | Cassava sticks. |
 | `input.cornseed` | Corn seed | Corn seed. |
 | `input.suckers` | Plantain suckers | Plantain suckers. |
 | `input.seeds` | Seeds | Seeds. |
 | `input.water` | Water | Water. |
-| `phrase.fine` | It looking fine | It looking fine. |
-| `phrase.notfine` | It not looking fine | It not looking fine. |
-| `phrase.bugs` | Bugs eating it | Bugs eating it. |
+| `phrase.fine` | Looks good | It looking fine. |
+| `phrase.notfine` | Does not look good | It not looking fine. |
+| `phrase.bugs` | Pests on it | Bugs eating it. |
 | `input.npk` | NPK | N P K fertilizer. |
 | `input.urea` | Urea | Urea fertilizer. |
 | `input.dung` | Chicken dung | Chicken dung. |
-| `input.compost` | Rotten leaves | Rotten leaves, compost. |
-| `input.bugmedicine` | Bug medicine | Medicine for bugs. |
-| `input.grassmedicine` | Grass medicine | Medicine for grass. |
+| `input.compost` | Compost | Rotten leaves, compost. |
+| `input.bugmedicine` | Pesticide | Medicine for bugs. |
+| `input.grassmedicine` | Weed killer | Medicine for grass. |
 | `input.feed` | Feed | Animal feed. |
 | `input.corn` | Corn | Corn. |
 | `input.ricebran` | Rice bran | Rice bran. |
 | `input.leftover` | Leftover food | Leftover food. |
 | `input.grass` | Grass | Grass. |
-| `phrase.eating` | They eating fine | The animals eating fine. |
-| `phrase.sick` | Some animals sick | Some animals sick. |
-| `phrase.died` | Some animals die | Some animals die. |
-| `input.vaccine` | Injection | Injection, vaccine. |
+| `phrase.eating` | Eating well | The animals eating fine. |
+| `phrase.sick` | Some are sick | Some animals sick. |
+| `phrase.died` | Some died | Some animals die. |
+| `input.vaccine` | Vaccine | Injection, vaccine. |
 | `input.medicine` | Medicine | Medicine. |
 | `input.broom` | Broom | Broom. |
+| `farm.growcrop` | What do you grow? | What crops you grow on this farm? Touch all the ones you get. |
+| `farm.raise` | What animals do you raise? | What animals you raise on this farm? Touch all the ones you get. |
+| `farm.growboth` | What do you grow or raise? | What you grow, or what animal you raise on this farm? Touch all the ones you get. |
+| `production.title` | Production | What the animals give, like eggs and milk. |
+| `production.add` | Add production | Put what the animals give today. |
+| `activity.monitoring` | Crop check | Look at the crop: how it growing, bugs or sickness. |
+| `activity.breeding` | Breeding | Breeding the animals to get young ones. |
+| `activity.health` | Health check | Checking if the animals are healthy. |
+| `activity.production` | Production | What the animals give, like eggs and milk. |
+| `farmcategory.crop` | Crop farm | Crop farm. Crops only. |
+| `farmcategory.animal` | Animal farm | Animal farm. Animals only. |
+| `farmcategory.mixed` | Mixed farm | Mixed farm. Crops and animals together. |
+| `unit.eggs` | Eggs | Eggs. |
+| `product.eggs` | Eggs | Eggs. |
+| `product.milk` | Milk | Milk. |
+| `phrase.plenty` | Good amount | Plenty came. |
+| `phrase.small` | Small amount | Small came. |
+| `kind.production` | Crop or animals | A crop you planted or animals you keep. |
+| `kind.animalevent` | Animal count | Animals born, bought, died or sold. |
+| `prod.crops` | Crops on this farm | The crops you planted on this farm. |
+| `prod.animals` | Animals on this farm | The animals you keep on this farm. |
+| `prod.startcrop` | Plant a crop | Put a crop you planted. |
+| `prod.addanimals` | Add animals | Put animals you keep. |
+| `prod.whichcrop` | Which crop? | What crop you plant? Touch the picture. |
+| `prod.whichanimal` | Which animals? | What animals? Touch the picture. |
+| `prod.plantedon` | Planting date | When you plant it? |
+| `prod.startedon` | Start date | When the animals come to the farm? |
+| `prod.howplanted` | Planting method | How you plant it? Touch one. |
+| `prod.seedfrom` | Seed source | Where the seed come from? Touch one. |
+| `prod.animalsfrom` | Where did they come from? | Where the animals come from? Touch one. |
+| `prod.howbig` | Area planted | How big is the place you plant? You can leave it. |
+| `prod.howmany` | How many animals? | How many animals you get now? |
+| `prod.howold` | Age | Are they young or grown? |
+| `prod.plot` | Which part of the farm? | Which place on the farm? Touch one, or leave it. |
+| `prod.countnow` | Number now | How many animals you get now. |
+| `prod.finished` | Finished | This one is finished. |
+| `prod.markfinished` | Mark as finished | Touch here when this crop is harvested and done, or the animals are all gone. |
+| `prod.forwhich` | For which crop or animals? | For which crop or animals? Touch one, or leave it. |
+| `prod.manurefrom` | Manure from my animals? | Is the dung from your own animals? Touch which ones. |
+| `prod.leftoversfrom` | Leftovers from my crops? | Is the feed from your own crops? Touch which one. |
+| `prod.howmanyevent` | How many? | How many? Touch plus. |
+| `prod.whydied` | Cause of death | What killed them? Touch one, or leave it. |
+| `method.seeds` | Seeds | Seeds. |
+| `method.seedlings` | Seedlings | Small plants, seedlings. |
+| `method.cuttings` | Sticks | Sticks, like cassava sticks. |
+| `method.suckers` | Suckers | Suckers, like plantain. |
+| `method.other` | Other way | Another way. |
+| `source.own` | My own | From my own farm. |
+| `source.bought` | Bought | I bought it. |
+| `source.given` | Given to me | Somebody gave it to me. |
+| `source.group` | From my group | From my farmer group. |
+| `source.born` | Born here | They were born here. |
+| `age.young` | Young | Young ones. |
+| `age.grown` | Grown | Grown ones. |
+| `age.mixed` | Both | Young and grown together. |
+| `plot.upland` | Upland | Upland, the high land. |
+| `plot.swamp` | Swamp | Swamp, the low land with water. |
+| `plot.garden` | Garden | The garden by the house. |
+| `plot.bush` | Bush | In the bush. |
+| `animal.born` | Born | Animals born. |
+| `animal.bought` | Bought | Animals you bought. |
+| `animal.givenin` | Given to me | Animals somebody gave you. |
+| `animal.died` | Died | Animals that died. |
+| `animal.sold` | Sold | Animals you sold. |
+| `animal.eaten` | Eaten at home | Animals you ate at home. |
+| `animal.givenout` | Given away | Animals you gave to somebody. |
+| `cause.sickness` | Sickness | Sickness. |
+| `cause.accident` | Accident | Accident. |
+| `cause.predator` | Predator | A wild animal or snake. |
+| `cause.weather` | Weather | Rain, cold or hot weather. |
+| `cause.unknown` | I don't know | I don't know. |
+| `cause.other` | Other | Something else. |
+| `source.boughtanimals` | Bought | I bought them. |
+| `source.givenanimals` | Given to me | Somebody gave them to me. |
+| `report.title` | My farm report | Your farm report. Your money, harvest, animals and work, for the time you choose. |
+| `report.open` | My farm report | See your farm report, and save it as PDF or Excel. |
+| `report.when` | Which time? | Which time you want? Touch one. |
+| `report.farms` | Which farm? | All your farms, or one farm? Touch one. |
+| `report.pdf` | Save as PDF | Save the report as PDF, to print or send. |
+| `report.csv` | Save as CSV (Excel) | Save the report for Excel or Google Sheets. |
+| `report.share` | Share | Send the report, like on WhatsApp. |
+| `report.from` | First day | The first day. |
+| `report.to` | Last day | The last day. |

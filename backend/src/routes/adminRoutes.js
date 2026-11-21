@@ -20,6 +20,8 @@ import {
   adminSetMemberRole,
   adminUpdateCooperative
 } from "../services/cooperativeService.js";
+import { exportDataset, getAnalytics } from "../services/analyticsService.js";
+import { query } from "../config/database.js";
 
 const router = Router();
 
@@ -28,6 +30,30 @@ router.use(authenticate, requireRole("admin"));
 router.get("/dashboard", async (req, res) => {
   const result = await getDashboard();
   res.json(result);
+});
+
+router.get("/analytics", async (req, res) => {
+  res.json(await getAnalytics(req.query));
+});
+
+// CSV downloads for reporting. The farmers file holds names and phone
+// numbers, so every export is written to the audit log.
+router.get("/exports/:dataset", async (req, res) => {
+  const dataset = String(req.params.dataset).replace(/\.csv$/i, "");
+  const { filename, csv } = await exportDataset(dataset, req.query);
+  await query(
+    `INSERT INTO audit_logs (admin_user_id, action, target_type, target_id, metadata)
+     VALUES ($1, 'data_exported', 'export', $2, $3)`,
+    [
+      req.auth.userId,
+      dataset,
+      JSON.stringify({ from: req.query.from || null, to: req.query.to || null, county: req.query.county || null })
+    ]
+  );
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Cache-Control", "no-store");
+  res.send(csv);
 });
 
 router.get("/farmers", async (req, res) => {

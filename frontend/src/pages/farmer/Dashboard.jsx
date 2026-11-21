@@ -4,8 +4,7 @@ import {
   ClipboardPlus,
   CloudOff,
   CloudUpload,
-  Plus,
-  Sprout
+  Plus
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import ActivityItem from "../../components/ActivityItem.jsx";
@@ -16,11 +15,15 @@ import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { firstName } from "../../lib/format.js";
 import { WORDS } from "../../lib/words.js";
 import { SpeakButton, useSpeakOnOpen } from "../../components/Voice.jsx";
+import { ICONS } from "../../lib/icons.js";
+import { farmSupportsAnimals } from "../../lib/farmTypes.js";
 
 export default function Dashboard() {
   const { user, needsOnlineSignIn } = useAuth();
   const { online, pendingCount, syncing, syncNow } = useSync();
   const { activities, farms, loading } = useFarmerData();
+  // Animal farms record what the animals give (eggs, milk) as production.
+  const canProduce = farms.some((farm) => farmSupportsAnimals(farm.farmType));
   const hello = WORDS.hello(firstName(user.fullName));
   useSpeakOnOpen(hello);
 
@@ -49,11 +52,11 @@ export default function Dashboard() {
         <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3">
           <CloudUpload size={18} className="mt-0.5 shrink-0 text-amber-700" />
           <p className="text-sm leading-snug text-amber-800" data-say={WORDS.enterPinToSend.say}>
-            Your work safe on this phone.{" "}
+            Your work is safe on this phone.{" "}
             <Link to="/login" className="font-semibold underline">
-              Put your PIN
+              Enter your PIN
             </Link>{" "}
-            when network come, so it can go on the internet.
+            when you are online, so it can be sent.
           </p>
         </div>
       ) : !online ? (
@@ -99,8 +102,8 @@ export default function Dashboard() {
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/80">
           <ClipboardPlus size={16} /> Today
         </div>
-        <h2 className="mt-2 text-xl font-bold leading-tight">What work you do today?</h2>
-        <p className="mt-1 text-sm leading-snug text-white/80">Touch the pictures. No writing.</p>
+        <h2 className="mt-2 text-xl font-bold leading-tight">What work did you do today?</h2>
+        <p className="mt-1 text-sm leading-snug text-white/80">Tap the pictures. No typing.</p>
         <Link
           to="/app/record"
           data-say={WORDS.recordWork.say}
@@ -114,7 +117,7 @@ export default function Dashboard() {
         <Link to="/app/farms" data-say={WORDS.farmsCount(farms.length).say} className="rounded-2xl bg-white p-4 shadow-card transition hover:-translate-y-0.5">
           <p className="text-xs font-medium text-ink-soft">Farms</p>
           <p className="mt-1 text-2xl font-bold text-ink">{farms.length}</p>
-          <Sprout size={16} className="mt-2 text-primary" />
+          <ICONS.farm size={16} className="mt-2 text-primary" aria-hidden="true" />
         </Link>
         <Link to="/app/history" data-say={WORDS.workCount(activities.length).say} className="rounded-2xl bg-white p-4 shadow-card transition hover:-translate-y-0.5">
           <p className="text-xs font-medium text-ink-soft">Work</p>
@@ -130,21 +133,31 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <section className="grid grid-cols-3 gap-3">
+      <section className={`grid gap-3 ${canProduce ? "grid-cols-2" : "grid-cols-3"}`}>
         <Link
           to="/app/harvests"
           data-say={WORDS.harvestTitle.say}
           className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-amber-50 p-3 text-center shadow-card"
         >
-          <span className="text-3xl" aria-hidden="true">🧺</span>
+          <ICONS.harvest size={30} className="text-amber-800" aria-hidden="true" />
           <span className="text-sm font-bold text-amber-900">{WORDS.navHarvest.text}</span>
         </Link>
+        {canProduce && (
+          <Link
+            to="/app/record?type=production"
+            data-say={WORDS.productionTitle.say}
+            className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-yellow-50 p-3 text-center shadow-card"
+          >
+            <ICONS.production size={30} className="text-yellow-800" aria-hidden="true" />
+            <span className="text-sm font-bold text-yellow-900">{WORDS.productionTitle.text}</span>
+          </Link>
+        )}
         <Link
           to="/app/money"
           data-say={WORDS.moneyTitle.say}
           className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-50 p-3 text-center shadow-card"
         >
-          <span className="text-3xl" aria-hidden="true">💵</span>
+          <ICONS.money size={30} className="text-emerald-800" aria-hidden="true" />
           <span className="text-sm font-bold text-emerald-900">{WORDS.navMoney.text}</span>
         </Link>
         <Link
@@ -152,7 +165,7 @@ export default function Dashboard() {
           data-say={WORDS.groupTitle.say}
           className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-sky-50 p-3 text-center shadow-card"
         >
-          <span className="text-3xl" aria-hidden="true">👥</span>
+          <ICONS.group size={30} className="text-sky-800" aria-hidden="true" />
           <span className="text-sm font-bold text-sky-900">{WORDS.groupTitle.text}</span>
         </Link>
       </section>
@@ -179,6 +192,21 @@ export default function Dashboard() {
           <span className="text-sm font-semibold text-ink">{WORDS.seeWork.text}</span>
         </Link>
       </section>
+
+      <Link
+        to="/app/report"
+        data-say={WORDS.reportOpen.say}
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card transition hover:border-primary/30"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <ICONS.report size={20} aria-hidden="true" />
+        </span>
+        <span className="flex-1">
+          <span className="block text-sm font-semibold text-ink">{WORDS.reportOpen.text}</span>
+          <span className="block text-xs text-ink-soft">Summary · PDF · Excel</span>
+        </span>
+        <ArrowRight size={18} className="text-ink-soft" aria-hidden="true" />
+      </Link>
 
       <section>
         <div className="mb-3 flex items-center justify-between">

@@ -1,6 +1,6 @@
 import { query } from "../config/database.js";
 import { ACTIVITY_TYPES } from "../lib/constants.js";
-import { badRequest, notFound } from "../lib/errors.js";
+import { ApiError, badRequest, notFound } from "../lib/errors.js";
 import {
   optionalEnum,
   optionalNumber,
@@ -31,6 +31,8 @@ export function serializeActivity(row) {
     quantity: row.quantity === null ? null : Number(row.quantity),
     unit: row.unit,
     notes: row.notes,
+    productionClientId: row.production_client_id ?? null,
+    sourceProductionClientId: row.source_production_client_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -139,16 +141,52 @@ function activityFields(body, { partial = false } = {}) {
   return fields;
 }
 
+// The planting or animal group the work was for, and (mixed farms) where
+// manure or crop leftovers came from. Both optional, both by client id.
+async function resolveProductionLinks(farmerId, body, farmId, { partial }) {
+  const out = {};
+  for (const [param, idColumn, clientColumn, sameFarm] of [
+    ["productionClientId", "production_id", "production_client_id", true],
+    ["sourceProductionClientId", "source_production_id", "source_production_client_id", false]
+  ]) {
+    if (partial && body[param] === undefined) continue;
+    const raw = body[param];
+    if (raw === undefined || raw === null || raw === "") {
+      out[idColumn] = null;
+      out[clientColumn] = null;
+      continue;
+    }
+    const clientId = requireString(raw, param, { max: 100 });
+    const { rows } = await query(
+      "SELECT id, farm_id FROM productions WHERE farmer_id = $1 AND client_id = $2 AND deleted_at IS NULL",
+      [farmerId, clientId]
+    );
+    if (!rows[0]) {
+      throw new ApiError(409, "PARENT_NOT_SYNCED", "The planting or animal group for this work is not saved yet.", {
+        field: param
+      });
+    }
+    if (sameFarm && farmId && rows[0].farm_id !== farmId) {
+      throw badRequest("This planting or animal group is on another farm.", { field: param });
+    }
+    out[idColumn] = rows[0].id;
+    out[clientColumn] = clientId;
+  }
+  return out;
+}
+
 export async function createActivity(farmerId, body = {}) {
   const clientId = requireString(body.clientId, "clientId", { min: 8, max: 100, label: "Client record ID" });
   const fields = activityFields(body);
   await assertFarmOwned(farmerId, fields.farm_id);
+  const links = await resolveProductionLinks(farmerId, body, fields.farm_id, { partial: false });
 
   const { rows } = await query(
     `INSERT INTO farm_activities
       (farmer_id, farm_id, client_id, activity_type, activity_date, description,
-       input_used, quantity, unit, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       input_used, quantity, unit, notes,
+       production_id, production_client_id, source_production_id, source_production_client_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (farmer_id, client_id) DO NOTHING
      RETURNING *`,
     [
@@ -161,7 +199,11 @@ export async function createActivity(farmerId, body = {}) {
       fields.input_used,
       fields.quantity,
       fields.unit,
-      fields.notes
+      fields.notes,
+      links.production_id,
+      links.production_client_id,
+      links.source_production_id,
+      links.source_production_client_id
     ]
   );
 
@@ -186,9 +228,15 @@ export async function createActivity(farmerId, body = {}) {
 export async function updateActivity(farmerId, activityId, body = {}) {
   requireUuid(activityId, "activityId", "activity");
   const fields = activityFields(body, { partial: true });
+  if (fields.farm_id) await assertFarmOwned(farmerId, fields.farm_id);
+  let farmId = fields.farm_id;
+  if (!farmId) {
+    const current = await query("SELECT farm_id FROM farm_activities WHERE id = $1 AND farmer_id = $2", [activityId, farmerId]);
+    farmId = current.rows[0]?.farm_id;
+  }
+  Object.assign(fields, await resolveProductionLinks(farmerId, body, farmId, { partial: true }));
   const entries = Object.entries(fields);
   if (entries.length === 0) throw badRequest("Provide at least one field to update.");
-  if (fields.farm_id) await assertFarmOwned(farmerId, fields.farm_id);
 
   const assignments = entries.map(([column], index) => `${column} = $${index + 1}`);
   const values = entries.map(([, value]) => value);

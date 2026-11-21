@@ -1,5 +1,6 @@
 import { api, ApiError } from "./api.js";
 import {
+  getCachedFarms,
   getLocalRecord,
   putLocalRecord,
   removeLocalRecord,
@@ -52,7 +53,9 @@ export function payloadFromRecord(record) {
     inputUsed: record.inputUsed ?? null,
     quantity: record.quantity ?? null,
     unit: record.unit ?? null,
-    notes: record.notes ?? null
+    notes: record.notes ?? null,
+    productionClientId: record.productionClientId ?? null,
+    sourceProductionClientId: record.sourceProductionClientId ?? null
   };
 }
 
@@ -65,7 +68,10 @@ export function farmPayload(record) {
     district: record.district,
     community: record.community,
     mainCropOrLivestock: record.mainCropOrLivestock ?? null,
-    description: record.description ?? null
+    crops: Array.isArray(record.crops) ? record.crops : undefined,
+    description: record.description ?? null,
+    size: record.size ?? null,
+    sizeUnit: record.size === null || record.size === undefined ? null : record.sizeUnit ?? null
   };
 }
 
@@ -418,6 +424,14 @@ export async function flushQueue(userId, token, onChange) {
       if ((await flushFarmOperation(userId, operation, token, onChange)) === "halt") return;
     }
 
+    // Plantings and animal groups next, because work records can point at them.
+    const productionOperations = (await getQueue(userId))
+      .filter((operation) => operation.entity === "record" && operation.resource === "productions")
+      .sort((a, b) => a.enqueuedAt - b.enqueuedAt);
+    for (const operation of productionOperations) {
+      if ((await flushRecordOperation(userId, operation, token, onChange)) === "halt") return;
+    }
+
     const activityOperations = (await getQueue(userId)).filter((operation) => !operation.entity);
     for (const operation of activityOperations) {
       if ((await flushActivityOperation(userId, operation, token, onChange)) === "halt") return;
@@ -445,7 +459,8 @@ export async function flushQueue(userId, token, onChange) {
 // clientId (harvestClientId, saleClientId, farmClientId…), so nothing needs
 // re-pointing after a parent syncs; the queue just sends parents first.
 
-export const RECORD_ORDER = ["harvests", "buyers", "inspections", "sales", "payments", "expenses"];
+// Plantings and animal groups first: everything else can point at them.
+export const RECORD_ORDER = ["productions", "harvests", "buyers", "inspections", "animalEvents", "sales", "payments", "expenses"];
 
 export async function refreshRecords(userId, token) {
   for (const kind of RECORD_ORDER) {
@@ -467,6 +482,8 @@ function recordPayload(record) {
     kind,
     syncStatus,
     syncError,
+    syncNote,
+    syncFix,
     createdAt,
     updatedAt,
     passportCode,
@@ -548,7 +565,7 @@ export async function removeRecordEverywhere(userId, record) {
 }
 
 export async function retryRecord(userId, record) {
-  await putLocalRecord(userId, { ...record, syncStatus: "pending", syncError: null });
+  await putLocalRecord(userId, { ...record, syncStatus: "pending", syncError: null, syncFix: null, syncNote: null });
   await enqueueOperation(userId, {
     clientId: record.clientId,
     entity: "record",
@@ -589,17 +606,90 @@ async function flushRecordOperation(userId, operation, token, onChange) {
       if (local) await putLocalRecord(userId, { ...local, syncStatus: "pending" });
       return "halt";
     }
-    // Its parent is not on the server yet (it may be waiting or need help).
-    // Keep this one waiting and carry on with the rest.
+    // Its parent (the farm, harvest, sale or buyer it belongs to) is not on
+    // the server. If the parent is still waiting to be sent, this one waits
+    // too. Otherwise the farmer is told exactly what to do.
     if (error instanceof ApiError && error.code === "PARENT_NOT_SYNCED") {
-      if (local) await putLocalRecord(userId, { ...local, syncStatus: "pending" });
-      return "waiting";
+      const problem = await parentProblem(userId, operation, local, error);
+      if (!problem) {
+        if (local) await putLocalRecord(userId, { ...local, syncStatus: "pending", syncNote: WAITING_NOTE });
+        return "waiting";
+      }
+      if (local) {
+        await putLocalRecord(userId, {
+          ...local,
+          syncStatus: "failed",
+          syncError: problem.message,
+          syncFix: problem.fix,
+          syncNote: null
+        });
+      }
+      await removeQueueOperation(userId, operation.clientId);
+      return "failed";
     }
     const message = error instanceof ApiError ? error.message : "This record could not be saved.";
-    if (local) await putLocalRecord(userId, { ...local, syncStatus: "failed", syncError: message });
+    if (local) await putLocalRecord(userId, { ...local, syncStatus: "failed", syncError: message, syncFix: { action: "open" } });
     await removeQueueOperation(userId, operation.clientId);
     return "failed";
   } finally {
     onChange?.();
   }
+}
+
+const WAITING_NOTE = "Waiting for the record it belongs to. It will be sent after that one.";
+
+const PARENT_FIELDS = {
+  farmClientId: { label: "farm", kind: "farms" },
+  harvestClientId: { label: "harvest", kind: "harvests" },
+  saleClientId: { label: "sale", kind: "sales" },
+  buyerClientId: { label: "buyer", kind: "buyers" },
+  productionClientId: { label: "planting or animal group", kind: "productions" },
+  sourceProductionClientId: { label: "planting or animal group", kind: "productions" }
+};
+
+const RECORD_LABEL = {
+  productions: "planting or animal group",
+  animalEvents: "animal record",
+  harvests: "harvest",
+  inspections: "quality check",
+  buyers: "buyer",
+  sales: "sale",
+  payments: "payment",
+  expenses: "cost"
+};
+
+// Works out why a record's parent is missing on the server:
+//   null          → the parent is still waiting on this phone; just wait;
+//   { message, fix } → it needs the farmer: fix the parent first, or the
+//                      parent was deleted (delete or change this record).
+export async function parentProblem(userId, operation, local, error) {
+  const field = error?.details?.field;
+  const meta = PARENT_FIELDS[field];
+  const payload = operation.payload?.changes || operation.payload || {};
+  const parentClientId = payload[field] ?? local?.[field];
+  const self = RECORD_LABEL[operation.resource] || "record";
+  if (!meta || !parentClientId) {
+    return {
+      message: `This ${self} lost the record it belongs to. Open it and choose again, or delete it.`,
+      fix: { action: "open" }
+    };
+  }
+  let parent;
+  if (meta.kind === "farms") {
+    parent = (await getCachedFarms(userId)).find((farm) => farm.clientId === parentClientId);
+  } else {
+    parent = await getLocalRecord(userId, parentClientId);
+  }
+  const queued = (await getQueue(userId)).some((item) => item.clientId === parentClientId);
+  if (parent && (queued || parent.syncStatus === "pending" || parent.syncStatus === "syncing")) return null;
+  if (parent && parent.syncStatus === "failed") {
+    return {
+      message: `The ${meta.label} for this ${self} could not be saved. Fix that ${meta.label} first, then this one will go.`,
+      fix: { action: "parent", kind: meta.kind, clientId: parentClientId, id: parent.id ?? null, label: meta.label }
+    };
+  }
+  return {
+    message: `The ${meta.label} for this ${self} was deleted. Delete this ${self}, or open it and choose another ${meta.label}.`,
+    fix: { action: "open" }
+  };
 }

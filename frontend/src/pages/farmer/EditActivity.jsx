@@ -13,7 +13,7 @@ export default function EditActivity() {
   const { clientId } = useParams();
   const { user, token } = useAuth();
   const { updateActivity, online, version } = useSync();
-  const { farms, farmIdMap } = useFarmerData();
+  const { farms, farmIdMap, records } = useFarmerData();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -78,14 +78,15 @@ export default function EditActivity() {
     <div>
       <PageHeader
         title="Change the work"
-        subtitle="Touch what you want to change, then save."
-        say={{ key: "edit.title", say: "Change the work. Touch what you want to change, then save." }}
+        subtitle="Change what you need, then save."
+        say={{ key: "edit.title", say: "Change the work. Change what you need, then save." }}
         backTo={`/app/activities/${record.clientId}`}
       />
       <ActivityForm
         farms={farms}
         farmIdMap={farmIdMap}
         initial={record}
+        productions={records.productions}
         submitLabel="Save changes"
         onSubmit={handleSubmit}
         submitting={busy}

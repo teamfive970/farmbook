@@ -1,4 +1,4 @@
-import { Delete, Volume2, VolumeX } from "lucide-react";
+import { Check, Delete, Volume2, VolumeX } from "lucide-react";
 import { useEffect } from "react";
 import { useVoice } from "../contexts/VoiceContext.jsx";
 import { speak } from "../lib/speech.js";
@@ -71,7 +71,8 @@ export function useSpeakOnOpen(phrase) {
 
 // Big number keys so phone numbers and PINs never need the phone keyboard.
 // With "Talk to me" on, each key says its number.
-export function NumberPad({ onDigit, onDelete, disabled = false }) {
+// `onDot` adds a "." key (for cents, used with US dollars).
+export function NumberPad({ onDigit, onDelete, onDot, disabled = false }) {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
   const keyClass =
     "flex h-16 items-center justify-center rounded-2xl border-2 border-line bg-white text-2xl font-bold text-ink shadow-sm active:bg-primary-soft disabled:opacity-50";
@@ -89,7 +90,13 @@ export function NumberPad({ onDigit, onDelete, disabled = false }) {
           {key}
         </button>
       ))}
-      <span aria-hidden="true" />
+      {onDot ? (
+        <button type="button" className={keyClass} disabled={disabled} data-say="point" aria-label="Point" onClick={onDot}>
+          .
+        </button>
+      ) : (
+        <span aria-hidden="true" />
+      )}
       <button
         type="button"
         className={keyClass}
@@ -113,8 +120,10 @@ export function NumberPad({ onDigit, onDelete, disabled = false }) {
   );
 }
 
-// Picture chip used for suggestions (crops, inputs, short sentences).
-export function PictureChip({ item, selected, onClick, size = "md" }) {
+// Picture chip used for choices (crops, inputs, short sentences). The
+// picture is an icon from the app's one icon set (see lib/icons.js).
+// `showCheck` puts a tick on chosen chips, for lists where several can be chosen.
+export function PictureChip({ item, selected, onClick, size = "md", showCheck = false }) {
   return (
     <button
       type="button"
@@ -122,7 +131,7 @@ export function PictureChip({ item, selected, onClick, size = "md" }) {
       onClick={onClick}
       data-say={item.say}
       data-say-key={item.key}
-      className={`flex flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 text-center transition ${
+      className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl border-2 px-1 text-center transition ${
         size === "lg" ? "min-h-24 py-2" : "min-h-20 py-1.5"
       } ${
         selected
@@ -130,9 +139,19 @@ export function PictureChip({ item, selected, onClick, size = "md" }) {
           : "border-line bg-white hover:border-primary/40"
       }`}
     >
-      <span className={size === "lg" ? "text-4xl leading-none" : "text-3xl leading-none"} aria-hidden="true">
-        {item.emoji}
-      </span>
+      {showCheck && selected ? (
+        <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
+          <Check size={13} strokeWidth={3} aria-hidden="true" />
+        </span>
+      ) : null}
+      {item.Icon ? (
+        <item.Icon
+          size={size === "lg" ? 34 : 28}
+          strokeWidth={1.75}
+          aria-hidden="true"
+          className={selected ? "text-primary-dark" : "text-ink-soft"}
+        />
+      ) : null}
       <span className="text-xs font-bold leading-tight text-ink">{item.text}</span>
     </button>
   );

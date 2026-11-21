@@ -294,7 +294,7 @@ test("sales, payments and expenses add up per currency", async () => {
 test("farmers cannot read or link to another farmer's records", async () => {
   const one = await registerFarmer("0772220005", "One Farmer");
   const two = await registerFarmer("0772220006", "Two Farmer");
-  const farm = await createFarm(one.token);
+  const farm = await createFarm(one.token, { crops: ["Rice", "Cassava"] });
   const harvest = await post("/api/harvests", one.token, {
     clientId: uid(),
     farmClientId: farm.clientId,

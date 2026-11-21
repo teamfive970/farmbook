@@ -7,6 +7,7 @@ import { Button, EmptyState, PageHeader, PageLoading, Select, buttonClass } from
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { formatDate, todayInputValue } from "../../lib/format.js";
+import { activityTypesForFarm } from "../../lib/farmTypes.js";
 import { ACTIVITY_TYPES } from "../../lib/labels.js";
 
 const EMPTY_FILTERS = { farmId: "", type: "", from: "", to: "" };
@@ -18,6 +19,13 @@ export default function History() {
   const [showFilters, setShowFilters] = useState(false);
 
   const activeFilters = Object.values(filters).filter(Boolean).length;
+  const selectedFarm = farms.find((farm) => farm.id === filters.farmId);
+  const baseTypes = selectedFarm ? activityTypesForFarm(selectedFarm.farmType) : ACTIVITY_TYPES;
+  const currentType = ACTIVITY_TYPES.find((type) => type.value === filters.type);
+  const typeChoices =
+    currentType && !baseTypes.some((type) => type.value === currentType.value)
+      ? [...baseTypes, currentType]
+      : baseTypes;
 
   const filtered = useMemo(
     () =>
@@ -43,7 +51,19 @@ export default function History() {
   }, [filtered]);
 
   function updateFilter(field) {
-    return (event) => setFilters((current) => ({ ...current, [field]: event.target.value }));
+    return (event) => {
+      const value = event.target.value;
+      setFilters((current) => {
+        const next = { ...current, [field]: value };
+        if (field === "farmId") {
+          const farm = farms.find((item) => item.id === value);
+          if (farm && next.type && !activityTypesForFarm(farm.farmType).some((type) => type.value === next.type)) {
+            next.type = "";
+          }
+        }
+        return next;
+      });
+    };
   }
 
   return (
@@ -112,7 +132,7 @@ export default function History() {
           </Select>
           <Select aria-label="Filter by activity type" value={filters.type} onChange={updateFilter("type")}>
             <option value="">All activity types</option>
-            {ACTIVITY_TYPES.map((type) => (
+            {typeChoices.map((type) => (
               <option key={type.value} value={type.value}>
                 {type.label}
               </option>

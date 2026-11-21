@@ -1,9 +1,13 @@
 import {
+  ScanEye,
+  Baby,
   Bird,
   ClipboardList,
   Droplet,
   Droplets,
+  Egg,
   FlaskConical,
+  HeartPulse,
   Layers,
   MoreHorizontal,
   Package,
@@ -27,70 +31,112 @@ const BASE_ACTIVITY_TYPES = [
     label: "Land preparation",
     shortLabel: "Land prep",
     Icon: Shovel,
-    tone: "bg-amber-100 text-amber-700"
+    tone: "bg-amber-100 text-amber-700",
+    category: "crop"
   },
   {
     value: "planting",
     label: "Planting",
     shortLabel: "Planting",
     Icon: Sprout,
-    tone: "bg-emerald-100 text-emerald-700"
+    tone: "bg-emerald-100 text-emerald-700",
+    category: "crop"
   },
   {
     value: "watering",
     label: "Watering",
     shortLabel: "Watering",
     Icon: Droplets,
-    tone: "bg-sky-100 text-sky-700"
+    tone: "bg-sky-100 text-sky-700",
+    category: "crop"
   },
   {
     value: "fertilizer_application",
     label: "Fertilizer",
     shortLabel: "Fertilizer",
     Icon: FlaskConical,
-    tone: "bg-lime-100 text-lime-700"
+    tone: "bg-lime-100 text-lime-700",
+    category: "crop"
   },
   {
     value: "pesticide_application",
     label: "Pesticide",
     shortLabel: "Pesticide",
     Icon: SprayCan,
-    tone: "bg-rose-100 text-rose-700"
+    tone: "bg-rose-100 text-rose-700",
+    category: "crop"
   },
   {
     value: "weeding",
     label: "Weeding",
     shortLabel: "Weeding",
     Icon: Scissors,
-    tone: "bg-teal-100 text-teal-700"
+    tone: "bg-teal-100 text-teal-700",
+    category: "crop"
+  },
+  {
+    value: "monitoring",
+    label: "Crop check",
+    shortLabel: "Crop check",
+    Icon: ScanEye,
+    tone: "bg-lime-100 text-lime-800",
+    category: "crop"
   },
   {
     value: "feeding",
     label: "Feeding",
     shortLabel: "Feeding",
     Icon: Wheat,
-    tone: "bg-orange-100 text-orange-700"
+    tone: "bg-orange-100 text-orange-700",
+    category: "animal"
   },
   {
     value: "vaccination",
     label: "Vaccination",
     shortLabel: "Vaccination",
     Icon: Syringe,
-    tone: "bg-indigo-100 text-indigo-700"
+    tone: "bg-indigo-100 text-indigo-700",
+    category: "animal"
   },
   {
     value: "cleaning",
     label: "Cleaning",
     shortLabel: "Cleaning",
     Icon: Sparkles,
-    tone: "bg-cyan-100 text-cyan-700"
+    tone: "bg-cyan-100 text-cyan-700",
+    category: "animal"
+  },
+  {
+    value: "breeding",
+    label: "Breeding",
+    shortLabel: "Breeding",
+    Icon: Baby,
+    tone: "bg-pink-100 text-pink-700",
+    category: "animal"
+  },
+  {
+    value: "health_check",
+    label: "Health check",
+    shortLabel: "Health",
+    Icon: HeartPulse,
+    tone: "bg-red-100 text-red-700",
+    category: "animal"
+  },
+  {
+    value: "production",
+    label: "Production",
+    shortLabel: "Production",
+    Icon: Egg,
+    tone: "bg-yellow-100 text-yellow-700",
+    category: "animal"
   },
   {
     value: "other",
     label: "Other activity",
     shortLabel: "Other",
     Icon: ClipboardList,
-    tone: "bg-slate-100 text-slate-700"
+    tone: "bg-slate-100 text-slate-700",
+    category: "any"
   }
 ];
 
@@ -188,13 +234,14 @@ export function farmMeta(value) {
 
 // Common units as picture chips, so the farmer taps instead of typing.
 const BASE_UNITS = [
-  { value: "bags", label: "Bags", Icon: ShoppingBag },
-  { value: "kg", label: "Kg", Icon: Weight },
-  { value: "buckets", label: "Buckets", Icon: PaintBucket },
-  { value: "litres", label: "Litres", Icon: Droplet },
-  { value: "stems", label: "Stems", Icon: Sprout },
-  { value: "birds", label: "Birds", Icon: Bird },
-  { value: "packs", label: "Packs", Icon: Package }
+  { value: "bags", label: "Bags", Icon: ShoppingBag, category: "any" },
+  { value: "kg", label: "Kg", Icon: Weight, category: "any" },
+  { value: "buckets", label: "Buckets", Icon: PaintBucket, category: "any" },
+  { value: "litres", label: "Litres", Icon: Droplet, category: "any" },
+  { value: "stems", label: "Stems", Icon: Sprout, category: "crop" },
+  { value: "birds", label: "Birds", Icon: Bird, category: "animal" },
+  { value: "eggs", label: "Eggs", Icon: Egg, category: "animal" },
+  { value: "packs", label: "Packs", Icon: Package, category: "any" }
 ];
 
 function formatQuantity(value) {

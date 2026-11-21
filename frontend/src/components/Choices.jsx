@@ -2,7 +2,8 @@ import { CalendarDays, Minus, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatDate, todayInputValue, yesterdayInputValue } from "../lib/format.js";
 import { qrMatrix, qrSvgPath } from "../lib/qr.js";
-import { WORDS } from "../lib/words.js";
+import { moneyDecimals, nextMoneyText } from "../lib/moneyInput.js";
+import { WORDS, growIcon } from "../lib/words.js";
 import { NumberPad, PictureChip } from "./Voice.jsx";
 import { TextInput } from "./ui.jsx";
 
@@ -39,7 +40,7 @@ export function ChoiceButton({ selected, onClick, words, children, className = "
   );
 }
 
-// Grid of emoji pictures. `multi` lets several be chosen.
+// Grid of picture choices. `multi` lets several be chosen.
 export function PictureGrid({ items, value, onChange, multi = false, columns = 3, size = "md" }) {
   const selected = multi ? new Set(value || []) : null;
   const cols = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4" }[columns] || "grid-cols-3";
@@ -50,6 +51,7 @@ export function PictureGrid({ items, value, onChange, multi = false, columns = 3
           key={item.key || item.value}
           item={item}
           size={size}
+          showCheck={multi}
           selected={multi ? selected.has(item.value) : value === item.value}
           onClick={() => {
             if (!multi) onChange(value === item.value ? null : item.value);
@@ -150,10 +152,20 @@ export function QuantityStepper({ value, onChange, step = 1, label = "Amount" })
   );
 }
 
-// Money with big number keys (whole amounts). Shows L$ or US$ in front.
+function showMoneyText(text) {
+  if (!text) return "0";
+  const [whole, cents] = text.split(".");
+  const shown = Number(whole || 0).toLocaleString("en-US");
+  return cents !== undefined ? `${shown}.${cents}` : shown;
+}
+
+// Money with big number keys. Shows L$ or US$ in front. US dollars can have
+// cents (a "." key appears); Liberian dollars are whole amounts.
 export function MoneyPad({ value, onChange, currency = "LRD" }) {
-  const digits = String(value || "");
-  const shown = digits ? Number(digits).toLocaleString("en-US") : "0";
+  const decimals = moneyDecimals(currency);
+  const text = String(value ?? "");
+  const shown = showMoneyText(text);
+  const press = (key) => onChange(nextMoneyText(text, key, { decimals }));
   return (
     <div className="space-y-3">
       <div
@@ -164,13 +176,35 @@ export function MoneyPad({ value, onChange, currency = "LRD" }) {
         {currency === "USD" ? "US$" : "L$"} {shown}
       </div>
       <NumberPad
-        onDigit={(digit) => {
-          const next = (digits + digit).replace(/^0+(?=\d)/, "").slice(0, 10);
-          onChange(next);
-        }}
-        onDelete={() => onChange(digits.slice(0, -1))}
+        onDigit={(digit) => press(digit)}
+        onDelete={() => press("delete")}
+        onDot={decimals > 0 ? () => press(".") : undefined}
       />
     </div>
+  );
+}
+
+// Money amount as text for the pad (e.g. 2500 → "2500", 12.5 → "12.5").
+export function moneyText(amount) {
+  if (amount === null || amount === undefined || amount === "") return "";
+  const number = Number(amount);
+  return Number.isInteger(number) ? String(number) : String(Math.round(number * 100) / 100);
+}
+
+// A grade shown the same way everywhere: the grade icon with its letter.
+export function GradeBadge({ grade, words, size = "md" }) {
+  if (!grade || !words) return null;
+  const Icon = words.Icon;
+  const tone =
+    grade === "rejected" ? "bg-danger/10 text-danger" : grade === "A" ? "bg-success/10 text-success" : "bg-primary-soft text-primary-dark";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full font-bold ${tone} ${size === "lg" ? "px-3 py-1.5 text-base" : "px-2.5 py-1 text-xs"}`}
+      data-say={words.say}
+    >
+      <Icon size={size === "lg" ? 18 : 14} aria-hidden="true" />
+      {words.text}
+    </span>
   );
 }
 
@@ -189,5 +223,19 @@ export function QrCode({ text, size = 220, className = "" }) {
       <rect width={viewBox} height={viewBox} fill="#fff" />
       <path d={path} fill="#111" />
     </svg>
+  );
+}
+
+// The picture for a crop or animal, in a soft round tile.
+export function CropIcon({ name, size = 28, className = "" }) {
+  const Icon = growIcon(name);
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary-dark ${className}`}
+      style={{ width: size + 20, height: size + 20 }}
+      aria-hidden="true"
+    >
+      <Icon size={size} strokeWidth={1.75} />
+    </span>
   );
 }

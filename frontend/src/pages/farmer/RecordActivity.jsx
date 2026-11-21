@@ -8,22 +8,34 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
+import { activityMeta } from "../../lib/labels.js";
+import { farmSupportsActivity } from "../../lib/farmTypes.js";
 import { newClientId } from "../../lib/format.js";
 
 export default function RecordActivity() {
   const { user } = useAuth();
   const { online, createActivity } = useSync();
-  const { farms, farmIdMap, loading } = useFarmerData();
+  const { farms, farmIdMap, records, loading } = useFarmerData();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const presetFarmId = params.get("farmId") || "";
+  const presetType = params.get("type") || "";
+  const presetMeta = presetType ? activityMeta(presetType) : null;
+  const typeNeedsFarm = presetMeta && presetMeta.category !== "any";
+  const eligibleFarms = typeNeedsFarm
+    ? farms.filter((farm) => farmSupportsActivity(farm.farmType, presetType))
+    : farms;
+
+  const presetProductionId = params.get("production") || "";
+  const presetProduction = records.productions.find((item) => item.clientId === presetProductionId);
+  const productionFarmId = farms.find((farm) => farm.clientId === presetProduction?.farmClientId)?.id || "";
+  const presetFarmId = productionFarmId || params.get("farmId") || "";
   const lastFarmId = localStorage.getItem(`minders.lastFarm.${user.id}`) || "";
   const candidates = [farmIdMap[presetFarmId] || presetFarmId, farmIdMap[lastFarmId] || lastFarmId];
-  const defaultFarmId = candidates.find((id) => farms.some((farm) => farm.id === id)) || "";
+  const defaultFarmId = candidates.find((id) => eligibleFarms.some((farm) => farm.id === id)) || "";
 
   async function handleSubmit(payload) {
     setError("");
@@ -35,9 +47,9 @@ export default function RecordActivity() {
       toast.success(
         online
           ? WORDS.savedSending.text
-          : "It saved on your phone. It will go when network come."
+          : "Saved on your phone. It will be sent when you are online."
       );
-      navigate("/app/history", { replace: true });
+      navigate(presetProduction ? `/app/productions/${presetProduction.clientId}` : "/app/history", { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -65,18 +77,43 @@ export default function RecordActivity() {
     );
   }
 
+  if (typeNeedsFarm && eligibleFarms.length === 0) {
+    return (
+      <div>
+        <PageHeader title={presetMeta.label} backTo="/app" />
+        <EmptyState
+          icon={Sprout}
+          title={`No ${presetMeta.category === "animal" ? "animal" : "crop"} farm yet`}
+          description={
+            presetMeta.category === "animal"
+              ? "This work is for an animal farm. Add an animal farm first."
+              : "This work is for a crop farm. Add a crop farm first."
+          }
+          action={
+            <Link to="/app/farms/new" className={buttonClass("primary", "md")}>
+              Add a farm
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
-        title={WORDS.recordTitle.text}
-        subtitle="Touch the pictures. You do not need to write."
-        say={WORDS.recordTitle}
+        title={presetMeta ? presetMeta.label : WORDS.recordTitle.text}
+        subtitle="Tap the pictures. No typing needed."
+        say={presetMeta?.words || WORDS.recordTitle}
         backTo="/app"
       />
       <ActivityForm
-        farms={farms}
+        farms={eligibleFarms}
         farmIdMap={farmIdMap}
         defaultFarmId={defaultFarmId}
+        initial={presetType ? { activityType: presetType } : {}}
+        productions={records.productions}
+        defaultProductionId={presetProduction ? presetProduction.clientId : ""}
         onSubmit={handleSubmit}
         submitting={busy}
         error={error}

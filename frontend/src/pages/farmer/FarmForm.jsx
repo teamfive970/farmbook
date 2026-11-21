@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, CloudOff, Home, MapPin, PencilLine } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CircleHelp, CloudOff, Home, MapPin, PencilLine, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PictureChip } from "../../components/Voice.jsx";
@@ -17,16 +17,18 @@ import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { api } from "../../lib/api.js";
 import { newClientId } from "../../lib/format.js";
-import { COUNTIES, FARM_TYPES } from "../../lib/labels.js";
+import { farmCrops } from "../../lib/farmCrops.js";
+import { FARM_CATEGORY_OPTIONS, farmCategory } from "../../lib/farmTypes.js";
+import { COUNTIES } from "../../lib/labels.js";
 import { upsertCachedFarm } from "../../lib/localStore.js";
 import {
   ANIMALS,
   CROPS,
-  FARM_TYPE_WORDS,
   SIZE_UNITS,
   WORDS,
   farmNameChoices,
-  growChoices
+  animalFarmType,
+  growChoicesForCategory
 } from "../../lib/words.js";
 import { ChoiceButton, QuantityStepper } from "../../components/Choices.jsx";
 
@@ -39,11 +41,11 @@ const KNOWN_GROWS = new Set([...CROPS, ...ANIMALS].map((item) => item.value));
 
 const EMPTY = {
   farmName: "",
-  farmType: "crop_farming",
+  category: "crop",
   county: "",
   district: "",
   community: "",
-  mainCropOrLivestock: "",
+  crops: [],
   description: "",
   size: "",
   sizeUnit: "acres"
@@ -53,11 +55,11 @@ const EMPTY = {
 function toForm(farm) {
   return {
     farmName: farm.farmName || "",
-    farmType: farm.farmType || "crop_farming",
+    category: farmCategory(farm.farmType || "crop_farming"),
     county: farm.county || "",
     district: farm.district || "",
     community: farm.community || "",
-    mainCropOrLivestock: farm.mainCropOrLivestock || "",
+    crops: farmCrops(farm),
     description: farm.description || "",
     size: farm.size === null || farm.size === undefined ? "" : String(farm.size),
     sizeUnit: farm.sizeUnit || "acres"
@@ -89,6 +91,7 @@ export default function FarmForm() {
   const [ownName, setOwnName] = useState(false);
   const [otherPlace, setOtherPlace] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [otherCrop, setOtherCrop] = useState("");
   const [existing, setExisting] = useState(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
@@ -126,10 +129,7 @@ export default function FarmForm() {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
   }
 
-  const grown = (form?.mainCropOrLivestock || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const grown = form?.crops || [];
   const isHome =
     form &&
     form.county === (user?.county || "") &&
@@ -137,32 +137,38 @@ export default function FarmForm() {
     form.community.trim() === (user?.community || "");
   const showPlaceFields = otherPlace || (form && !isHome);
 
-  function chooseType(value) {
+  // Crop farm, animal farm or mixed farm. What can be chosen below follows.
+  function chooseCategory(value) {
     setError("");
     setForm((current) => {
-      const allowed = new Set(growChoices(value).map((item) => item.value));
-      const kept = (current.mainCropOrLivestock || "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter((item) => item && (allowed.has(item) || !KNOWN_GROWS.has(item)));
-      const next = { ...current, farmType: value, mainCropOrLivestock: kept.join(", ") };
+      const allowed = new Set(growChoicesForCategory(value).map((item) => item.value));
+      // Keep what still fits the new kind of farm, and anything typed by hand.
+      const kept = current.crops.filter((item) => allowed.has(item) || !KNOWN_GROWS.has(item));
+      const next = { ...current, category: value, crops: kept };
       if (!nameTouched) next.farmName = kept[0] ? `${kept[0]} farm` : "";
       return next;
     });
   }
 
-  function toggleGrow(value) {
+  function setCrops(nextList) {
     setError("");
     setForm((current) => {
-      const list = (current.mainCropOrLivestock || "")
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const nextList = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
-      const next = { ...current, mainCropOrLivestock: nextList.join(", ") };
+      const next = { ...current, crops: nextList };
       if (!nameTouched) next.farmName = nextList[0] ? `${nextList[0]} farm` : "";
       return next;
     });
+  }
+
+  function toggleGrow(value) {
+    setCrops(grown.includes(value) ? grown.filter((item) => item !== value) : [...grown, value]);
+  }
+
+  function addOtherCrop() {
+    const name = otherCrop.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    const pretty = name[0].toUpperCase() + name.slice(1);
+    if (!grown.some((item) => item.toLowerCase() === pretty.toLowerCase())) setCrops([...grown, pretty]);
+    setOtherCrop("");
   }
 
   function chooseName(text) {
@@ -183,10 +189,11 @@ export default function FarmForm() {
   }
 
   function validate() {
-    if (form.farmName.trim().length < 1) return "Touch one name for the farm.";
+    if (form.crops.length === 0) return "Choose what you grow or raise. You can choose more than one.";
+    if (form.farmName.trim().length < 1) return "Choose a name for the farm.";
     if (!form.county) return "Choose the county where the farm is.";
-    if (!form.district.trim()) return "Put the district.";
-    if (!form.community.trim()) return "Put the town or community.";
+    if (!form.district.trim()) return "Enter the district.";
+    if (!form.community.trim()) return "Enter the town or community.";
     return "";
   }
 
@@ -202,11 +209,18 @@ export default function FarmForm() {
 
     const payload = {
       farmName: form.farmName.trim(),
-      farmType: form.farmType,
+      // The saved type: crop farm, mixed farm, or poultry/livestock for animals.
+      farmType:
+        form.category === "crop"
+          ? "crop_farming"
+          : form.category === "animal"
+            ? animalFarmType(form.crops)
+            : "mixed_farming",
       county: form.county,
       district: form.district.trim(),
       community: form.community.trim(),
-      mainCropOrLivestock: form.mainCropOrLivestock.trim() || null,
+      crops: form.crops,
+      mainCropOrLivestock: form.crops.join(", ").slice(0, 120) || null,
       description: form.description.trim() || null,
       size: form.size === "" ? null : Number(form.size),
       sizeUnit: form.size === "" ? null : form.sizeUnit
@@ -222,7 +236,7 @@ export default function FarmForm() {
           ? editing
             ? "The farm changed."
             : "Your farm saved."
-          : "Your farm saved on your phone. It will go on the internet when network come."
+          : "Your farm is saved on your phone. It will be sent when you are online."
       );
       navigate(`/app/farms/${record.id}`, { replace: true });
     } catch (requestError) {
@@ -245,7 +259,9 @@ export default function FarmForm() {
     return <PageLoading label="Opening the farm…" />;
   }
 
-  const choices = growChoices(form.farmType);
+  const choices = growChoicesForCategory(form.category);
+  const growWords =
+    form.category === "animal" ? WORDS.whatRaise : form.category === "mixed" ? WORDS.whatGrowBoth : WORDS.whatGrowCrop;
   const names = farmNameChoices(grown[0]);
   const nameIsSuggested = names.some((item) => item.text === form.farmName);
 
@@ -253,7 +269,7 @@ export default function FarmForm() {
     <div>
       <PageHeader
         title={editing ? "Change farm" : WORDS.farmTitle.text}
-        subtitle="Touch the pictures. You do not need to write."
+        subtitle="Tap the pictures. No typing needed."
         backTo={editing ? `/app/farms/${resolvedFarmId}` : "/app/farms"}
         say={WORDS.farmTitle}
       />
@@ -273,19 +289,18 @@ export default function FarmForm() {
         {/* 1. Kind of farm */}
         <section className="rounded-2xl bg-white p-4 shadow-card">
           <p className="label" data-say={WORDS.whatFarm.say}>{WORDS.whatFarm.text}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {FARM_TYPES.map(({ value, Icon, tone }) => {
-              const selected = form.farmType === value;
-              const words = FARM_TYPE_WORDS[value];
+          <div className="grid grid-cols-3 gap-2">
+            {FARM_CATEGORY_OPTIONS.map(({ value, description, Icon, tone, words }) => {
+              const selected = form.category === value;
               return (
                 <button
                   key={value}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => chooseType(value)}
+                  onClick={() => chooseCategory(value)}
                   data-say={words?.say}
                   data-say-key={words?.key}
-                  className={`flex min-h-20 items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+                  className={`flex min-h-24 flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-2 text-center transition ${
                     selected ? "border-primary bg-primary-soft shadow-sm" : "border-line bg-white hover:border-primary/40"
                   }`}
                 >
@@ -293,27 +308,81 @@ export default function FarmForm() {
                     <Icon size={24} aria-hidden="true" />
                   </span>
                   <span className="text-sm font-bold leading-tight text-ink">{words?.text}</span>
+                  <span className="text-[11px] leading-tight text-ink-soft">{description}</span>
                 </button>
               );
             })}
           </div>
         </section>
 
-        {/* 2. What you grow or raise */}
+        {/* 2. What you grow or raise: as many as the farm has */}
         <section className="rounded-2xl bg-white p-4 shadow-card">
-          <p className="label" data-say={WORDS.whatGrow.say}>
-            {WORDS.whatGrow.text} <span className="font-normal text-ink-soft">(touch all)</span>
+          <p className="label" data-say={growWords.say}>
+            {growWords.text}
+          </p>
+          <p
+            className="-mt-1 mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary-dark"
+            data-say="You can touch more than one."
+          >
+            <Check size={14} aria-hidden="true" /> You can touch more than one
           </p>
           <div className="grid grid-cols-4 gap-2">
             {choices.map((item) => (
               <PictureChip
                 key={item.key}
                 item={item}
+                showCheck
                 selected={grown.includes(item.value)}
                 onClick={() => toggleGrow(item.value)}
               />
             ))}
           </div>
+
+          <div className="mt-3 flex gap-2">
+            <TextInput
+              aria-label="Something not in the pictures"
+              placeholder="Not here? Write it (e.g. Okra)"
+              value={otherCrop}
+              maxLength={60}
+              onChange={(event) => setOtherCrop(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addOtherCrop();
+                }
+              }}
+            />
+            <Button variant="secondary" onClick={addOtherCrop} disabled={!otherCrop.trim()} aria-label="Add it">
+              <Plus size={18} /> Add
+            </Button>
+          </div>
+
+          {grown.length > 0 && (
+            <div className="mt-3" data-say={`This farm has ${grown.join(", ")}.`}>
+              <p className="text-xs font-semibold text-ink-soft">
+                This farm has {grown.length} {grown.length === 1 ? "thing" : "things"}:
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {grown.map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary-soft py-1 pl-3 pr-1 text-sm font-semibold text-primary-dark"
+                  >
+                    {name}
+                    <button
+                      type="button"
+                      onClick={() => setCrops(grown.filter((item) => item !== name))}
+                      aria-label={`Take ${name} off`}
+                      data-say={`Take ${name} off.`}
+                      className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white"
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Size (optional) */}
@@ -341,7 +410,7 @@ export default function FarmForm() {
                   }))
                 }
               >
-                <span aria-hidden="true">{unit.emoji}</span> {unit.text}
+                <unit.Icon size={18} aria-hidden="true" /> {unit.text}
               </ChoiceButton>
             ))}
             <ChoiceButton
@@ -350,7 +419,7 @@ export default function FarmForm() {
               onClick={() => setForm((current) => ({ ...current, size: "" }))}
               className="col-span-2"
             >
-              🤷🏾 {WORDS.dontKnow.text}
+              <CircleHelp size={18} aria-hidden="true" /> {WORDS.dontKnow.text}
             </ChoiceButton>
           </div>
         </section>

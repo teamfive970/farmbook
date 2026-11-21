@@ -1,8 +1,9 @@
 import { CircleCheck, CloudOff, CloudUpload, LogIn, RefreshCw, Sprout, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Button,
+  ConfirmDialog,
   EmptyState,
   PageHeader,
   StatusChip,
@@ -19,6 +20,7 @@ import {
   getLocalRecord,
   getQueue
 } from "../../lib/localStore.js";
+import { recordPath } from "../../lib/recordLinks.js";
 import { RECORD_KIND_WORDS } from "../../lib/words.js";
 
 function operationLabel(kind, entity) {
@@ -32,8 +34,9 @@ function operationLabel(kind, entity) {
 
 export default function SyncStatus() {
   const { user, needsOnlineSignIn } = useAuth();
-  const { online, pendingCount, syncing, syncNow, version, retryActivity, retryFarm, retryRecord } =
+  const { online, pendingCount, syncing, syncNow, version, retryActivity, retryFarm, retryRecord, deleteRecord } =
     useSync();
+  const [deleting, setDeleting] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
   const [entries, setEntries] = useState([]);
@@ -219,6 +222,7 @@ export default function SyncStatus() {
                 entry={entry}
                 busy={retryingKey === entry.key}
                 onRetry={() => handleRetry(entry)}
+                onDelete={entry.entity === "record" && entry.record ? () => setDeleting(entry) : undefined}
               />
             ))}
           </div>
@@ -242,6 +246,24 @@ export default function SyncStatus() {
         )}
       </section>
 
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        title="Delete this record?"
+        message="It will be taken off this phone and will not be sent."
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          const entry = deleting;
+          setDeleting(null);
+          try {
+            await deleteRecord(entry.record);
+            toast.success("Deleted.");
+          } catch (error) {
+            toast.error(error.message);
+          }
+        }}
+        onCancel={() => setDeleting(null)}
+      />
+
       <section className="mt-6 rounded-2xl bg-white p-5 shadow-card">
         <h2 className="text-sm font-bold text-ink">How saving works</h2>
         <ol className="mt-3 space-y-2 text-xs leading-relaxed text-ink-soft">
@@ -263,9 +285,9 @@ export default function SyncStatus() {
   );
 }
 
-function SyncEntry({ entry, busy = false, onRetry }) {
+function SyncEntry({ entry, busy = false, onRetry, onDelete }) {
   const { record, entity, kind } = entry;
-  if (entity === "record") return <RecordEntry entry={entry} busy={busy} onRetry={onRetry} />;
+  if (entity === "record") return <RecordEntry entry={entry} busy={busy} onRetry={onRetry} onDelete={onDelete} />;
   const isFarm = entity === "farm";
   const meta = isFarm
     ? record
@@ -322,12 +344,15 @@ function SyncEntry({ entry, busy = false, onRetry }) {
   );
 }
 
-function RecordEntry({ entry, busy = false, onRetry }) {
+function RecordEntry({ entry, busy = false, onRetry, onDelete }) {
   const { record, resource, kind } = entry;
   const words = RECORD_KIND_WORDS[resource];
   const detail = record
     ? record.crop || record.name || record.category || (record.amount ? String(record.amount) : "")
     : "";
+  const fix = record?.syncFix;
+  const parentPath = fix?.action === "parent" ? recordPath(fix.kind, { clientId: fix.clientId, id: fix.id }) : null;
+  const openPath = recordPath(resource, record);
   return (
     <div className="rounded-2xl bg-white p-4 shadow-card" data-say={words?.say}>
       <div className="flex items-start justify-between gap-2">
@@ -341,14 +366,35 @@ function RecordEntry({ entry, busy = false, onRetry }) {
         </div>
         <StatusChip status={record?.syncStatus || "pending"} />
       </div>
+      {record?.syncStatus !== "failed" && record?.syncNote && (
+        <p className="mt-2 text-xs text-ink-soft">{record.syncNote}</p>
+      )}
       {record?.syncStatus === "failed" && (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="text-xs text-danger">{record.syncError || "Could not be saved."}</p>
-          {onRetry && (
-            <Button variant="secondary" size="sm" onClick={onRetry} loading={busy}>
-              Try again
-            </Button>
-          )}
+        <div className="mt-2 space-y-2">
+          <p className="text-xs text-danger" data-say={record.syncError || "Could not be saved."}>
+            {record.syncError || "Could not be saved."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {parentPath ? (
+              <Link to={parentPath} className="inline-flex min-h-9 items-center rounded-lg bg-primary px-3 text-xs font-bold text-white">
+                Fix the {fix.label} first
+              </Link>
+            ) : openPath ? (
+              <Link to={openPath} className="inline-flex min-h-9 items-center rounded-lg bg-primary px-3 text-xs font-bold text-white">
+                Open it
+              </Link>
+            ) : null}
+            {onRetry && (
+              <Button variant="secondary" size="sm" onClick={onRetry} loading={busy}>
+                Try again
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="secondary" size="sm" className="text-danger" onClick={onDelete}>
+                <Trash2 size={14} /> Delete it
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

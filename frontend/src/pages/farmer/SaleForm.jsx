@@ -1,48 +1,65 @@
-import { ChevronDown, ChevronUp, PencilLine } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronDown, ChevronUp, CircleCheck, Hourglass, PencilLine, SplitSquareHorizontal } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ChoiceButton,
+  CropIcon,
   DateChoice,
   MoneyPad,
   PictureGrid,
   QuantityStepper,
-  Section
+  Section,
+  moneyText
 } from "../../components/Choices.jsx";
-import { Button, ErrorBanner, Field, PageHeader, PageLoading, TextInput } from "../../components/ui.jsx";
+import {
+  Button,
+  ErrorBanner,
+  Field,
+  PageHeader,
+  PageLoading,
+  TextInput,
+  buttonClass
+} from "../../components/ui.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
+import { allYieldChoices } from "../../lib/farmCrops.js";
 import { newClientId, todayInputValue } from "../../lib/format.js";
-import { batchStatus, formatMoney, sayMoney } from "../../lib/ledger.js";
+import { ICONS } from "../../lib/icons.js";
+import { batchStatus, formatMoney, saleStatus, sayMoney } from "../../lib/ledger.js";
 import {
-  ANIMALS,
   BUYER_TYPES,
-  CROPS,
   CURRENCIES,
   HARVEST_UNITS,
   PAYMENT_METHODS,
   WORDS,
-  growEmoji,
+  growOption,
   optionFor,
   unitText
 } from "../../lib/words.js";
 
+const round = (value) => Math.round(Number(value || 0) * 100) / 100;
+
 // "I sell something": from a harvest batch (so what is left is known) or
-// just a crop. Price with big number keys, buyer as pictures, and whether they
-// paid. Saves the buyer, the sale and the payment on the phone, then sends.
+// one of the crops on the farmer's farms. Price with big number keys, buyer as
+// pictures, and whether they paid. Saves the buyer, the sale and the payment
+// on the phone, then sends. Opened with a sale id, it changes that sale
+// (payments are added or taken off on the sale's own page).
 export default function SaleForm() {
+  const { clientId } = useParams();
+  const editing = Boolean(clientId);
   const [params] = useSearchParams();
-  const { records, loading } = useFarmerData();
-  const { createRecord, online } = useSync();
+  const { farms, records, loading } = useFarmerData();
+  const { createRecord, updateRecord, online } = useSync();
   const navigate = useNavigate();
   const toast = useToast();
 
+  const existing = editing ? records.sales.find((item) => item.clientId === clientId) : null;
+  const [ready, setReady] = useState(!editing);
   const [harvestClientId, setHarvestClientId] = useState(params.get("harvest") || "");
-  const harvest = records.harvests.find((item) => item.clientId === harvestClientId) || null;
   const [crop, setCrop] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState("");
+  const [unit, setUnit] = useState("bags");
   const [priceMode, setPriceMode] = useState("each");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("LRD");
@@ -56,42 +73,100 @@ export default function SaleForm() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!editing || ready || !existing) return;
+    setHarvestClientId(existing.harvestClientId || "");
+    setCrop(existing.crop || "");
+    setQuantity(String(existing.quantity ?? ""));
+    setUnit(existing.unit || "bags");
+    if (existing.unitPrice) {
+      setPriceMode("each");
+      setPrice(moneyText(existing.unitPrice));
+    } else {
+      setPriceMode("total");
+      setPrice(moneyText(existing.totalAmount));
+    }
+    setCurrency(existing.currency);
+    // A buyer that was deleted is left out (the sale keeps working without it).
+    const buyerStillThere = records.buyers.some((item) => item.clientId === existing.buyerClientId);
+    setBuyerChoice(existing.buyerClientId && buyerStillThere ? { clientId: existing.buyerClientId } : null);
+    setDate(existing.saleDate);
+    setReady(true);
+  }, [editing, existing, ready, records.buyers]);
+
+  const harvest = records.harvests.find((item) => item.clientId === harvestClientId) || null;
+  // Opened from a planting or animal group: only its harvests, and a sale
+  // without a harvest still belongs to it.
+  const fromProduction = records.productions.find((item) => item.clientId === params.get("production")) || null;
   const batches = useMemo(
     () =>
       records.harvests
+        .filter((item) => !fromProduction || item.productionClientId === fromProduction.clientId)
         .map((item) => ({ item, status: batchStatus(item, records.sales, records.inspections) }))
         .filter(({ status }) => status.remaining > 0),
-    [records]
+    [records, fromProduction]
   );
+  useEffect(() => {
+    if (editing || !fromProduction || crop) return;
+    if (fromProduction.productionKind === "crop") setCrop(fromProduction.name);
+  }, [editing, fromProduction, crop]);
+  // Without a batch, only what is on the farmer's farms (and eggs or milk
+  // when a farm keeps animals).
+  const cropChoices = useMemo(() => allYieldChoices(farms).map((name) => growOption(name)), [farms]);
 
-  if (loading && records.harvests.length === 0 && records.sales.length === 0) return <PageLoading label="Opening…" />;
+  if (editing && !existing) {
+    return loading ? <PageLoading label="Opening…" /> : <PageHeader title="Sale not found" backTo="/app/money" />;
+  }
+  if (!ready || (loading && records.harvests.length === 0 && records.sales.length === 0)) {
+    return <PageLoading label="Opening…" />;
+  }
 
   const saleCrop = harvest ? harvest.crop : crop;
-  const saleUnit = harvest ? harvest.unit : unit || "bags";
-  const left = harvest ? batchStatus(harvest, records.sales, records.inspections).remaining : null;
+  const saleUnit = harvest ? harvest.unit : unit;
+  // What is left in the batch, counting this sale's own amount back in when changing it.
+  const left = harvest
+    ? round(
+        batchStatus(harvest, records.sales, records.inspections).remaining +
+          (existing && existing.harvestClientId === harvest.clientId ? Number(existing.quantity) : 0)
+      )
+    : null;
   const qty = Number(quantity || 0);
-  const total = priceMode === "each" ? Math.round(qty * Number(price || 0) * 100) / 100 : Number(price || 0);
-  const paidValue = paid === "all" ? total : paid === "some" ? Number(paidAmount || 0) : 0;
+  const total = priceMode === "each" ? round(qty * Number(price || 0)) : round(price);
+  const paidValue = paid === "all" ? total : paid === "some" ? round(paidAmount) : 0;
+  const alreadyPaid = existing ? saleStatus(existing, records.payments).paid : 0;
 
-  function chooseBatch(clientId) {
-    setHarvestClientId(clientId === harvestClientId ? "" : clientId);
+  function chooseBatch(nextClientId) {
+    setHarvestClientId(nextClientId === harvestClientId ? "" : nextClientId);
     setError("");
+  }
+
+  function chooseCurrency(next) {
+    if (next === currency) return;
+    if (alreadyPaid > 0) return setError("Money was already paid for this sale, so the money type can't change.");
+    setCurrency(next);
+    // Liberian dollars are whole amounts.
+    if (next === "LRD") {
+      setPrice((value) => String(value).split(".")[0]);
+      setPaidAmount((value) => String(value).split(".")[0]);
+    }
   }
 
   async function save() {
     setError("");
-    if (!saleCrop) return setError("Touch what you sold.");
-    if (qty <= 0) return setError("Touch plus to show how much you sold.");
+    if (!saleCrop) return setError("Choose what you sold.");
+    if (qty <= 0) return setError("Enter how much you sold.");
     if (left !== null && qty > left) return setError(`Only ${left} ${unitText(saleUnit)} left in this harvest.`);
-    if (total <= 0) return setError("Put the money with the numbers.");
-    if (paid === "some" && (paidValue <= 0 || paidValue > total)) {
-      return setError("Put how much they paid. It must be less than all the money.");
+    if (total <= 0) return setError("Enter the amount.");
+    if (editing && total < alreadyPaid) {
+      return setError(`The buyer already paid ${formatMoney(alreadyPaid, currency)}. The sale can't be less than that.`);
+    }
+    if (!editing && paid === "some" && (paidValue <= 0 || paidValue >= total)) {
+      return setError("Enter how much they paid. It must be less than the total.");
     }
     setBusy(true);
     try {
-      let buyerClientId = null;
-      if (buyerChoice?.clientId) buyerClientId = buyerChoice.clientId;
-      else if (buyerChoice?.type || buyerName.trim()) {
+      let buyerClientId = buyerChoice?.clientId || null;
+      if (!buyerClientId && (buyerChoice?.type || buyerName.trim())) {
         const type = buyerChoice?.type || "other";
         buyerClientId = newClientId();
         await createRecord("buyers", {
@@ -100,19 +175,26 @@ export default function SaleForm() {
           buyerType: type
         });
       }
-      const saleClientId = newClientId();
-      await createRecord("sales", {
-        clientId: saleClientId,
+      const fields = {
         harvestClientId: harvest?.clientId || null,
+        ...(!editing && !harvest && fromProduction ? { productionClientId: fromProduction.clientId } : {}),
         buyerClientId,
         saleDate: date,
         crop: saleCrop,
         quantity: qty,
         unit: saleUnit,
-        unitPrice: priceMode === "each" ? Number(price) : null,
+        unitPrice: priceMode === "each" ? round(price) : null,
         totalAmount: total,
         currency
-      });
+      };
+      if (editing) {
+        await updateRecord(existing, fields);
+        toast.success(`The sale changed. ${formatMoney(total, currency)}.`);
+        navigate(`/app/money/sales/${existing.clientId}`, { replace: true });
+        return;
+      }
+      const saleClientId = newClientId();
+      await createRecord("sales", { clientId: saleClientId, ...fields });
       if (paidValue > 0) {
         await createRecord("payments", {
           clientId: newClientId(),
@@ -131,20 +213,21 @@ export default function SaleForm() {
     }
   }
 
-  const knownBuyers = records.buyers.slice(0, 6);
+  const knownBuyers = records.buyers.slice(0, 8);
+  const showBatches = !editing ? batches.length > 0 : false;
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title={WORDS.sell.text}
-        subtitle="Touch the pictures and the numbers."
-        backTo={harvest ? `/app/harvests/${harvest.clientId}` : "/app/money"}
+        title={editing ? "Change the sale" : WORDS.sell.text}
+        subtitle="Tap the pictures and the numbers."
+        backTo={editing ? `/app/money/sales/${clientId}` : harvest ? `/app/harvests/${harvest.clientId}` : "/app/money"}
         say={WORDS.sell}
       />
       <ErrorBanner message={error} />
 
-      {batches.length > 0 && (
-        <Section title={{ text: "From which harvest?", say: "From which harvest? Touch one, or leave it." }} hint="you can leave it">
+      {showBatches && (
+        <Section title={{ text: "From which harvest?", say: "From which harvest? Touch one." }}>
           <div className="grid grid-cols-2 gap-2">
             {batches.map(({ item, status }) => (
               <ChoiceButton
@@ -152,9 +235,9 @@ export default function SaleForm() {
                 words={{ say: `${item.crop}. ${status.remaining} ${unitText(item.unit)} left.` }}
                 selected={harvestClientId === item.clientId}
                 onClick={() => chooseBatch(item.clientId)}
-                className="flex-col gap-0 py-2"
+                className="flex-col gap-1 py-2"
               >
-                <span className="text-2xl" aria-hidden="true">{growEmoji(item.crop)}</span>
+                <CropIcon name={item.crop} size={22} />
                 {item.crop}
                 <span className="text-xs font-normal">
                   {status.remaining} {unitText(item.unit)} left
@@ -165,9 +248,29 @@ export default function SaleForm() {
         </Section>
       )}
 
+      {editing && harvest && (
+        <Section>
+          <div className="flex items-center gap-3">
+            <CropIcon name={harvest.crop} size={24} />
+            <p className="text-sm text-ink">
+              From the <strong>{harvest.crop}</strong> harvest. {left} {unitText(harvest.unit)} can be in this sale.
+            </p>
+          </div>
+        </Section>
+      )}
+
       {!harvest && (
         <Section title={{ text: "What you sold?", say: "What you sold? Touch the picture." }}>
-          <PictureGrid items={[...CROPS, ...ANIMALS]} value={crop} onChange={(value) => setCrop(value || "")} columns={4} />
+          {cropChoices.length > 0 ? (
+            <PictureGrid items={cropChoices} value={crop} onChange={(value) => setCrop(value || "")} columns={4} />
+          ) : (
+            <div className="rounded-xl bg-warning/10 px-4 py-3 text-sm text-amber-800">
+              Your farms have no crops or animals on them yet. Add what you grow to a farm first.
+              <Link to="/app/farms" className={`${buttonClass("primary", "sm")} mt-3`}>
+                {WORDS.navFarms.text}
+              </Link>
+            </div>
+          )}
         </Section>
       )}
 
@@ -187,7 +290,7 @@ export default function SaleForm() {
                 onClick={() => setUnit(item.value)}
                 className="flex-col gap-0.5 py-1 text-xs"
               >
-                <span className="text-2xl" aria-hidden="true">{item.emoji}</span>
+                <item.Icon size={22} aria-hidden="true" />
                 {item.text}
               </ChoiceButton>
             ))}
@@ -198,8 +301,8 @@ export default function SaleForm() {
       <Section title={WORDS.moneyType}>
         <div className="grid grid-cols-2 gap-2">
           {CURRENCIES.map((item) => (
-            <ChoiceButton key={item.value} words={item} selected={currency === item.value} onClick={() => setCurrency(item.value)}>
-              <span aria-hidden="true">{item.emoji}</span> {item.text}
+            <ChoiceButton key={item.value} words={item} selected={currency === item.value} onClick={() => chooseCurrency(item.value)}>
+              <item.Icon size={18} aria-hidden="true" /> {item.value === "USD" ? "US$" : "L$"} · {item.text}
             </ChoiceButton>
           ))}
         </div>
@@ -228,17 +331,20 @@ export default function SaleForm() {
       <Section title={WORDS.whoBuy} hint="you can leave it">
         {knownBuyers.length > 0 && (
           <div className="mb-2 grid grid-cols-2 gap-2">
-            {knownBuyers.map((buyer) => (
-              <ChoiceButton
-                key={buyer.clientId}
-                words={{ say: buyer.name }}
-                selected={buyerChoice?.clientId === buyer.clientId}
-                onClick={() => setBuyerChoice(buyerChoice?.clientId === buyer.clientId ? null : { clientId: buyer.clientId })}
-                className="justify-start text-left"
-              >
-                {optionFor(BUYER_TYPES, buyer.buyerType)?.emoji} {buyer.name}
-              </ChoiceButton>
-            ))}
+            {knownBuyers.map((buyer) => {
+              const type = optionFor(BUYER_TYPES, buyer.buyerType) || BUYER_TYPES[BUYER_TYPES.length - 1];
+              return (
+                <ChoiceButton
+                  key={buyer.clientId}
+                  words={{ say: buyer.name }}
+                  selected={buyerChoice?.clientId === buyer.clientId}
+                  onClick={() => setBuyerChoice(buyerChoice?.clientId === buyer.clientId ? null : { clientId: buyer.clientId })}
+                  className="justify-start text-left"
+                >
+                  <type.Icon size={18} aria-hidden="true" /> {buyer.name}
+                </ChoiceButton>
+              );
+            })}
           </div>
         )}
         <PictureGrid
@@ -256,32 +362,37 @@ export default function SaleForm() {
             maxLength={120}
           />
         )}
+        <Link to="/app/money/buyers" className="mt-3 inline-block text-xs font-semibold text-primary">
+          See and change my buyers
+        </Link>
       </Section>
 
-      <Section title={WORDS.didTheyPay}>
-        <div className="grid grid-cols-3 gap-2">
-          <ChoiceButton words={WORDS.paidAll} selected={paid === "all"} onClick={() => setPaid("all")}>
-            ✅ {WORDS.paidAll.text}
-          </ChoiceButton>
-          <ChoiceButton words={WORDS.paidSome} selected={paid === "some"} onClick={() => setPaid("some")}>
-            ➗ {WORDS.paidSome.text}
-          </ChoiceButton>
-          <ChoiceButton words={WORDS.paidNone} selected={paid === "none"} onClick={() => setPaid("none")}>
-            ⏳ {WORDS.paidNone.text}
-          </ChoiceButton>
-        </div>
-        {paid === "some" && (
-          <div className="mt-3">
-            <p className="label">How much they pay?</p>
-            <MoneyPad value={paidAmount} onChange={setPaidAmount} currency={currency} />
+      {!editing && (
+        <Section title={WORDS.didTheyPay}>
+          <div className="grid grid-cols-3 gap-2">
+            <ChoiceButton words={WORDS.paidAll} selected={paid === "all"} onClick={() => setPaid("all")}>
+              <CircleCheck size={16} aria-hidden="true" /> {WORDS.paidAll.text}
+            </ChoiceButton>
+            <ChoiceButton words={WORDS.paidSome} selected={paid === "some"} onClick={() => setPaid("some")}>
+              <SplitSquareHorizontal size={16} aria-hidden="true" /> {WORDS.paidSome.text}
+            </ChoiceButton>
+            <ChoiceButton words={WORDS.paidNone} selected={paid === "none"} onClick={() => setPaid("none")}>
+              <Hourglass size={16} aria-hidden="true" /> {WORDS.paidNone.text}
+            </ChoiceButton>
           </div>
-        )}
-        {paid !== "none" && (
-          <div className="mt-3">
-            <PictureGrid items={PAYMENT_METHODS} value={method} onChange={(value) => setMethod(value || "cash")} columns={4} />
-          </div>
-        )}
-      </Section>
+          {paid === "some" && (
+            <div className="mt-3">
+              <p className="label">How much did they pay?</p>
+              <MoneyPad value={paidAmount} onChange={setPaidAmount} currency={currency} />
+            </div>
+          )}
+          {paid !== "none" && (
+            <div className="mt-3">
+              <PictureGrid items={PAYMENT_METHODS} value={method} onChange={(value) => setMethod(value || "cash")} columns={4} />
+            </div>
+          )}
+        </Section>
+      )}
 
       <DateChoice value={date} onChange={setDate} />
 
@@ -298,14 +409,14 @@ export default function SaleForm() {
           {showWrite ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </button>
         {showWrite && (
-          <Field label="Buyer name" htmlFor="buyerName" className="mt-4">
+          <Field label="New buyer name" htmlFor="buyerName" className="mt-4">
             <TextInput id="buyerName" value={buyerName} onChange={(event) => setBuyerName(event.target.value)} maxLength={120} />
           </Field>
         )}
       </Section>
 
       <Button size="lg" className="w-full text-lg" loading={busy} onClick={save} data-say={WORDS.save.say}>
-        💵 {WORDS.save.text} {total > 0 ? `· ${formatMoney(total, currency)}` : ""}
+        <ICONS.sale size={20} aria-hidden="true" /> {WORDS.save.text} {total > 0 ? `· ${formatMoney(total, currency)}` : ""}
       </Button>
     </div>
   );

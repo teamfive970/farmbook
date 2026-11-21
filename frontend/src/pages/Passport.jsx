@@ -5,7 +5,10 @@ import { PageLoading } from "../components/ui.jsx";
 import { api } from "../lib/api.js";
 import { formatDate } from "../lib/format.js";
 import { activityMeta, farmMeta, formatFarmSize } from "../lib/labels.js";
-import { GRADES, QUALITY_CHECKS, growEmoji, unitText } from "../lib/words.js";
+import { CircleCheck, CircleX } from "lucide-react";
+import { CropIcon, GradeBadge } from "../components/Choices.jsx";
+import { ICONS } from "../lib/icons.js";
+import { GRADES, QUALITY_CHECKS, unitText } from "../lib/words.js";
 
 // Public Harvest Passport: what a buyer sees after scanning a batch's QR code.
 // No sign-in. Shows where the crop came from, the farm work before harvest and
@@ -26,7 +29,7 @@ export default function Passport() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-canvas px-6 text-center">
         <Brand to="/" />
-        <p className="text-4xl" aria-hidden="true">🔍</p>
+        <ICONS.search size={40} className="mx-auto text-ink-soft" aria-hidden="true" />
         <h1 className="text-xl font-bold text-ink">Passport not available</h1>
         <p className="max-w-sm text-sm text-ink-soft">{error}</p>
       </div>
@@ -50,7 +53,7 @@ export default function Passport() {
         <div className="rounded-2xl bg-white p-5 shadow-card">
           <p className="text-xs font-bold uppercase tracking-wide text-primary">Harvest Passport</p>
           <div className="mt-2 flex items-center gap-4">
-            <span className="text-5xl" aria-hidden="true">{growEmoji(passport.crop)}</span>
+            <CropIcon name={passport.crop} size={36} />
             <div>
               <h1 className="text-2xl font-bold text-ink">{passport.crop}</h1>
               <p className="text-sm text-ink-soft">
@@ -59,6 +62,7 @@ export default function Passport() {
               {passport.quantitySold > 0 && (
                 <p className="text-xs text-ink-soft">
                   {passport.quantitySold} {unitText(passport.unit)} already sold
+                  {passport.quantityLeft !== undefined ? ` · ${passport.quantityLeft} left` : ""}
                 </p>
               )}
             </div>
@@ -68,14 +72,16 @@ export default function Passport() {
         <div className="rounded-2xl bg-white p-5 shadow-card">
           <h2 className="text-sm font-bold text-ink">Where it was grown</h2>
           <p className="mt-2 text-sm text-ink">
-            📍 {[passport.farm.community, passport.farm.district, passport.farm.county].filter(Boolean).join(", ")}, Liberia
+            <ICONS.place size={14} className="mr-1 inline" aria-hidden="true" />
+            {[passport.farm.community, passport.farm.district, passport.farm.county].filter(Boolean).join(", ")}, Liberia
           </p>
           <p className="mt-1 text-sm text-ink-soft">
             {farmType.label}
             {formatFarmSize(passport.farm) ? ` · ${formatFarmSize(passport.farm)}` : ""}
           </p>
           <p className="mt-1 text-sm text-ink-soft">
-            👩🏾‍🌾 Farmer: {passport.farmer.firstName}
+            <ICONS.farmer size={14} className="mr-1 inline" aria-hidden="true" />
+            Farmer: {passport.farmer.firstName}
             {passport.farmer.groups.length > 0 ? ` · ${passport.farmer.groups.join(", ")}` : ""}
           </p>
         </div>
@@ -84,9 +90,9 @@ export default function Passport() {
           <h2 className="text-sm font-bold text-ink">Quality</h2>
           {grade ? (
             <>
-              <p className="mt-2 text-lg font-bold text-ink">
-                {grade.emoji} {grade.text}
-                <span className="ml-2 text-xs font-normal text-ink-soft">
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-lg font-bold text-ink">
+                <GradeBadge grade={passport.quality.grade} words={grade} size="lg" />
+                <span className="text-xs font-normal text-ink-soft">
                   checked {formatDate(passport.quality.checkedOn)}
                   {passport.quality.checkedBy ? ` by ${passport.quality.checkedBy}` : ""}
                 </span>
@@ -95,11 +101,12 @@ export default function Passport() {
                 {QUALITY_CHECKS.filter((check) => passport.quality.checks[check.value] !== undefined).map((check) => (
                   <span
                     key={check.value}
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
                       passport.quality.checks[check.value] ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
                     }`}
                   >
-                    {passport.quality.checks[check.value] ? "✓" : "✗"} {check.text}
+                    {passport.quality.checks[check.value] ? <CircleCheck size={12} aria-hidden="true" /> : <CircleX size={12} aria-hidden="true" />}{" "}
+                    {check.text}
                   </span>
                 ))}
               </div>

@@ -22,8 +22,20 @@ import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { newClientId, todayInputValue } from "../../lib/format.js";
+import { ANIMAL_PRODUCT_NAMES, farmYields, yieldChoices } from "../../lib/farmCrops.js";
 import { farmMeta } from "../../lib/labels.js";
-import { ANIMALS, CROPS, HARVEST_UNITS, STORAGE_PLACES, WORDS } from "../../lib/words.js";
+import { batchStatus } from "../../lib/ledger.js";
+import { ProductionChips } from "../../components/ActivityForm.jsx";
+import { productionsForFarm } from "../../lib/production.js";
+import { HARVEST_UNITS, STORAGE_PLACES, WORDS, growOption, unitText } from "../../lib/words.js";
+
+// A crop planting gives that crop; an animal group gives eggs or milk.
+function productionGives(production, crop) {
+  if (!crop) return true;
+  const wanted = String(crop).toLowerCase();
+  if (production.productionKind === "crop") return production.name.toLowerCase() === wanted;
+  return ANIMAL_PRODUCT_NAMES.some((name) => name.toLowerCase() === wanted);
+}
 
 // Put a harvest: one batch of a crop brought from a farm. Pictures only;
 // a helper can add notes under "Write it myself".
@@ -53,37 +65,45 @@ export default function HarvestForm() {
         unit: existing.unit,
         harvestDate: existing.harvestDate,
         storage: existing.storage || "",
-        notes: existing.notes || ""
+        notes: existing.notes || "",
+        productionClientId: existing.productionClientId || ""
       });
       return;
     }
     if (loading && farms.length === 0) return;
-    const wanted = params.get("farm");
+    const production = records.productions.find((item) => item.clientId === params.get("production"));
+    const wanted = production?.farmClientId || params.get("farm");
     const farm =
       farms.find((item) => item.clientId === wanted || item.id === wanted) || farms[0] || null;
     setForm({
       farmClientId: farm?.clientId || "",
-      crop: "",
+      productionClientId: production?.clientId || "",
+      crop: production?.productionKind === "crop" ? production.name : "",
       quantity: "",
       unit: "bags",
       harvestDate: todayInputValue(),
       storage: "",
       notes: ""
     });
-  }, [editing, existing, farms, loading, params, form]);
+  }, [editing, existing, farms, loading, params, form, records.productions]);
 
   const farm = farms.find((item) => item.clientId === form?.farmClientId);
-  // Crops this farm grows come first.
-  const cropChoices = useMemo(() => {
-    const all = [...CROPS, ...ANIMALS];
-    const grown = String(farm?.mainCropOrLivestock || "")
-      .split(",")
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean);
-    const first = all.filter((item) => grown.includes(item.value.toLowerCase()));
-    const rest = all.filter((item) => !grown.includes(item.value.toLowerCase()));
-    return [...first, ...rest];
-  }, [farm]);
+  // Only what this farm grows or raises can be harvested from it.
+  const cropChoices = useMemo(() => yieldChoices(farm).map((name) => growOption(name)), [farm]);
+  // After selling from a batch, its crop, unit and farm stay as they are, and
+  // it can't be made smaller than what was sold.
+  const sold = existing ? batchStatus(existing, records.sales, records.inspections).sold : 0;
+  const locked = sold > 0;
+  // A harvest can say which planting (or which animal group, for eggs and
+  // milk) it came from, so each one has its own record.
+  const productionChoices = productionsForFarm(farm, records.productions).filter(
+    (item) => item.status === "active" || item.clientId === form?.productionClientId
+  );
+
+  useEffect(() => {
+    if (!form || !farm || !form.crop || locked) return;
+    if (!farmYields(farm, form.crop)) setForm((current) => ({ ...current, crop: "" }));
+  }, [farm, form, locked]);
 
   if (loading && !form) return <PageLoading label="Opening…" />;
   if (editing && !existing) {
@@ -114,22 +134,44 @@ export default function HarvestForm() {
 
   const set = (field) => (value) => {
     setError("");
-    setForm((current) => ({ ...current, [field]: value ?? "" }));
+    setForm((current) => {
+      const next = { ...current, [field]: value ?? "" };
+      if (field === "farmClientId" && value !== current.farmClientId) next.productionClientId = "";
+      if (field === "crop") {
+        const chosen = records.productions.find((item) => item.clientId === current.productionClientId);
+        if (chosen && !productionGives(chosen, value)) next.productionClientId = "";
+      }
+      return next;
+    });
   };
+
+  function chooseProduction(id) {
+    setError("");
+    setForm((current) => {
+      if (current.productionClientId === id) return { ...current, productionClientId: "" };
+      const chosen = records.productions.find((item) => item.clientId === id);
+      const crop =
+        chosen.productionKind === "crop" ? chosen.name : productionGives(chosen, current.crop) ? current.crop : "";
+      return { ...current, productionClientId: id, crop };
+    });
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
     if (!form.farmClientId) return setError("Choose the farm.");
-    if (!form.crop) return setError("Touch the crop you harvest.");
-    if (form.quantity === "" || Number(form.quantity) <= 0) return setError("Touch plus to show how much you get.");
+    if (!form.crop) return setError("Choose the crop you harvested.");
+    if (!locked && !farmYields(farm, form.crop)) return setError(`${form.crop} is not on this farm. Add it to the farm first.`);
+    if (form.quantity === "" || Number(form.quantity) <= 0) return setError("Enter how much you harvested.");
+    if (Number(form.quantity) < sold) {
+      return setError(`You already sold ${sold} ${unitText(form.unit)} from this harvest. It can't be less than that.`);
+    }
     const payload = {
-      farmClientId: form.farmClientId,
-      crop: form.crop,
+      ...(locked ? {} : { farmClientId: form.farmClientId, crop: form.crop, unit: form.unit }),
       quantity: Number(form.quantity),
-      unit: form.unit,
       harvestDate: form.harvestDate,
       storage: form.storage || null,
-      notes: form.notes.trim() || null
+      notes: form.notes.trim() || null,
+      ...(locked ? {} : { productionClientId: form.productionClientId || null })
     };
     setBusy(true);
     try {
@@ -149,14 +191,21 @@ export default function HarvestForm() {
     <div>
       <PageHeader
         title={editing ? "Change harvest" : WORDS.addHarvest.text}
-        subtitle="Touch the pictures. You do not need to write."
+        subtitle="Tap the pictures. No typing needed."
         backTo={editing ? `/app/harvests/${clientId}` : "/app/harvests"}
         say={WORDS.addHarvest}
       />
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <ErrorBanner message={error} />
 
-        {farms.length > 1 && (
+        {locked && (
+          <p className="rounded-xl bg-primary-soft px-4 py-3 text-sm text-primary-dark" data-say="You already sold from this harvest, so only how much, the day and where you keep it can change.">
+            You already sold {sold} {unitText(form.unit)} from this harvest, so the farm, the crop and the unit stay
+            the same.
+          </p>
+        )}
+
+        {farms.length > 1 && !locked && (
           <Section title={WORDS.whichFarm}>
             <div className="grid grid-cols-2 gap-2">
               {farms.map((item) => {
@@ -177,28 +226,58 @@ export default function HarvestForm() {
           </Section>
         )}
 
-        <Section title={WORDS.whatCrop}>
-          <PictureGrid items={cropChoices} value={form.crop} onChange={set("crop")} columns={4} />
-        </Section>
+        {!locked && (
+          <Section title={WORDS.whatCrop}>
+            {cropChoices.length > 0 ? (
+              <>
+                <p className="-mt-1 mb-2 text-xs text-ink-soft">What {farm?.farmName || "this farm"} grows or raises.</p>
+                <PictureGrid items={cropChoices} value={form.crop} onChange={set("crop")} columns={4} />
+              </>
+            ) : (
+              <div className="rounded-xl bg-warning/10 px-4 py-3 text-sm text-amber-800" data-say="This farm has nothing on it yet. Add what you grow to the farm first.">
+                <p>This farm has no crops or animals on it yet. Add what you grow, then put the harvest.</p>
+                {farm && (
+                  <Link to={`/app/farms/${farm.id}/edit`} className={`${buttonClass("primary", "sm")} mt-3`}>
+                    Add what this farm grows
+                  </Link>
+                )}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {!locked && productionChoices.length > 0 && (
+          <Section title={WORDS.forWhich} hint="you can leave it">
+            <ProductionChips
+              items={productionChoices}
+              selected={form.productionClientId}
+              onPick={chooseProduction}
+            />
+          </Section>
+        )}
 
         <Section title={WORDS.harvestHowMuch}>
           <QuantityStepper value={form.quantity} onChange={set("quantity")} label="How much" />
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {HARVEST_UNITS.map((unit) => (
-              <ChoiceButton
-                key={unit.value}
-                words={unit}
-                selected={form.unit === unit.value}
-                onClick={() => set("unit")(unit.value)}
-                className="flex-col gap-0.5 py-1 text-xs"
-              >
-                <span className="text-2xl" aria-hidden="true">
-                  {unit.emoji}
-                </span>
-                {unit.text}
-              </ChoiceButton>
-            ))}
-          </div>
+          {locked ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              In {unitText(form.unit)}. At least {sold}, because that much is sold.
+            </p>
+          ) : (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {HARVEST_UNITS.map((unit) => (
+                <ChoiceButton
+                  key={unit.value}
+                  words={unit}
+                  selected={form.unit === unit.value}
+                  onClick={() => set("unit")(unit.value)}
+                  className="flex-col gap-0.5 py-1 text-xs"
+                >
+                  <unit.Icon size={22} aria-hidden="true" />
+                  {unit.text}
+                </ChoiceButton>
+              ))}
+            </div>
+          )}
         </Section>
 
         <DateChoice value={form.harvestDate} onChange={set("harvestDate")} />

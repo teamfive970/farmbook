@@ -3,8 +3,14 @@ import { useEffect, useState } from "react";
 import { Button, ErrorBanner, Field, Textarea, TextInput } from "./ui.jsx";
 import { PictureChip, SpeakButton } from "./Voice.jsx";
 import { formatDate, todayInputValue, yesterdayInputValue } from "../lib/format.js";
-import { ACTIVITY_TYPES, UNITS, activitySummary, farmMeta } from "../lib/labels.js";
-import { WORDS, inputChoices, phraseChoices } from "../lib/words.js";
+import { UNITS, activityMeta, activitySummary, farmMeta } from "../lib/labels.js";
+import { activityTypesForFarm, farmSupportsActivity, unitsForFarm } from "../lib/farmTypes.js";
+import { WORDS, growIcon, inputChoices, phraseChoices } from "../lib/words.js";
+import { productionTitle, productionsForFarm } from "../lib/production.js";
+
+// Feeding can use leftovers from a crop; fertilizer can be dung from animals.
+// Mixed farms record that link here (the guide's "resource movement").
+const SOURCE_KIND = { fertilizer_application: "animal", feeding: "crop" };
 
 // One screen, designed for farmers who read little and type less:
 //   1. farm (chosen for them when they have only one)
@@ -44,6 +50,34 @@ function ChoiceChip({ selected, onClick, children, className = "", words }) {
   );
 }
 
+export function ProductionChips({ items, selected, onPick }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {items.map((item) => {
+        const Icon = growIcon(item.name);
+        const isSelected = selected === item.clientId;
+        return (
+          <button
+            key={item.clientId}
+            type="button"
+            aria-pressed={isSelected}
+            data-say={productionTitle(item)}
+            onClick={() => onPick(item.clientId)}
+            className={`flex min-h-14 items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition ${
+              isSelected ? "border-primary bg-primary-soft" : "border-line bg-white hover:border-primary/40"
+            }`}
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-canvas text-ink">
+              <Icon size={18} aria-hidden="true" />
+            </span>
+            <span className="line-clamp-2 text-sm font-bold leading-tight text-ink">{productionTitle(item)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ActivityForm({
   farms,
   farmIdMap = {},
@@ -53,7 +87,9 @@ export default function ActivityForm({
   onSubmit,
   submitting = false,
   error = "",
-  offline = false
+  offline = false,
+  productions = [],
+  defaultProductionId = ""
 }) {
   const initialUnit = initial.unit || "";
   const [form, setForm] = useState({
@@ -64,7 +100,9 @@ export default function ActivityForm({
     inputUsed: initial.inputUsed || "",
     quantity: initial.quantity === null || initial.quantity === undefined ? "" : String(initial.quantity),
     unit: knownUnit(initialUnit) ? initialUnit.toLowerCase() : initialUnit,
-    notes: initial.notes || ""
+    notes: initial.notes || "",
+    productionClientId: initial.productionClientId || defaultProductionId || "",
+    sourceProductionClientId: initial.sourceProductionClientId || ""
   });
   const [dateMode, setDateMode] = useState(() => dateChoice(initial.activityDate));
   const [otherUnit, setOtherUnit] = useState(Boolean(initialUnit) && !knownUnit(initialUnit));
@@ -88,6 +126,37 @@ export default function ActivityForm({
   function set(field, value) {
     setValidationError("");
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function chooseFarm(farmId) {
+    setValidationError("");
+    const nextFarm = farms.find((farm) => farm.id === farmId);
+    const clearsType =
+      Boolean(form.activityType) &&
+      Boolean(nextFarm) &&
+      !farmSupportsActivity(nextFarm.farmType, form.activityType);
+    if (clearsType) {
+      setPhrases([]);
+      setOtherUnit(false);
+    }
+    setForm((current) => {
+      const allowType =
+        !current.activityType ||
+        !nextFarm ||
+        farmSupportsActivity(nextFarm.farmType, current.activityType);
+      const allowUnit =
+        !current.unit ||
+        !nextFarm ||
+        unitsForFarm(nextFarm.farmType).some((item) => item.value === current.unit);
+      return {
+        ...current,
+        farmId,
+        productionClientId: farmId === current.farmId ? current.productionClientId : "",
+        activityType: allowType ? current.activityType : "",
+        inputUsed: allowType ? current.inputUsed : "",
+        unit: allowType && allowUnit ? current.unit : ""
+      };
+    });
   }
 
   function update(field) {
@@ -114,10 +183,15 @@ export default function ActivityForm({
     setForm((current) => {
       const keepInput = inputChoices(value).some((item) => item.value === current.inputUsed);
       const typedInput = !inputChoices(current.activityType).some((item) => item.value === current.inputUsed);
+      const category = activityMeta(value).category;
+      const chosen = productions.find((item) => item.clientId === current.productionClientId);
+      const keepProduction = !chosen || category === "any" || chosen.productionKind === category;
       return {
         ...current,
         activityType: value,
-        inputUsed: keepInput || typedInput ? current.inputUsed : ""
+        inputUsed: keepInput || typedInput ? current.inputUsed : "",
+        productionClientId: keepProduction ? current.productionClientId : "",
+        sourceProductionClientId: SOURCE_KIND[value] ? current.sourceProductionClientId : ""
       };
     });
     const allowed = new Set(phraseChoices(value).map((item) => item.value));
@@ -141,9 +215,9 @@ export default function ActivityForm({
 
   function validate() {
     if (!form.farmId) return "Choose the farm.";
-    if (!form.activityType) return "Touch one picture to show the work you do.";
+    if (!form.activityType) return "Choose the work you did.";
     if (!form.activityDate) return "Choose the day.";
-    if (form.activityDate > todayInputValue()) return "That day never reach yet. Choose another day.";
+    if (form.activityDate > todayInputValue()) return "That date is in the future. Choose another day.";
     if (form.quantity !== "" && !(Number(form.quantity) >= 0)) return "The number must be 0 or more.";
     return "";
   }
@@ -164,7 +238,14 @@ export default function ActivityForm({
       inputUsed: form.inputUsed.trim() || null,
       quantity: form.quantity === "" ? null : Number(form.quantity),
       unit: form.quantity === "" ? null : form.unit.trim() || null,
-      notes: form.notes.trim() || null
+      notes: form.notes.trim() || null,
+      productionClientId: pickable.some((item) => item.clientId === form.productionClientId)
+        ? form.productionClientId
+        : null,
+      sourceProductionClientId:
+        sourceKind && sources.some((item) => item.clientId === form.sourceProductionClientId)
+          ? form.sourceProductionClientId
+          : null
     });
   }
 
@@ -176,6 +257,28 @@ export default function ActivityForm({
     : "";
   const inputs = inputChoices(form.activityType);
   const sentences = phraseChoices(form.activityType);
+  const selectedFarm = farms.find((farm) => farm.id === form.farmId);
+  const allowedTypes = activityTypesForFarm(selectedFarm?.farmType);
+  const typeChoices =
+    form.activityType && !allowedTypes.some((item) => item.value === form.activityType)
+      ? [...allowedTypes, activityMeta(form.activityType)]
+      : allowedTypes;
+  const unitChoices = unitsForFarm(selectedFarm?.farmType);
+  const workCategory = form.activityType ? activityMeta(form.activityType).category : "any";
+  const pickable = productionsForFarm(selectedFarm, productions).filter(
+    (item) =>
+      (item.status === "active" || item.clientId === form.productionClientId) &&
+      (workCategory === "any" || item.productionKind === workCategory)
+  );
+  const sourceKind = SOURCE_KIND[form.activityType] || "";
+  const sources = sourceKind
+    ? productions.filter(
+        (item) =>
+          item.productionKind === sourceKind &&
+          (item.status === "active" || item.clientId === form.sourceProductionClientId)
+      )
+    : [];
+  const sourceWords = sourceKind === "animal" ? WORDS.manureFrom : WORDS.leftoversFrom;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -200,7 +303,7 @@ export default function ActivityForm({
                   key={farm.id}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => set("farmId", farm.id)}
+                  onClick={() => chooseFarm(farm.id)}
                   className={`flex min-h-16 items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition ${
                     selected ? "border-primary bg-primary-soft" : "border-line bg-white hover:border-primary/40"
                   }`}
@@ -222,7 +325,7 @@ export default function ActivityForm({
       <section className="rounded-2xl bg-white p-4 shadow-card">
         <p className="label" data-say={WORDS.whatWork.say}>{WORDS.whatWork.text}</p>
         <div className="grid grid-cols-3 gap-2">
-          {ACTIVITY_TYPES.map(({ value, shortLabel, Icon, tone, words }) => {
+          {typeChoices.map(({ value, shortLabel, Icon, tone, words }) => {
             const selected = form.activityType === value;
             return (
               <button
@@ -248,6 +351,36 @@ export default function ActivityForm({
           })}
         </div>
       </section>
+
+      {/* 2b. Which planting or animal group (only when the farm has them) */}
+      {form.activityType && pickable.length > 0 && (
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={WORDS.forWhich.say}>
+            {WORDS.forWhich.text} <span className="font-normal text-ink-soft">(you can leave it)</span>
+          </p>
+          <ProductionChips
+            items={pickable}
+            selected={form.productionClientId}
+            onPick={(id) => set("productionClientId", form.productionClientId === id ? "" : id)}
+          />
+        </section>
+      )}
+
+      {/* 2c. Dung from my animals / leftovers from my crops */}
+      {sources.length > 0 && (
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={sourceWords.say}>
+            {sourceWords.text} <span className="font-normal text-ink-soft">(you can leave it)</span>
+          </p>
+          <ProductionChips
+            items={sources}
+            selected={form.sourceProductionClientId}
+            onPick={(id) =>
+              set("sourceProductionClientId", form.sourceProductionClientId === id ? "" : id)
+            }
+          />
+        </section>
+      )}
 
       {/* 3. Day */}
       <section className="rounded-2xl bg-white p-4 shadow-card">
@@ -320,7 +453,7 @@ export default function ActivityForm({
 
         {form.quantity !== "" && (
           <div className="mt-3 grid grid-cols-4 gap-2">
-            {UNITS.map(({ value, label, Icon, words }) => (
+            {unitChoices.map(({ value, label, Icon, words }) => (
               <ChoiceChip
                 key={value}
                 words={words}
@@ -414,7 +547,7 @@ export default function ActivityForm({
 
         {showWrite && (
           <div className="mt-4 space-y-4">
-            <Field label="What you use" htmlFor="inputUsed">
+            <Field label="What you used" htmlFor="inputUsed">
               <TextInput
                 id="inputUsed"
                 value={form.inputUsed}

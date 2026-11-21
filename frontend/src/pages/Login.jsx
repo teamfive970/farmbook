@@ -152,16 +152,16 @@ export default function Login({ standalone = false }) {
         <div className="mt-10">
           <div className="flex items-start justify-between gap-3">
             <h1 className="text-2xl font-bold text-ink">
-              {standalone ? "Welcome back" : showIdentity ? WORDS.pin.text : "Go inside"}
+              {standalone ? "Welcome back" : showIdentity ? WORDS.pin.text : "Enter"}
             </h1>
             {!standalone && <SpeakButton phrase={showIdentity ? WORDS.enterPinToSend : WORDS.phoneNumber} />}
           </div>
           <p className="mt-2 text-sm text-ink-soft">
             {knownFarmer
-              ? "Your work safe on this phone. Put your PIN one time so it can go on the internet."
+              ? "Your work is safe on this phone. Enter your PIN once so it can be sent."
               : standalone
                 ? "Sign in with your access code and PIN."
-                : "Put your phone number, then your PIN. Use the big numbers."}
+                : "Enter your phone number, then your PIN."}
           </p>
         </div>
 
@@ -169,7 +169,7 @@ export default function Login({ standalone = false }) {
           <div className="mt-4 flex gap-3 rounded-xl border border-line bg-white px-4 py-3">
             <WifiOff size={18} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden="true" />
             <p className="text-sm leading-relaxed text-ink-soft">
-              Network not there. You can still go inside with the PIN you used on this phone before.
+              Network not there. You can still enter the PIN you used on this phone before.
             </p>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { ClipboardList, House, KeyRound, Loader2, Smartphone, Sprout, UserRound, Users, Wallet } from "lucide-react";
+import { ClipboardList, Fence, House, KeyRound, Loader2, Smartphone, UserRound, Users, Wallet } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useSync } from "../contexts/SyncContext.jsx";
@@ -9,7 +9,7 @@ import { WORDS } from "../lib/words.js";
 
 const NAV = [
   { to: "/app", words: WORDS.navHome, Icon: House, end: true },
-  { to: "/app/farms", words: WORDS.navFarms, Icon: Sprout },
+  { to: "/app/farms", words: WORDS.navFarms, Icon: Fence },
   { to: "/app/history", words: WORDS.navRecords, Icon: ClipboardList },
   { to: "/app/money", words: WORDS.navMoney, Icon: Wallet },
   { to: "/app/profile", words: WORDS.navMe, Icon: UserRound }

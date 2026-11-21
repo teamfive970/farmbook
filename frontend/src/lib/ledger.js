@@ -1,12 +1,20 @@
 // Money and harvest numbers worked out on the phone, so they show offline.
-// Same rules as the server report (backend/src/services/reportService.js):
+// Same rules as the server report (backend/src/services/reportService.js),
+// and a backend test checks both give the same numbers:
+//   total sales    = value of sales made in the period (by sale day)
+//   total income   = money actually received in the period (by payment day)
+//   total expenses = farm costs in the period
+//   profit         = income − expenses
 // Liberian and US dollars are never added together.
 
 export const CURRENCY_LABEL = { LRD: "L$", USD: "US$" };
 
 export function formatMoney(amount, currency) {
   const value = Number(amount || 0);
-  const shown = Number.isInteger(value) ? value.toLocaleString("en-US") : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  // Cents are shown as two places (US$12.50), whole amounts without them.
+  const shown = Number.isInteger(value)
+    ? value.toLocaleString("en-US")
+    : value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${CURRENCY_LABEL[currency] || ""}${shown}`;
 }
 
@@ -72,10 +80,12 @@ export function moneySummary(records, period = {}) {
   const received = zero();
   const owed = zero();
   const spent = zero();
+  const counts = { sales: 0, expenses: 0, harvests: 0 };
   const salesByClientId = new Map(records.sales.map((sale) => [sale.clientId, sale]));
 
   for (const sale of records.sales) {
     if (!inRange(sale.saleDate, period)) continue;
+    counts.sales += 1;
     sold[sale.currency] = round(sold[sale.currency] + Number(sale.totalAmount || 0));
     owed[sale.currency] = round(owed[sale.currency] + saleStatus(sale, records.payments).owed);
   }
@@ -87,21 +97,142 @@ export function moneySummary(records, period = {}) {
   const byCategory = {};
   for (const expense of records.expenses) {
     if (!inRange(expense.expenseDate, period)) continue;
+    counts.expenses += 1;
     spent[expense.currency] = round(spent[expense.currency] + Number(expense.amount || 0));
     const key = `${expense.category}:${expense.currency}`;
     byCategory[key] = round((byCategory[key] || 0) + Number(expense.amount || 0));
   }
+  for (const harvest of records.harvests || []) {
+    if (inRange(harvest.harvestDate, period)) counts.harvests += 1;
+  }
   return {
     sold,
     received,
+    income: { ...received },
     owed,
     spent,
     profit: { LRD: round(received.LRD - spent.LRD), USD: round(received.USD - spent.USD) },
-    spentByCategory: Object.entries(byCategory).map(([key, total]) => {
-      const [category, currency] = key.split(":");
-      return { category, currency, total };
-    })
+    counts,
+    spentByCategory: Object.entries(byCategory)
+      .map(([key, total]) => {
+        const [category, currency] = key.split(":");
+        return { category, currency, total };
+      })
+      .sort((a, b) => b.total - a.total)
   };
+}
+
+// Money per farm: income from the sales of its harvests, minus the costs
+// recorded for that farm. Costs not tied to a farm are left out here.
+export function farmMoney(records, period = {}) {
+  const harvestFarm = new Map((records.harvests || []).map((item) => [item.clientId, item.farmClientId]));
+  const salesByClientId = new Map(records.sales.map((sale) => [sale.clientId, sale]));
+  const rows = new Map();
+  const row = (farmClientId, currency) => {
+    const key = `${farmClientId}:${currency}`;
+    if (!rows.has(key)) rows.set(key, { farmClientId, currency, sold: 0, income: 0, spent: 0 });
+    return rows.get(key);
+  };
+  for (const sale of records.sales) {
+    const farmClientId = harvestFarm.get(sale.harvestClientId);
+    if (!farmClientId || !inRange(sale.saleDate, period)) continue;
+    const target = row(farmClientId, sale.currency);
+    target.sold = round(target.sold + Number(sale.totalAmount || 0));
+  }
+  for (const payment of records.payments) {
+    const sale = salesByClientId.get(payment.saleClientId);
+    const farmClientId = sale && harvestFarm.get(sale.harvestClientId);
+    if (!farmClientId || !inRange(payment.paidDate, period)) continue;
+    const target = row(farmClientId, sale.currency);
+    target.income = round(target.income + Number(payment.amount || 0));
+  }
+  for (const expense of records.expenses) {
+    if (!expense.farmClientId || !inRange(expense.expenseDate, period)) continue;
+    const target = row(expense.farmClientId, expense.currency);
+    target.spent = round(target.spent + Number(expense.amount || 0));
+  }
+  return [...rows.values()].map((item) => ({ ...item, profit: round(item.income - item.spent) }));
+}
+
+// Money per harvest batch: what its sales were worth, what came in, and the
+// costs recorded for that batch. Profit = income − costs, like everywhere.
+export function batchMoney(records, period = {}) {
+  const harvests = new Map((records.harvests || []).map((item) => [item.clientId, item]));
+  const salesByClientId = new Map(records.sales.map((sale) => [sale.clientId, sale]));
+  const rows = new Map();
+  const row = (harvest, currency) => {
+    const key = `${harvest.clientId}:${currency}`;
+    if (!rows.has(key)) {
+      rows.set(key, {
+        harvestClientId: harvest.clientId,
+        farmClientId: harvest.farmClientId,
+        crop: harvest.crop,
+        currency,
+        sold: 0,
+        income: 0,
+        spent: 0
+      });
+    }
+    return rows.get(key);
+  };
+  for (const sale of records.sales) {
+    const harvest = harvests.get(sale.harvestClientId);
+    if (!harvest) continue;
+    const target = row(harvest, sale.currency);
+    if (inRange(sale.saleDate, period)) target.sold = round(target.sold + Number(sale.totalAmount || 0));
+  }
+  for (const expense of records.expenses) {
+    const harvest = harvests.get(expense.harvestClientId);
+    if (!harvest || !inRange(expense.expenseDate, period)) continue;
+    const target = row(harvest, expense.currency);
+    target.spent = round(target.spent + Number(expense.amount || 0));
+  }
+  for (const payment of records.payments) {
+    const sale = salesByClientId.get(payment.saleClientId);
+    const harvest = sale && harvests.get(sale.harvestClientId);
+    if (!harvest || !inRange(payment.paidDate, period)) continue;
+    const key = `${harvest.clientId}:${sale.currency}`;
+    if (rows.has(key)) rows.get(key).income = round(rows.get(key).income + Number(payment.amount || 0));
+  }
+  return [...rows.values()]
+    .map((item) => ({ ...item, profit: round(item.income - item.spent) }))
+    .filter((item) => item.sold || item.income || item.spent);
+}
+
+// Money per crop planting or animal group (same rules as the server's
+// byProduction): its sales, income, costs and profit. A sale or cost made
+// from a harvest batch counts for that batch's planting or group.
+export function productionMoney(records, period = {}) {
+  const harvests = new Map((records.harvests || []).map((item) => [item.clientId, item]));
+  const productionOf = (record) =>
+    record.productionClientId || harvests.get(record.harvestClientId)?.productionClientId || null;
+  const saleProduction = new Map(records.sales.map((sale) => [sale.clientId, { sale, production: productionOf(sale) }]));
+  const rows = new Map();
+  const row = (productionClientId, currency) => {
+    const key = `${productionClientId}:${currency}`;
+    if (!rows.has(key)) rows.set(key, { productionClientId, currency, sold: 0, income: 0, spent: 0 });
+    return rows.get(key);
+  };
+  for (const { sale, production } of saleProduction.values()) {
+    if (!production || !inRange(sale.saleDate, period)) continue;
+    const target = row(production, sale.currency);
+    target.sold = round(target.sold + Number(sale.totalAmount || 0));
+  }
+  for (const payment of records.payments) {
+    const found = saleProduction.get(payment.saleClientId);
+    if (!found?.production || !inRange(payment.paidDate, period)) continue;
+    const target = row(found.production, found.sale.currency);
+    target.income = round(target.income + Number(payment.amount || 0));
+  }
+  for (const expense of records.expenses) {
+    const production = productionOf(expense);
+    if (!production || !inRange(expense.expenseDate, period)) continue;
+    const target = row(production, expense.currency);
+    target.spent = round(target.spent + Number(expense.amount || 0));
+  }
+  return [...rows.values()]
+    .map((item) => ({ ...item, profit: round(item.income - item.spent) }))
+    .filter((item) => item.sold || item.income || item.spent);
 }
 
 export function periodFor(choice) {
@@ -115,7 +246,7 @@ export function periodFor(choice) {
 
 export function usedCurrencies(summary) {
   const used = ["LRD", "USD"].filter((currency) =>
-    ["sold", "received", "owed", "spent"].some((field) => summary[field][currency] !== 0)
+    ["sold", "received", "spent"].some((field) => summary[field][currency] !== 0)
   );
   return used.length ? used : ["LRD"];
 }

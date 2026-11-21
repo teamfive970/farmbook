@@ -10,6 +10,48 @@ import {
   requireUuid
 } from "../lib/validation.js";
 
+// What a farm grows or raises: a list such as ["Rice", "Cassava"]. Older
+// phones send one text ("Rice, Cassava"), which is split the same way.
+export function splitCrops(text) {
+  return String(text || "")
+    .split(/\s*(?:,|&|\/|\band\b)\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+export function normalizeCrops(list) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of list) {
+    if (typeof raw !== "string") throw badRequest("Each crop or animal must be a word.", { field: "crops" });
+    const name = raw.trim().replace(/\s+/g, " ");
+    if (!name) continue;
+    if (name.length > 60) throw badRequest("A crop or animal name is too long.", { field: "crops" });
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name[0].toUpperCase() + name.slice(1));
+  }
+  if (out.length > 20) throw badRequest("Choose 20 crops or animals or fewer.", { field: "crops" });
+  return out;
+}
+
+export function farmGrows(farm, crop) {
+  const wanted = String(crop || "").trim().toLowerCase();
+  return (farm.crops || []).some((item) => item.toLowerCase() === wanted);
+}
+
+// What animals give (eggs, milk) can be recorded from any farm that keeps
+// animals, as well as anything on the farm's own list.
+export const ANIMAL_PRODUCTS = ["Eggs", "Milk"];
+const ANIMAL_FARM_TYPES = new Set(["livestock", "poultry", "mixed_farming", "other"]);
+
+export function farmYields(farm, crop) {
+  if (farmGrows(farm, crop)) return true;
+  const wanted = String(crop || "").trim().toLowerCase();
+  return ANIMAL_FARM_TYPES.has(farm.farm_type) && ANIMAL_PRODUCTS.some((item) => item.toLowerCase() === wanted);
+}
+
 export function serializeFarm(row) {
   return {
     id: row.id,
@@ -21,10 +63,15 @@ export function serializeFarm(row) {
     community: row.community,
     farmType: row.farm_type,
     mainCropOrLivestock: row.main_crop_or_livestock,
+    crops: Array.isArray(row.crops) ? row.crops : [],
     description: row.description,
     size: row.size === null || row.size === undefined ? null : Number(row.size),
     sizeUnit: row.size_unit ?? null,
     activityCount: row.activity_count === undefined ? undefined : Number(row.activity_count),
+    // When the farm changed from crop to animal or mixed (records are kept).
+    typeChanges: Array.isArray(row.type_changes)
+      ? row.type_changes.map((item) => ({ fromType: item.from_type, toType: item.to_type, changedAt: item.changed_at }))
+      : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -33,7 +80,10 @@ export function serializeFarm(row) {
 const SELECT_FARM = `
   SELECT f.*,
     (SELECT count(*) FROM farm_activities a
-      WHERE a.farm_id = f.id AND a.deleted_at IS NULL) AS activity_count
+      WHERE a.farm_id = f.id AND a.deleted_at IS NULL) AS activity_count,
+    (SELECT COALESCE(json_agg(json_build_object('from_type', c.from_type, 'to_type', c.to_type, 'changed_at', c.changed_at)
+        ORDER BY c.changed_at), '[]'::json)
+      FROM farm_type_changes c WHERE c.farm_id = f.id) AS type_changes
   FROM farms f`;
 
 export async function listFarms(farmerId) {
@@ -78,11 +128,17 @@ function farmFields(body, { partial = false } = {}) {
   if (!partial || body.farmType !== undefined) {
     fields.farm_type = requireEnum(body.farmType, FARM_TYPES, "farmType", "farm type");
   }
-  if (!partial || body.mainCropOrLivestock !== undefined) {
+  // Crops: the list wins; the old single text is still accepted.
+  if (body.crops !== undefined && body.crops !== null) {
+    if (!Array.isArray(body.crops)) throw badRequest("Crops must be a list.", { field: "crops" });
+    fields.crops = normalizeCrops(body.crops);
+    fields.main_crop_or_livestock = fields.crops.join(", ").slice(0, 120) || null;
+  } else if (!partial || body.mainCropOrLivestock !== undefined) {
     fields.main_crop_or_livestock = optionalString(body.mainCropOrLivestock, "mainCropOrLivestock", {
       max: 120,
       label: "Main crop or livestock"
     });
+    fields.crops = normalizeCrops(splitCrops(fields.main_crop_or_livestock));
   }
   if (!partial || body.description !== undefined) {
     fields.description = optionalString(body.description, "description", { max: 1000 });
@@ -114,8 +170,8 @@ export async function createFarm(farmerId, body = {}) {
   const { rows } = await query(
     `INSERT INTO farms
       (farmer_id, client_id, farm_name, county, district, community, farm_type,
-       main_crop_or_livestock, description, size, size_unit)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       main_crop_or_livestock, description, size, size_unit, crops)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (farmer_id, client_id) DO NOTHING
      RETURNING *`,
     [
@@ -129,7 +185,8 @@ export async function createFarm(farmerId, body = {}) {
       fields.main_crop_or_livestock,
       fields.description,
       fields.size,
-      fields.size_unit
+      fields.size_unit,
+      fields.crops
     ]
   );
   if (rows[0]) {
@@ -157,6 +214,7 @@ export async function updateFarm(farmerId, farmId, body = {}) {
   const values = entries.map(([, value]) => value);
   values.push(farmId, farmerId);
 
+  const before = await query("SELECT farm_type FROM farms WHERE id = $1 AND farmer_id = $2", [farmId, farmerId]);
   const { rows } = await query(
     `UPDATE farms SET ${assignments.join(", ")}, updated_at = now()
      WHERE id = $${values.length - 1} AND farmer_id = $${values.length}
@@ -164,5 +222,15 @@ export async function updateFarm(farmerId, farmId, body = {}) {
     values
   );
   if (!rows[0]) throw notFound("Farm not found.");
+  // The guide: a farm can change type without losing anything. Old records
+  // stay as they are; the change itself is written down.
+  if (fields.farm_type && before.rows[0] && before.rows[0].farm_type !== fields.farm_type) {
+    await query("INSERT INTO farm_type_changes (farm_id, farmer_id, from_type, to_type) VALUES ($1, $2, $3, $4)", [
+      farmId,
+      farmerId,
+      before.rows[0].farm_type,
+      fields.farm_type
+    ]);
+  }
   return getFarm(farmerId, farmId);
 }

@@ -35,6 +35,9 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Welcome from "./pages/Welcome.jsx";
 import WhoIsUsing from "./pages/WhoIsUsing.jsx";
+import Buyers, { BuyerForm } from "./pages/farmer/Buyers.jsx";
+import Report from "./pages/farmer/Report.jsx";
+import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -84,6 +87,11 @@ export default function App() {
             <Route path="farms/new" element={<FarmForm />} />
             <Route path="farms/:farmId" element={<FarmDetail />} />
             <Route path="farms/:farmId/edit" element={<FarmForm />} />
+            <Route path="farms/:farmId/productions/new" element={<ProductionForm />} />
+            <Route path="productions/:clientId" element={<ProductionDetail />} />
+            <Route path="productions/:clientId/edit" element={<ProductionForm />} />
+            <Route path="productions/:clientId/animals/new" element={<AnimalEventForm />} />
+            <Route path="animal-events/:eventId" element={<AnimalEventForm />} />
             <Route path="record" element={<RecordActivity />} />
             <Route path="history" element={<History />} />
             <Route path="activities/:clientId" element={<ActivityDetail />} />
@@ -95,9 +103,15 @@ export default function App() {
             <Route path="harvests/:clientId" element={<HarvestDetail />} />
             <Route path="harvests/:clientId/edit" element={<HarvestForm />} />
             <Route path="harvests/:clientId/check" element={<InspectionForm />} />
+            <Route path="harvests/:clientId/check/:checkId" element={<InspectionForm />} />
             <Route path="money" element={<Money />} />
             <Route path="money/sell" element={<SaleForm />} />
             <Route path="money/sales/:clientId" element={<SaleDetail />} />
+            <Route path="money/sales/:clientId/edit" element={<SaleForm />} />
+            <Route path="report" element={<Report />} />
+            <Route path="money/buyers" element={<Buyers />} />
+            <Route path="money/buyers/new" element={<BuyerForm />} />
+            <Route path="money/buyers/:clientId" element={<BuyerForm />} />
             <Route path="money/spend" element={<ExpenseForm />} />
             <Route path="money/spend/:clientId" element={<ExpenseForm />} />
             <Route path="group" element={<Group />} />
