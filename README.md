@@ -1,19 +1,23 @@
-# Farmbook
+# React + Vite + Tailwind CSS v4
 
-**Team 5 · RETRAP AgTech Innovation Hackathon · Challenge 2: Digital Farm Records & Quality Management**
+A clean frontend starter for the Farmbook/Minders project.
 
-An offline, picture-based phone ledger for smallholder crop farmers in Liberia. Each farm activity is recorded **once**, with **no reading or typing**, and that single record:
+## Requirements
+- Node.js 20 or newer
+- npm
 
-1. **Builds the farmer's ledger:** activity, costs, harvest and sales.
-2. **Shows their profit:** money in, money out and profit for the season, read aloud.
-3. **Creates a trace for buyers:** a QR code per sold batch, linked to the plot's GPS outline, activities and dates. For export crops (cocoa, coffee, rubber, palm oil) this supports the EU deforestation rules (EUDR).
+## Start the frontend
 
-## The problem
+~~~bash
+cd frontend
+npm install
+npm run dev
+~~~
 
-Smallholder farmers either keep no farm records, or keep them so disorganised they can't be used. So they can't see whether they're making money, repeat what worked, or prove to buyers where and how their crop was grown.
+## Build for production
 
+~~~bash
+npm run build
+~~~
 
-## License
-
-MIT. See [LICENSE](LICENSE).
-
+The frontend uses React, Vite and Tailwind CSS v4. Edit `frontend/src/App.jsx` to begin building the application.
