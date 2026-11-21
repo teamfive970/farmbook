@@ -3,12 +3,20 @@ import { ApiError } from "./api.js";
 
 // Offline sign-in needs a way to check the PIN without the server. We keep a
 // salted PBKDF2 verifier on the device after a successful online sign-in; the
-// PIN itself is never stored, and five wrong tries lock the device until the
-// farmer signs in online again.
+// PIN itself is never stored. After five wrong tries the phone asks the farmer
+// to wait a few minutes (growing to at most an hour) instead of locking until
+// they find a connection, which could be days away in the field.
 const DB_NAME = "minders-auth";
 const STORE = "accounts";
 const ITERATIONS = 210000;
 const MAX_ATTEMPTS = 5;
+const BASE_WAIT_MS = 5 * 60 * 1000;
+const MAX_WAIT_MS = 60 * 60 * 1000;
+
+function waitMessage(until) {
+  const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60000));
+  return `Too many wrong tries. Please wait ${minutes} ${minutes === 1 ? "minute" : "minutes"} and try again.`;
+}
 const KEY_BYTES = 32;
 const SALT_BYTES = 16;
 
@@ -93,7 +101,7 @@ export async function rememberOfflineLogin(identifier, pin, user) {
     hash: toBase64(hash),
     iterations: ITERATIONS,
     failedAttempts: 0,
-    locked: false,
+    lockedUntil: 0,
     updatedAt: Date.now()
   });
 }
@@ -126,36 +134,68 @@ export async function signInOffline(identifier, pin) {
     );
   }
 
-  if (account.locked) {
-    throw new ApiError(
-      0,
-      "OFFLINE_SIGN_IN_LOCKED",
-      "Too many wrong PINs. Connect to the internet and sign in to unlock this phone."
-    );
+  // Older builds stored a permanent `locked` flag; treat it as a short wait.
+  const lockedUntil = account.lockedUntil || (account.locked ? account.updatedAt + BASE_WAIT_MS : 0);
+  if (lockedUntil > Date.now()) {
+    throw new ApiError(429, "ACCOUNT_LOCKED", waitMessage(lockedUntil), {
+      retryAfterSeconds: Math.ceil((lockedUntil - Date.now()) / 1000)
+    });
   }
 
   const candidate = await derive(pin, fromBase64(account.salt), account.iterations || ITERATIONS);
   if (!sameBytes(candidate, fromBase64(account.hash))) {
     const failedAttempts = (account.failedAttempts || 0) + 1;
-    const locked = failedAttempts >= MAX_ATTEMPTS;
-    await (await authDb()).put(STORE, { ...account, failedAttempts, locked, updatedAt: Date.now() });
-    if (locked) {
-      throw new ApiError(
-        401,
-        "INVALID_CREDENTIALS",
-        "That PIN is not correct. Connect to the internet to unlock this phone."
-      );
+    let nextLock = 0;
+    if (failedAttempts >= MAX_ATTEMPTS) {
+      nextLock = Date.now() + Math.min(MAX_WAIT_MS, BASE_WAIT_MS * 2 ** (failedAttempts - MAX_ATTEMPTS));
+    }
+    await (await authDb()).put(STORE, {
+      ...account,
+      failedAttempts,
+      locked: false,
+      lockedUntil: nextLock,
+      updatedAt: Date.now()
+    });
+    if (nextLock) {
+      throw new ApiError(429, "ACCOUNT_LOCKED", waitMessage(nextLock), {
+        retryAfterSeconds: Math.ceil((nextLock - Date.now()) / 1000)
+      });
     }
     const left = MAX_ATTEMPTS - failedAttempts;
     throw new ApiError(
       401,
       "INVALID_CREDENTIALS",
-      `That PIN is not correct. ${left} ${left === 1 ? "try" : "tries"} left before you must sign in online.`
+      `That PIN is not correct. ${left} ${left === 1 ? "try" : "tries"} left before you must wait.`
     );
   }
 
-  if (account.failedAttempts > 0 || account.locked) {
-    await (await authDb()).put(STORE, { ...account, failedAttempts: 0, locked: false, updatedAt: Date.now() });
+  if (account.failedAttempts > 0 || account.locked || account.lockedUntil) {
+    await (await authDb()).put(STORE, {
+      ...account,
+      failedAttempts: 0,
+      locked: false,
+      lockedUntil: 0,
+      updatedAt: Date.now()
+    });
   }
   return account.profile;
+}
+
+// Keeps the offline profile (name, county…) current after an online check, so
+// an offline sign-in shows the latest details. The PIN check is unchanged.
+export async function refreshOfflineProfile(user) {
+  if (!user || user.role !== "farmer" || !user.phoneNumber) return;
+  const db = await authDb();
+  const key = normalizeIdentifier(user.phoneNumber);
+  const account = await db.get(STORE, key);
+  if (!account || account.userId !== user.id) return;
+  await db.put(STORE, { ...account, profile: user, updatedAt: Date.now() });
+}
+
+// Removes offline sign-in for a deactivated account. Saved records stay on the
+// phone (they belong to the farmer) but cannot be opened without the server.
+export async function forgetOfflineLogin(identifier) {
+  if (!identifier) return;
+  const db = await authDb();
+  await db.delete(STORE, normalizeIdentifier(identifier));
 }

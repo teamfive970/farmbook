@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Settings, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, Network, Settings, Users } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import Brand from "./Brand.jsx";
@@ -6,6 +6,7 @@ import Brand from "./Brand.jsx";
 const NAV = [
   { to: "/admin", label: "Overview", Icon: LayoutDashboard, end: true },
   { to: "/admin/farmers", label: "Farmers", Icon: Users },
+  { to: "/admin/cooperatives", label: "Cooperatives", Icon: Network },
   { to: "/admin/settings", label: "Settings", Icon: Settings }
 ];
 

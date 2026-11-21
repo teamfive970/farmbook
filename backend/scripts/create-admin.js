@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { pool, query } from "../src/config/database.js";
 import { encryptSecret, encryptionAvailable } from "../src/lib/crypto.js";
 import { normalizePhone } from "../src/lib/phone.js";
@@ -18,7 +19,7 @@ function parseArgs(argv) {
 }
 
 function randomPin() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 async function main() {
@@ -32,7 +33,7 @@ async function main() {
   const name = typeof args.name === "string" ? args.name.trim() : "";
   if (name.length < 2) {
     console.error(
-      'Usage: npm run admin:create -- --name "Admin Name" [--code MND-XXXXXX] [--pin 123456] [--phone 0770000000] [--question mother_first_name --answer "..."]'
+      'Usage: npm run admin:create -- --name "Admin Name" [--code MND-XXXXXX] [--pin <6 digits>] [--phone 0770000000] [--question mother_first_name --answer "..."]'
     );
     process.exitCode = 1;
     return;
@@ -46,8 +47,8 @@ async function main() {
   }
 
   const pin = args.pin ? String(args.pin) : randomPin();
-  if (!validatePinFormat(pin)) {
-    console.error("Invalid PIN. Use 4 to 6 digits.");
+  if (!validatePinFormat(pin) || pin.length !== 6) {
+    console.error("Invalid PIN. Admin PINs must be 6 digits. Leave out --pin to generate one.");
     process.exitCode = 1;
     return;
   }

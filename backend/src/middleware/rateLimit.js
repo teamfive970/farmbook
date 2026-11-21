@@ -20,3 +20,5 @@ const options = {
 export const loginLimiter = rateLimit({ ...options, limit: 20 });
 export const registerLimiter = rateLimit({ ...options, limit: 30 });
 export const smsLimiter = rateLimit({ ...options, limit: 5 });
+// Signed-in actions that confirm the current PIN (change PIN, reveal access code…).
+export const pinCheckLimiter = rateLimit({ ...options, limit: 20 });

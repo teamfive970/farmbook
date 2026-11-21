@@ -1,4 +1,5 @@
 import { ClipboardList, Filter, Plus, SlidersHorizontal, X } from "lucide-react";
+import { WORDS } from "../../lib/words.js";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import ActivityItem from "../../components/ActivityItem.jsx";
@@ -48,8 +49,9 @@ export default function History() {
   return (
     <div>
       <PageHeader
-        title="Records"
-        subtitle="All your farm activity, newest first."
+        title={WORDS.navRecords.text}
+        subtitle="All the work you did. The newest one on top."
+        say={WORDS.navRecords}
         action={
           <Link to="/app/record" className={buttonClass("primary", "sm", "shrink-0")}>
             <Plus size={16} /> Record

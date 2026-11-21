@@ -1,7 +1,9 @@
 import { query } from "../config/database.js";
-import { COUNTIES, FARM_TYPES } from "../lib/constants.js";
+import { COUNTIES, FARM_TYPES, SIZE_UNITS } from "../lib/constants.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import {
+  optionalEnum,
+  optionalNumber,
   optionalString,
   requireEnum,
   requireString,
@@ -20,6 +22,8 @@ export function serializeFarm(row) {
     farmType: row.farm_type,
     mainCropOrLivestock: row.main_crop_or_livestock,
     description: row.description,
+    size: row.size === null || row.size === undefined ? null : Number(row.size),
+    sizeUnit: row.size_unit ?? null,
     activityCount: row.activity_count === undefined ? undefined : Number(row.activity_count),
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -83,6 +87,17 @@ function farmFields(body, { partial = false } = {}) {
   if (!partial || body.description !== undefined) {
     fields.description = optionalString(body.description, "description", { max: 1000 });
   }
+  // Farm size is optional. A size needs a unit, and a unit needs a size.
+  if (!partial || body.size !== undefined) {
+    fields.size = optionalNumber(body.size, "size", { min: 0, max: 100000, label: "Farm size" });
+  }
+  if (!partial || body.sizeUnit !== undefined) {
+    fields.size_unit = optionalEnum(body.sizeUnit, SIZE_UNITS, "sizeUnit", "size unit");
+  }
+  if (fields.size !== undefined && fields.size !== null && !fields.size_unit && !partial) {
+    throw badRequest("Choose acres, hectares or lots for the farm size.", { field: "sizeUnit" });
+  }
+  if (fields.size === null && fields.size_unit) fields.size_unit = null;
   return fields;
 }
 
@@ -99,8 +114,8 @@ export async function createFarm(farmerId, body = {}) {
   const { rows } = await query(
     `INSERT INTO farms
       (farmer_id, client_id, farm_name, county, district, community, farm_type,
-       main_crop_or_livestock, description)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       main_crop_or_livestock, description, size, size_unit)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      ON CONFLICT (farmer_id, client_id) DO NOTHING
      RETURNING *`,
     [
@@ -112,7 +127,9 @@ export async function createFarm(farmerId, body = {}) {
       fields.community,
       fields.farm_type,
       fields.main_crop_or_livestock,
-      fields.description
+      fields.description,
+      fields.size,
+      fields.size_unit
     ]
   );
   if (rows[0]) {

@@ -42,12 +42,12 @@ export async function request(path, { method = "GET", body, token, headers = {} 
   }
 
   if (!response.ok) {
-    if (
-      response.status === 401 &&
-      !path.startsWith("/api/auth/login") &&
-      !path.startsWith("/api/auth/register")
-    ) {
+    // Only a request that carried a session can mean "this session ended".
+    if (response.status === 401 && token) {
       window.dispatchEvent(new Event("minders:session-expired"));
+    }
+    if (response.status === 403 && payload?.error?.code === "ACCOUNT_INACTIVE") {
+      window.dispatchEvent(new Event("minders:account-inactive"));
     }
     throw new ApiError(
       response.status,

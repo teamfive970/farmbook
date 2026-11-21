@@ -1,5 +1,11 @@
 import { api, ApiError } from "./api.js";
 import {
+  getLocalRecord,
+  putLocalRecord,
+  removeLocalRecord,
+  replaceServerRecords
+} from "./localStore.js";
+import {
   cacheFarms,
   deleteCachedFarm,
   enqueueOperation,
@@ -18,6 +24,22 @@ import {
 
 function toLocal(record) {
   return { ...record, syncStatus: "synced", syncError: null };
+}
+
+// Problems that are not about the record itself: no signal, the session needs
+// a PIN again, or the server is busy or down. The queue pauses and tries again
+// later on its own; the farmer never has to press "retry" for these.
+export function shouldPauseSync(error) {
+  if (!(error instanceof ApiError)) return true;
+  return (
+    error.isNetworkError ||
+    error.status === 401 ||
+    error.status === 403 ||
+    error.status === 408 ||
+    error.status === 425 ||
+    error.status === 429 ||
+    error.status >= 500
+  );
 }
 
 export function payloadFromRecord(record) {
@@ -61,13 +83,16 @@ export async function refreshFarms(userId, token) {
   return farms;
 }
 
+// Downloads the farmer's whole history so every record stays readable offline.
+// If any page fails, nothing on the phone is replaced.
 export async function refreshActivities(userId, token) {
   const items = [];
+  const pageSize = 50;
   let page = 1;
-  while (page <= 5) {
-    const result = await api.get(`/api/activities?page=${page}&pageSize=50`, { token });
+  for (;;) {
+    const result = await api.get(`/api/activities?page=${page}&pageSize=${pageSize}`, { token });
     items.push(...result.items);
-    if (result.items.length === 0 || items.length >= result.pagination.total) break;
+    if (result.items.length < pageSize || items.length >= result.pagination.total) break;
     page += 1;
   }
   return replaceServerActivities(userId, items);
@@ -180,12 +205,21 @@ async function rekeyFarm(userId, localId, serverFarm) {
 
   const operations = await getQueue(userId);
   for (const operation of operations) {
-    if (operation.entity !== "farm" && operation.payload?.farmId === localId) {
-      await enqueueOperation(userId, {
-        ...operation,
-        payload: { ...operation.payload, farmId: serverFarm.id }
-      });
-    }
+    // Only work records point at farms by temporary id; newer records use the
+    // farm's clientId, which never changes.
+    if (operation.entity) continue;
+    const payload = operation.payload || {};
+    const pointsAtLocal = payload.farmId === localId;
+    const changePointsAtLocal = payload.changes?.farmId === localId;
+    if (!pointsAtLocal && !changePointsAtLocal) continue;
+    await enqueueOperation(userId, {
+      ...operation,
+      payload: {
+        ...payload,
+        ...(pointsAtLocal ? { farmId: serverFarm.id } : {}),
+        ...(changePointsAtLocal ? { changes: { ...payload.changes, farmId: serverFarm.id } } : {})
+      }
+    });
   }
 
   const map = await getFarmIdMap(userId);
@@ -230,11 +264,18 @@ export async function saveActivityChanges(userId, record, changes) {
       enqueuedAt: Date.now()
     });
   } else {
+    // Merge with an edit that has not been sent yet, so no change is lost.
+    const existing = (await getQueue(userId)).find(
+      (operation) =>
+        !operation.entity &&
+        operation.clientId === updated.clientId &&
+        operation.kind === "update"
+    );
     await enqueueOperation(userId, {
       clientId: updated.clientId,
       kind: "update",
-      payload: { id: current.id, changes },
-      enqueuedAt: Date.now()
+      payload: { id: current.id, changes: { ...(existing?.payload?.changes || {}), ...changes } },
+      enqueuedAt: existing?.enqueuedAt || Date.now()
     });
   }
   return updated;
@@ -299,10 +340,7 @@ async function flushFarmOperation(userId, operation, token, onChange) {
     await removeQueueOperation(userId, operation.clientId);
     return "synced";
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      (error.isNetworkError || error.status === 401 || error.status === 403)
-    ) {
+    if (shouldPauseSync(error)) {
       if (local) await upsertCachedFarm(userId, { ...local, syncStatus: "pending" });
       return "halt";
     }
@@ -327,7 +365,12 @@ async function flushActivityOperation(userId, operation, token, onChange) {
   try {
     if (operation.kind === "create") {
       const result = await api.post("/api/activities", operation.payload, { token });
-      await putActivity(userId, toLocal(result.activity));
+      if (result.deleted) {
+        // This record was deleted after an earlier send; keep it deleted.
+        await removeActivity(userId, operation.clientId);
+      } else {
+        await putActivity(userId, toLocal(result.activity));
+      }
       await removeQueueOperation(userId, operation.clientId);
     } else if (operation.kind === "update") {
       const result = await api.patch(
@@ -348,10 +391,7 @@ async function flushActivityOperation(userId, operation, token, onChange) {
     }
     return "synced";
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      (error.isNetworkError || error.status === 401 || error.status === 403)
-    ) {
+    if (shouldPauseSync(error)) {
       if (local) await putActivity(userId, { ...local, syncStatus: "pending" });
       return "halt";
     }
@@ -378,14 +418,188 @@ export async function flushQueue(userId, token, onChange) {
       if ((await flushFarmOperation(userId, operation, token, onChange)) === "halt") return;
     }
 
-    const activityOperations = (await getQueue(userId)).filter(
-      (operation) => operation.entity !== "farm"
-    );
+    const activityOperations = (await getQueue(userId)).filter((operation) => !operation.entity);
     for (const operation of activityOperations) {
       if ((await flushActivityOperation(userId, operation, token, onChange)) === "halt") return;
     }
+
+    // Harvests, buyers, quality checks, sales, payments, expenses: parents first.
+    const recordOperations = (await getQueue(userId))
+      .filter((operation) => operation.entity === "record")
+      .sort(
+        (a, b) =>
+          RECORD_ORDER.indexOf(a.resource) - RECORD_ORDER.indexOf(b.resource) ||
+          a.enqueuedAt - b.enqueuedAt
+      );
+    for (const operation of recordOperations) {
+      if ((await flushRecordOperation(userId, operation, token, onChange)) === "halt") return;
+    }
   } finally {
     flushing = false;
+    onChange?.();
+  }
+}
+
+// ---------- Harvests, quality checks, buyers, sales, payments, expenses ----------
+// Saved on the phone first, then sent. They point at their parents by
+// clientId (harvestClientId, saleClientId, farmClientId…), so nothing needs
+// re-pointing after a parent syncs; the queue just sends parents first.
+
+export const RECORD_ORDER = ["harvests", "buyers", "inspections", "sales", "payments", "expenses"];
+
+export async function refreshRecords(userId, token) {
+  for (const kind of RECORD_ORDER) {
+    const items = [];
+    let page = 1;
+    for (;;) {
+      const result = await api.get(`/api/${kind}?page=${page}&pageSize=100`, { token });
+      items.push(...result.items);
+      if (result.items.length < 100 || items.length >= result.pagination.total) break;
+      page += 1;
+    }
+    await replaceServerRecords(userId, kind, items);
+  }
+}
+
+function recordPayload(record) {
+  const {
+    id,
+    kind,
+    syncStatus,
+    syncError,
+    createdAt,
+    updatedAt,
+    passportCode,
+    ...payload
+  } = record;
+  return payload;
+}
+
+export async function saveNewRecord(userId, kind, payload) {
+  const now = new Date().toISOString();
+  const record = {
+    ...payload,
+    kind,
+    syncStatus: "pending",
+    syncError: null,
+    createdAt: now,
+    updatedAt: now
+  };
+  await putLocalRecord(userId, record);
+  await enqueueOperation(userId, {
+    clientId: payload.clientId,
+    entity: "record",
+    resource: kind,
+    kind: "create",
+    payload: recordPayload(record),
+    enqueuedAt: Date.now()
+  });
+  return record;
+}
+
+export async function saveRecordChanges(userId, record, changes) {
+  const current = (await getLocalRecord(userId, record.clientId)) || record;
+  const updated = {
+    ...current,
+    ...changes,
+    syncStatus: "pending",
+    syncError: null,
+    updatedAt: new Date().toISOString()
+  };
+  await putLocalRecord(userId, updated);
+  const existing = (await getQueue(userId)).find((operation) => operation.clientId === updated.clientId);
+  if (!current.id) {
+    // Not on the server yet: fold the change into the pending create.
+    await enqueueOperation(userId, {
+      clientId: updated.clientId,
+      entity: "record",
+      resource: updated.kind,
+      kind: "create",
+      payload: recordPayload(updated),
+      enqueuedAt: existing?.enqueuedAt || Date.now()
+    });
+  } else {
+    await enqueueOperation(userId, {
+      clientId: updated.clientId,
+      entity: "record",
+      resource: updated.kind,
+      kind: "update",
+      payload: { id: current.id, changes: { ...(existing?.payload?.changes || {}), ...changes } },
+      enqueuedAt: existing?.enqueuedAt || Date.now()
+    });
+  }
+  return updated;
+}
+
+export async function removeRecordEverywhere(userId, record) {
+  await removeLocalRecord(userId, record.clientId);
+  if (!record.id) {
+    await removeQueueOperation(userId, record.clientId);
+    return;
+  }
+  await enqueueOperation(userId, {
+    clientId: record.clientId,
+    entity: "record",
+    resource: record.kind,
+    kind: "delete",
+    payload: { id: record.id },
+    enqueuedAt: Date.now()
+  });
+}
+
+export async function retryRecord(userId, record) {
+  await putLocalRecord(userId, { ...record, syncStatus: "pending", syncError: null });
+  await enqueueOperation(userId, {
+    clientId: record.clientId,
+    entity: "record",
+    resource: record.kind,
+    kind: record.id ? "update" : "create",
+    payload: record.id ? { id: record.id, changes: recordPayload(record) } : recordPayload(record),
+    enqueuedAt: Date.now()
+  });
+}
+
+async function flushRecordOperation(userId, operation, token, onChange) {
+  const local = await getLocalRecord(userId, operation.clientId);
+  const path = `/api/${operation.resource}`;
+  if (local) {
+    await putLocalRecord(userId, { ...local, syncStatus: "syncing" });
+    onChange?.();
+  }
+  try {
+    if (operation.kind === "create") {
+      const result = await api.post(path, operation.payload, { token });
+      if (result.deleted) await removeLocalRecord(userId, operation.clientId);
+      else await putLocalRecord(userId, { ...result.record, kind: operation.resource, syncStatus: "synced", syncError: null });
+    } else if (operation.kind === "update") {
+      const result = await api.patch(`${path}/${operation.payload.id}`, operation.payload.changes, { token });
+      await putLocalRecord(userId, { ...result.record, kind: operation.resource, syncStatus: "synced", syncError: null });
+    } else {
+      try {
+        await api.delete(`${path}/${operation.payload.id}`, { token });
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 404) throw error;
+      }
+      await removeLocalRecord(userId, operation.clientId);
+    }
+    await removeQueueOperation(userId, operation.clientId);
+    return "synced";
+  } catch (error) {
+    if (shouldPauseSync(error)) {
+      if (local) await putLocalRecord(userId, { ...local, syncStatus: "pending" });
+      return "halt";
+    }
+    // Its parent is not on the server yet (it may be waiting or need help).
+    // Keep this one waiting and carry on with the rest.
+    if (error instanceof ApiError && error.code === "PARENT_NOT_SYNCED") {
+      if (local) await putLocalRecord(userId, { ...local, syncStatus: "pending" });
+      return "waiting";
+    }
+    const message = error instanceof ApiError ? error.message : "This record could not be saved.";
+    if (local) await putLocalRecord(userId, { ...local, syncStatus: "failed", syncError: message });
+    await removeQueueOperation(userId, operation.clientId);
+    return "failed";
+  } finally {
     onChange?.();
   }
 }

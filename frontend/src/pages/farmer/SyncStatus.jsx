@@ -5,13 +5,21 @@ import {
   Button,
   EmptyState,
   PageHeader,
-  StatusChip
+  StatusChip,
+  SyncPictureKey
 } from "../../components/ui.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
-import { activityMeta, farmMeta } from "../../lib/labels.js";
-import { getActivity, getCachedFarm, getFailedRecords, getQueue } from "../../lib/localStore.js";
+import { activityMeta, activitySummary, farmMeta } from "../../lib/labels.js";
+import {
+  getActivity,
+  getCachedFarm,
+  getFailedRecords,
+  getLocalRecord,
+  getQueue
+} from "../../lib/localStore.js";
+import { RECORD_KIND_WORDS } from "../../lib/words.js";
 
 function operationLabel(kind, entity) {
   if (entity === "farm") {
@@ -24,7 +32,8 @@ function operationLabel(kind, entity) {
 
 export default function SyncStatus() {
   const { user, needsOnlineSignIn } = useAuth();
-  const { online, pendingCount, syncing, syncNow, version, retryActivity, retryFarm } = useSync();
+  const { online, pendingCount, syncing, syncNow, version, retryActivity, retryFarm, retryRecord } =
+    useSync();
   const navigate = useNavigate();
   const toast = useToast();
   const [entries, setEntries] = useState([]);
@@ -41,6 +50,16 @@ export default function SyncStatus() {
       const items = [];
 
       for (const operation of operations) {
+        if (operation.entity === "record") {
+          items.push({
+            key: operation.clientId,
+            entity: "record",
+            resource: operation.resource,
+            kind: operation.kind,
+            record: await getLocalRecord(user.id, operation.clientId)
+          });
+          continue;
+        }
         const isFarm = operation.entity === "farm";
         items.push({
           key: operation.clientId,
@@ -72,6 +91,17 @@ export default function SyncStatus() {
         });
       }
 
+      for (const record of failed.records) {
+        if (queued.has(record.clientId)) continue;
+        items.push({
+          key: record.clientId,
+          entity: "record",
+          resource: record.kind,
+          kind: record.id ? "update" : "create",
+          record
+        });
+      }
+
       if (active) setEntries(items);
     })();
     return () => {
@@ -84,6 +114,8 @@ export default function SyncStatus() {
     try {
       if (entry.entity === "farm") {
         await retryFarm(entry.record);
+      } else if (entry.entity === "record") {
+        await retryRecord(entry.record);
       } else {
         await retryActivity(entry.record);
       }
@@ -101,8 +133,8 @@ export default function SyncStatus() {
   return (
     <div>
       <PageHeader
-        title="Sync status"
-        subtitle="How your farms and records are saved."
+        title="My saved records"
+        subtitle="Where your farms and records are kept."
         backTo="/app/profile"
       />
 
@@ -136,10 +168,10 @@ export default function SyncStatus() {
               }`}
             >
               {needsOnlineSignIn
-                ? "Signed in on this phone"
+                ? "Saved on this phone"
                 : online
-                  ? "You are online"
-                  : "You are offline"}
+                  ? "Network is on"
+                  : "No network"}
             </p>
             <p
               className={`text-xs ${
@@ -147,18 +179,18 @@ export default function SyncStatus() {
               }`}
             >
               {needsOnlineSignIn
-                ? "Your records are safe here. Sign in again when you have internet so they can be sent to your account."
+                ? "Your records are safe here. Enter your PIN once when there is network to send them."
                 : online
                   ? pendingCount > 0
-                    ? `${pendingCount} ${pendingCount === 1 ? "item needs" : "items need"} to sync.`
-                    : "All your farms and records are saved to your account."
-                  : "Farms and records are safe on this phone and will sync when you reconnect."}
+                    ? `${pendingCount} ${pendingCount === 1 ? "item is" : "items are"} on this phone. They are being sent on their own.`
+                    : "Everything is sent online."
+                  : "Everything is safe on this phone. It will be sent on its own when there is network."}
             </p>
           </div>
         </div>
         {needsOnlineSignIn ? (
           <Button className="mt-4 w-full" onClick={() => navigate("/login")}>
-            <LogIn size={16} /> Sign in to sync
+            <LogIn size={16} /> Enter PIN to send
           </Button>
         ) : (
           <Button
@@ -167,14 +199,19 @@ export default function SyncStatus() {
             loading={syncing}
             disabled={!online || pendingCount === 0}
           >
-            <RefreshCw size={16} /> Sync now
+            <RefreshCw size={16} /> Send now
           </Button>
         )}
       </div>
 
+      <section className="mt-4 rounded-2xl bg-white p-4 shadow-card">
+        <h2 className="mb-3 text-sm font-bold text-ink">What the pictures mean</h2>
+        <SyncPictureKey />
+      </section>
+
       {attention.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-3 text-base font-bold text-ink">Needs attention</h2>
+          <h2 className="mb-3 text-base font-bold text-ink">Needs help</h2>
           <div className="space-y-3">
             {attention.map((entry) => (
               <SyncEntry
@@ -189,12 +226,12 @@ export default function SyncStatus() {
       )}
 
       <section className="mt-6">
-        <h2 className="mb-3 text-base font-bold text-ink">Waiting to sync</h2>
+        <h2 className="mb-3 text-base font-bold text-ink">On this phone, waiting to send</h2>
         {waiting.length === 0 ? (
           <EmptyState
             icon={CircleCheck}
-            title="Everything is synced"
-            description="Farms and records you add while offline will appear here until they are sent."
+            title="Everything is sent"
+            description="Records you save with no network will show here until they are sent."
           />
         ) : (
           <div className="space-y-3">
@@ -228,6 +265,7 @@ export default function SyncStatus() {
 
 function SyncEntry({ entry, busy = false, onRetry }) {
   const { record, entity, kind } = entry;
+  if (entity === "record") return <RecordEntry entry={entry} busy={busy} onRetry={onRetry} />;
   const isFarm = entity === "farm";
   const meta = isFarm
     ? record
@@ -241,7 +279,7 @@ function SyncEntry({ entry, busy = false, onRetry }) {
     ? record?.farmName || "New farm"
     : kind === "delete"
       ? "Deleted activity"
-      : record?.description || "Farm activity";
+      : record ? activitySummary(record) : "Farm activity";
 
   return (
     <div className="rounded-2xl bg-white p-4 shadow-card">
@@ -280,6 +318,39 @@ function SyncEntry({ entry, busy = false, onRetry }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RecordEntry({ entry, busy = false, onRetry }) {
+  const { record, resource, kind } = entry;
+  const words = RECORD_KIND_WORDS[resource];
+  const detail = record
+    ? record.crop || record.name || record.category || (record.amount ? String(record.amount) : "")
+    : "";
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-card" data-say={words?.say}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-ink">
+            {kind === "delete" ? "Deleted " : ""}
+            {words?.text || "Record"}
+            {detail ? ` · ${detail}` : ""}
+          </p>
+          <p className="mt-1 text-xs text-ink-soft">{operationLabel(kind, "record")}</p>
+        </div>
+        <StatusChip status={record?.syncStatus || "pending"} />
+      </div>
+      {record?.syncStatus === "failed" && (
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <p className="text-xs text-danger">{record.syncError || "Could not be saved."}</p>
+          {onRetry && (
+            <Button variant="secondary" size="sm" onClick={onRetry} loading={busy}>
+              Try again
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

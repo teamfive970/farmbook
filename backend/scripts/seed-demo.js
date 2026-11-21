@@ -186,6 +186,12 @@ function buildExtraFarmers(pinHash) {
 }
 
 async function main() {
+  // Demo accounts share a published PIN; never create them on a live server.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
+    console.error("Refusing to seed demo accounts with NODE_ENV=production.");
+    process.exitCode = 1;
+    return;
+  }
   if (!pool) {
     console.error("DATABASE_URL is not set. Copy backend/.env.example to backend/.env and configure it.");
     process.exitCode = 1;

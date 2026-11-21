@@ -1,4 +1,5 @@
 import { CloudOff, Plus, Sprout } from "lucide-react";
+import { WORDS } from "../../lib/words.js";
 import { Link } from "react-router-dom";
 import FarmCard from "../../components/FarmCard.jsx";
 import { EmptyState, PageHeader, PageLoading, buttonClass } from "../../components/ui.jsx";
@@ -17,8 +18,9 @@ export default function Farms() {
   return (
     <div>
       <PageHeader
-        title="My Farms"
-        subtitle="Every farm you keep records for."
+        title={WORDS.navFarms.text}
+        subtitle="All your farms."
+        say={WORDS.navFarms}
         action={
           <Link to="/app/farms/new" className={buttonClass("primary", "sm", "shrink-0")}>
             <Plus size={16} /> Add farm

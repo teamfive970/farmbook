@@ -1,21 +1,27 @@
 import {
   Bird,
   ClipboardList,
+  Droplet,
   Droplets,
   FlaskConical,
   Layers,
   MoreHorizontal,
+  Package,
+  PaintBucket,
   PawPrint,
   Scissors,
+  ShoppingBag,
   Shovel,
   Sparkles,
   SprayCan,
   Sprout,
   Syringe,
+  Weight,
   Wheat
 } from "lucide-react";
+import { ACTIVITY_WORDS, FARM_TYPE_WORDS, UNIT_WORDS } from "./words.js";
 
-export const ACTIVITY_TYPES = [
+const BASE_ACTIVITY_TYPES = [
   {
     value: "land_preparation",
     label: "Land preparation",
@@ -88,7 +94,7 @@ export const ACTIVITY_TYPES = [
   }
 ];
 
-export const FARM_TYPES = [
+const BASE_FARM_TYPES = [
   {
     value: "crop_farming",
     label: "Crops",
@@ -179,3 +185,59 @@ export function activityMeta(value) {
 export function farmMeta(value) {
   return FARM_TYPES.find((item) => item.value === value) || fallbackFarm;
 }
+
+// Common units as picture chips, so the farmer taps instead of typing.
+const BASE_UNITS = [
+  { value: "bags", label: "Bags", Icon: ShoppingBag },
+  { value: "kg", label: "Kg", Icon: Weight },
+  { value: "buckets", label: "Buckets", Icon: PaintBucket },
+  { value: "litres", label: "Litres", Icon: Droplet },
+  { value: "stems", label: "Stems", Icon: Sprout },
+  { value: "birds", label: "Birds", Icon: Bird },
+  { value: "packs", label: "Packs", Icon: Package }
+];
+
+function formatQuantity(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return Number.isInteger(number) ? String(number) : String(Number(number.toFixed(2)));
+}
+
+// The words shown for a record. A farmer may save with taps only, so when there
+// is no typed description we build one: "Planting · Cassava · 40 stems".
+export function activitySummary(activity = {}) {
+  const typed = typeof activity.description === "string" ? activity.description.trim() : "";
+  if (typed) return typed;
+  const parts = [activityMeta(activity.activityType).label];
+  if (activity.inputUsed) parts.push(activity.inputUsed);
+  if (activity.quantity !== null && activity.quantity !== undefined && activity.quantity !== "") {
+    parts.push([formatQuantity(activity.quantity), activity.unit].filter(Boolean).join(" "));
+  }
+  return parts.join(" · ");
+}
+
+// "2.5 acres". Units come from words.js (SIZE_UNITS).
+export function formatFarmSize(farm) {
+  if (farm?.size === null || farm?.size === undefined || farm.size === "") return "";
+  const names = { acres: "acres", hectares: "hectares", lots: "lots", square_meters: "square meters" };
+  return `${Number(farm.size)} ${names[farm.sizeUnit] || ""}`.trim();
+}
+
+// Farmer-facing words come from words.js (simple Liberian English plus the
+// phrase the phone speaks). The original English stays as `englishLabel`.
+export const ACTIVITY_TYPES = BASE_ACTIVITY_TYPES.map((item) => {
+  const words = ACTIVITY_WORDS[item.value];
+  return words
+    ? { ...item, englishLabel: item.label, label: words.text, shortLabel: words.text, words }
+    : item;
+});
+
+export const FARM_TYPES = BASE_FARM_TYPES.map((item) => {
+  const words = FARM_TYPE_WORDS[item.value];
+  return words ? { ...item, englishLabel: item.label, label: words.text, words } : item;
+});
+
+export const UNITS = BASE_UNITS.map((item) => {
+  const words = UNIT_WORDS[item.value];
+  return words ? { ...item, label: words.text, words } : item;
+});

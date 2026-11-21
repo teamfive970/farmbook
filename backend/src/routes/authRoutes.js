@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
-import { loginLimiter, registerLimiter, smsLimiter } from "../middleware/rateLimit.js";
+import { loginLimiter, pinCheckLimiter, registerLimiter, smsLimiter } from "../middleware/rateLimit.js";
 import { changePin, login, logout, registerFarmer, setupRecoveryQuestion } from "../services/authService.js";
 import {
   recoverWithSecurityQuestion,
@@ -30,12 +30,12 @@ router.get("/me", authenticate, (req, res) => {
   res.json({ user: req.auth.user });
 });
 
-router.post("/pin", authenticate, async (req, res) => {
+router.post("/pin", authenticate, pinCheckLimiter, async (req, res) => {
   const result = await changePin(req.auth, req.body);
   res.json(result);
 });
 
-router.post("/recovery/setup", authenticate, async (req, res) => {
+router.post("/recovery/setup", authenticate, pinCheckLimiter, async (req, res) => {
   const result = await setupRecoveryQuestion(req.auth, req.body);
   res.json(result);
 });

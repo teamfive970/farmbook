@@ -1,4 +1,5 @@
 import { Sprout } from "lucide-react";
+import { WORDS } from "../../lib/words.js";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ActivityForm from "../../components/ActivityForm.jsx";
@@ -33,8 +34,8 @@ export default function RecordActivity() {
       localStorage.setItem(`minders.lastFarm.${user.id}`, payload.farmId);
       toast.success(
         online
-          ? "Record saved."
-          : "Saved on this phone. It will sync when you have internet."
+          ? WORDS.savedSending.text
+          : "It saved on your phone. It will go when network come."
       );
       navigate("/app/history", { replace: true });
     } catch (requestError) {
@@ -49,11 +50,11 @@ export default function RecordActivity() {
   if (farms.length === 0) {
     return (
       <div>
-        <PageHeader title="Record activity" backTo="/app" />
+        <PageHeader title={WORDS.recordTitle.text} backTo="/app" say={{ say: "Add your farm first. Then you can put your work." }} />
         <EmptyState
           icon={Sprout}
-          title="Add a farm first"
-          description="You need at least one farm before you can record an activity."
+          title="Add your farm first"
+          description="Then you can put your work."
           action={
             <Link to="/app/farms/new" className={buttonClass("primary", "md")}>
               Add a farm
@@ -67,8 +68,9 @@ export default function RecordActivity() {
   return (
     <div>
       <PageHeader
-        title="Record activity"
-        subtitle="Fill in what you did. It takes less than a minute."
+        title={WORDS.recordTitle.text}
+        subtitle="Touch the pictures. You do not need to write."
+        say={WORDS.recordTitle}
         backTo="/app"
       />
       <ActivityForm

@@ -1,6 +1,8 @@
 import {
   CloudUpload,
   KeyRound,
+  UserPlus,
+  Users,
   LogOut,
   MapPin,
   Phone,
@@ -27,12 +29,14 @@ import { formatPhone, initials } from "../../lib/format.js";
 import { SECURITY_QUESTIONS } from "../../lib/labels.js";
 import { api } from "../../lib/api.js";
 import { rememberOfflineLogin } from "../../lib/offlineAuth.js";
+import { VoiceToggle } from "../../components/Voice.jsx";
+import { WORDS } from "../../lib/words.js";
 
 const EMPTY_PIN = { currentPin: "", newPin: "", confirmPin: "" };
 const EMPTY_RECOVERY = { currentPin: "", securityQuestion: "", securityAnswer: "" };
 
 export default function Profile() {
-  const { user, token, logout, setUser } = useAuth();
+  const { user, token, logout, setUser, lock } = useAuth();
   const { online, pendingCount, syncing } = useSync();
   const navigate = useNavigate();
   const toast = useToast();
@@ -107,12 +111,26 @@ export default function Profile() {
   async function handleSignOut() {
     setSigningOut(true);
     await logout();
-    navigate("/login", { replace: true });
+    // Other people on this phone (or this person, to come back offline).
+    navigate("/who", { replace: true });
   }
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Profile" subtitle="Your account and app settings." />
+      <PageHeader title={WORDS.navMe.text} subtitle="Your name, your PIN and how the app work." say={WORDS.navMe} />
+
+      <div
+        className="flex items-center justify-between gap-3 rounded-2xl border-2 border-primary/30 bg-white p-4 shadow-card"
+        data-say={WORDS.voiceSwitch.say}
+      >
+        <div>
+          <p className="text-sm font-bold text-ink">🔊 {WORDS.voiceSwitch.text}</p>
+          <p className="text-xs text-ink-soft">
+            The phone will say the words when you touch them.
+          </p>
+        </div>
+        <VoiceToggle compact />
+      </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-card">
         <div className="flex items-center gap-4">
@@ -131,6 +149,33 @@ export default function Profile() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            lock();
+            navigate("/who");
+          }}
+          data-say={WORDS.switchPerson.say}
+          className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-3 text-sm font-bold text-ink shadow-card"
+        >
+          <Users size={24} className="text-primary" aria-hidden="true" />
+          {WORDS.switchPerson.text}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            lock();
+            navigate("/login", { state: { addPerson: true } });
+          }}
+          data-say={WORDS.addPerson.say}
+          className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-3 text-sm font-bold text-ink shadow-card"
+        >
+          <UserPlus size={24} className="text-primary" aria-hidden="true" />
+          {WORDS.addPerson.text}
+        </button>
+      </div>
+
       <Link
         to="/app/sync"
         className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-card"
@@ -140,13 +185,13 @@ export default function Profile() {
             <CloudUpload size={19} />
           </span>
           <div>
-            <p className="text-sm font-semibold text-ink">Sync status</p>
+            <p className="text-sm font-semibold text-ink">My work on the phone</p>
             <p className="text-xs text-ink-soft">
               {!online
-                ? "Offline — records stay on this phone"
+                ? "Network not there — your work on this phone"
                 : pendingCount > 0
-                  ? `${pendingCount} ${pendingCount === 1 ? "record" : "records"} waiting`
-                  : "Everything is saved"}
+                  ? `${pendingCount} still on your phone`
+                  : "All gone on the internet"}
             </p>
           </div>
         </div>

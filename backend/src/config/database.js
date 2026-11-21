@@ -1,7 +1,11 @@
 import "dotenv/config";
 import pg from "pg";
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// DATE columns come back as plain "YYYY-MM-DD" text. Turning them into JS
+// Dates would shift the day when the server is not on UTC.
+types.setTypeParser(1082, (value) => value);
 
 const connectionString = process.env.DATABASE_URL;
 

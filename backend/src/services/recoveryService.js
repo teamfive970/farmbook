@@ -8,6 +8,7 @@ import {
   isSecurityQuestionKey,
   normalizeSecurityAnswer
 } from "../lib/recovery.js";
+import { assertNotLocked, failAndThrow } from "../lib/lockout.js";
 import { sendPasswordResetOtp, smsAvailable } from "../lib/sms.js";
 import { requirePin, requireString } from "../lib/validation.js";
 import {
@@ -42,15 +43,24 @@ async function resetPinAndSignIn(role, account, newPin, confirmPin) {
     throw badRequest("The new PIN and confirmation do not match.", { field: "confirmPin" });
   }
 
+  if (role === "admin" && !/^\d{6}$/.test(pin)) {
+    throw badRequest("Admin PINs must be 6 digits.", { field: "newPin" });
+  }
+
   const pinHash = await hashPin(pin);
   const column = ownerColumn(role);
   const table = role === "farmer" ? "farmers" : "admin_users";
 
+  // A successful recovery also lifts any sign-in or recovery lock.
   await withTransaction(async (client) => {
-    await client.query(`UPDATE ${table} SET pin_hash = $1, updated_at = now() WHERE id = $2`, [
-      pinHash,
-      account.id
-    ]);
+    await client.query(
+      `UPDATE ${table}
+       SET pin_hash = $1, updated_at = now(),
+           failed_login_count = 0, locked_until = NULL,
+           recovery_failed_count = 0, recovery_locked_until = NULL
+       WHERE id = $2`,
+      [pinHash, account.id]
+    );
     await client.query(
       `UPDATE sessions SET revoked_at = now()
        WHERE ${column} = $1 AND revoked_at IS NULL`,
@@ -86,20 +96,31 @@ export async function recoverWithSecurityQuestion(body = {}) {
     throw badRequest("The new PIN and confirmation do not match.", { field: "confirmPin" });
   }
 
+  // Security questions are easy to research, so they never unlock an admin
+  // account; admins recover by SMS or through another administrator.
   const found = await findAccountByIdentifier(identifier);
+  if (found) assertNotLocked(found.account, "recovery");
   if (
     !found ||
+    found.role === "admin" ||
     !found.account.security_answer_hash ||
     !isSecurityQuestionKey(question) ||
     found.account.security_question !== question ||
     !answer
   ) {
     await verifySecret("wrong-answer", await dummyAnswerHashPromise);
+    // A wrong question choice for a real farmer counts as a wrong answer, so
+    // all five questions cannot be tried for free.
+    if (found && found.role === "farmer" && found.account.security_answer_hash) {
+      await failAndThrow(found.role, found.account.id, "recovery", unauthorized(GENERIC_QUESTION_ERROR));
+    }
     throw unauthorized(GENERIC_QUESTION_ERROR);
   }
 
   const matches = await verifySecret(answer, found.account.security_answer_hash);
-  if (!matches) throw unauthorized(GENERIC_QUESTION_ERROR);
+  if (!matches) {
+    await failAndThrow(found.role, found.account.id, "recovery", unauthorized(GENERIC_QUESTION_ERROR));
+  }
   if (found.account.status !== "active") throw inactive();
 
   return resetPinAndSignIn(found.role, found.account, newPin, body.confirmPin);
@@ -211,10 +232,24 @@ export async function recoverWithSms(body = {}) {
     throw unauthorized(GENERIC_CODE_ERROR);
   }
 
-  await query("UPDATE recovery_otps SET attempts = attempts + 1 WHERE id = $1", [otp.id]);
-  if (hashOtp(account.id, code) !== otp.code_hash) throw unauthorized(GENERIC_CODE_ERROR);
+  // Count the attempt and check the limit in one statement, so parallel
+  // requests cannot get more than OTP_MAX_ATTEMPTS guesses.
+  const counted = await query(
+    `UPDATE recovery_otps SET attempts = attempts + 1
+     WHERE id = $1 AND used_at IS NULL AND expires_at > now() AND attempts < $2
+     RETURNING code_hash`,
+    [otp.id, OTP_MAX_ATTEMPTS]
+  );
+  if (!counted.rows[0] || hashOtp(account.id, code) !== counted.rows[0].code_hash) {
+    throw unauthorized(GENERIC_CODE_ERROR);
+  }
   if (account.status !== "active") throw inactive();
 
-  await query("UPDATE recovery_otps SET used_at = now() WHERE id = $1", [otp.id]);
+  // Mark used atomically too: only the first matching request may reset the PIN.
+  const consumed = await query(
+    "UPDATE recovery_otps SET used_at = now() WHERE id = $1 AND used_at IS NULL RETURNING id",
+    [otp.id]
+  );
+  if (!consumed.rows[0]) throw unauthorized(GENERIC_CODE_ERROR);
   return resetPinAndSignIn(role, account, newPin, body.confirmPin);
 }

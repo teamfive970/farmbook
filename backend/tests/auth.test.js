@@ -6,6 +6,7 @@ import {
   createAdminRecord,
   createFarmerRecord,
   loginAs,
+  query,
   resetDatabase,
   startServer
 } from "./helpers.js";
@@ -116,7 +117,7 @@ test("login errors stay generic and do not reveal account existence", async () =
   assert.deepEqual(unknownAccount.body.error, wrongPin.body.error);
 });
 
-test("unified login detects administrators by access code and by phone", async () => {
+test("administrators sign in with their access code only, never phone + PIN", async () => {
   const { pin, accessCode } = await createAdminRecord();
 
   const byCode = await loginAs(server.baseUrl, "mnd-testadmin", pin);
@@ -127,8 +128,89 @@ test("unified login detects administrators by access code and by phone", async (
   assert.equal(accessCode, "MND-TESTADMIN");
 
   const byPhone = await loginAs(server.baseUrl, "0770009999", pin);
-  assert.equal(byPhone.status, 200);
-  assert.equal(byPhone.body.user.role, "admin");
+  assert.equal(byPhone.status, 401);
+});
+
+test("a farmer whose number matches an admin's phone can still sign in", async () => {
+  await createAdminRecord({ phoneNumber: "+231770007777" });
+  const { pin } = await createFarmerRecord({ phoneNumber: "+231770007777" });
+  const result = await loginAs(server.baseUrl, "0770007777", pin);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.user.role, "farmer");
+});
+
+test("wrong PINs lock only that account for a short, growing wait", async () => {
+  const { farmer, pin } = await createFarmerRecord({ phoneNumber: "+231770008181" });
+  const other = await createFarmerRecord({ phoneNumber: "+231770008282", pin: "4545" });
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const wrong = await loginAs(server.baseUrl, "0770008181", "0000");
+    assert.equal(wrong.status, 401, `attempt ${attempt}`);
+  }
+  const fifth = await loginAs(server.baseUrl, "0770008181", "0000");
+  assert.equal(fifth.status, 429);
+  assert.equal(fifth.body.error.code, "ACCOUNT_LOCKED");
+  const wait = fifth.body.error.details.retryAfterSeconds;
+  assert.ok(wait > 240 && wait <= 300, `wait was ${wait}`);
+
+  // Even the right PIN waits until the lock lifts.
+  const rightButLocked = await loginAs(server.baseUrl, "0770008181", pin);
+  assert.equal(rightButLocked.status, 429);
+
+  // Other farmers are not affected.
+  assert.equal((await loginAs(server.baseUrl, "0770008282", other.pin)).status, 200);
+
+  // When the wait is over, the right PIN works and the count starts again.
+  await query("UPDATE farmers SET locked_until = now() - interval '1 second' WHERE id = $1", [
+    farmer.id
+  ]);
+  const afterWait = await loginAs(server.baseUrl, "0770008181", pin);
+  assert.equal(afterWait.status, 200);
+  const { rows } = await query("SELECT failed_login_count, locked_until FROM farmers WHERE id = $1", [
+    farmer.id
+  ]);
+  assert.equal(rows[0].failed_login_count, 0);
+  assert.equal(rows[0].locked_until, null);
+
+  // After a lock, the next mistake doubles the wait.
+  await query("UPDATE farmers SET failed_login_count = 5 WHERE id = $1", [farmer.id]);
+  const again = await loginAs(server.baseUrl, "0770008181", "0000");
+  assert.equal(again.status, 429);
+  assert.ok(again.body.error.details.retryAfterSeconds > 540);
+});
+
+test("farmer sessions are long and renew when used", async () => {
+  const { pin } = await createFarmerRecord({ phoneNumber: "+231770008383" });
+  const login = await loginAs(server.baseUrl, "0770008383", pin);
+  const { rows } = await query("SELECT id, expires_at FROM sessions ORDER BY created_at DESC LIMIT 1");
+  const days = (new Date(rows[0].expires_at) - Date.now()) / 86_400_000;
+  assert.ok(days > 170, `farmer session lasts ${days} days`);
+
+  // A session close to its end is pushed out again when the app uses it.
+  await query(
+    "UPDATE sessions SET expires_at = now() + interval '1 day', last_used_at = NULL WHERE id = $1",
+    [rows[0].id]
+  );
+  const me = await api(server.baseUrl, "/api/auth/me", { token: login.body.token });
+  assert.equal(me.status, 200);
+  const renewed = await query("SELECT expires_at, last_used_at FROM sessions WHERE id = $1", [rows[0].id]);
+  assert.ok((new Date(renewed.rows[0].expires_at) - Date.now()) / 86_400_000 > 170);
+  assert.ok(renewed.rows[0].last_used_at);
+});
+
+test("wrong current PINs on signed-in screens count toward the lock", async () => {
+  const { pin } = await createFarmerRecord({ phoneNumber: "+231770008484" });
+  const login = await loginAs(server.baseUrl, "0770008484", pin);
+  let last;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    last = await api(server.baseUrl, "/api/auth/pin", {
+      method: "POST",
+      token: login.body.token,
+      body: { currentPin: "0000", newPin: "2468", confirmPin: "2468" }
+    });
+  }
+  assert.equal(last.status, 429);
+  assert.equal(last.body.error.code, "ACCOUNT_LOCKED");
 });
 
 test("inactive accounts cannot sign in even with the correct PIN", async () => {

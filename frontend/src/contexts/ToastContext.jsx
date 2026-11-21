@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
+import { useVoice } from "./VoiceContext.jsx";
 
 const ToastContext = createContext(null);
 
@@ -11,6 +12,7 @@ const styles = {
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const { say } = useVoice();
 
   const remove = useCallback((id) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
@@ -20,9 +22,11 @@ export function ToastProvider({ children }) {
     (message, type) => {
       const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       setToasts((current) => [...current.slice(-2), { id, message, type }]);
-      window.setTimeout(() => remove(id), 4200);
+      // With "Talk to me" on, messages are read out too (they stay on screen longer).
+      say(message);
+      window.setTimeout(() => remove(id), 6000);
     },
-    [remove]
+    [remove, say]
   );
 
   const value = useMemo(

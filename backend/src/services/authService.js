@@ -2,6 +2,7 @@ import { query, withTransaction } from "../config/database.js";
 import { COUNTIES } from "../lib/constants.js";
 import { encryptionAvailable } from "../lib/crypto.js";
 import { badRequest, conflict, inactive, unauthorized } from "../lib/errors.js";
+import { assertNotLocked, clearFailures, failAndThrow } from "../lib/lockout.js";
 import { normalizePhone } from "../lib/phone.js";
 import { hashPin, hashSecret, verifyPin, validatePinFormat } from "../lib/pin.js";
 import { isSecurityQuestionKey, normalizeSecurityAnswer } from "../lib/recovery.js";
@@ -42,9 +43,19 @@ function serializeAdmin(row) {
   };
 }
 
+// Farmers work offline for long stretches, so their sessions last much longer
+// and renew whenever they are used (see middleware/auth.js). A farmer who opens
+// the app at least once every FARMER_SESSION_DAYS never has to sign in again.
+export function sessionDays(role) {
+  const fallback = Number(process.env.SESSION_DAYS || 7);
+  const days =
+    role === "farmer" ? Number(process.env.FARMER_SESSION_DAYS || 180) : fallback;
+  return Math.max(1, Number.isFinite(days) ? days : fallback);
+}
+
 export async function createSession(role, userId) {
   const token = newSessionToken();
-  const days = Math.max(1, Number(process.env.SESSION_DAYS || 7));
+  const days = sessionDays(role);
   const { rows } = await query(
     `INSERT INTO sessions (role, farmer_id, admin_user_id, token_hash, expires_at)
      VALUES ($1, $2, $3, $4, now() + make_interval(days => $5))
@@ -122,13 +133,18 @@ export async function registerFarmer(body = {}) {
 
 const ADMIN_COLUMNS = `
   id, display_name, phone_number, pin_hash, status, security_question,
-  security_answer_hash, access_code_ciphertext, created_at`;
+  security_answer_hash, access_code_ciphertext, created_at,
+  failed_login_count, locked_until, recovery_failed_count, recovery_locked_until`;
 
 const FARMER_COLUMNS = `
   id, full_name, phone_number, county, district, community, pin_hash, status,
-  security_question, security_answer_hash, created_at`;
+  security_question, security_answer_hash, created_at,
+  failed_login_count, locked_until, recovery_failed_count, recovery_locked_until`;
 
-async function findAdminByIdentifier(identifier) {
+// Admins sign in with their access code only. A phone number is easy to learn,
+// so phone + short PIN is not enough to reach the admin console. The phone may
+// still identify an admin for SMS recovery, where the code proves possession.
+async function findAdminByIdentifier(identifier, { allowPhone = true } = {}) {
   const code = normalizeAccessCode(identifier);
   if (code) {
     const { rows } = await query(
@@ -137,7 +153,7 @@ async function findAdminByIdentifier(identifier) {
     );
     if (rows[0]) return rows[0];
   }
-  const phone = normalizePhone(identifier);
+  const phone = allowPhone ? normalizePhone(identifier) : null;
   if (phone) {
     const { rows } = await query(
       `SELECT ${ADMIN_COLUMNS} FROM admin_users WHERE phone_number = $1`,
@@ -158,9 +174,10 @@ async function findFarmerByPhone(identifier) {
 }
 
 // Shared by sign-in and PIN recovery. Administrators take precedence so a
-// phone number can never silently address the wrong account type.
-export async function findAccountByIdentifier(identifier) {
-  const admin = await findAdminByIdentifier(identifier);
+// phone number can never silently address the wrong account type during SMS
+// recovery. Sign-in passes allowAdminPhone: false (access code only for admins).
+export async function findAccountByIdentifier(identifier, { allowAdminPhone = true } = {}) {
+  const admin = await findAdminByIdentifier(identifier, { allowPhone: allowAdminPhone });
   if (admin) return { role: "admin", account: admin };
   const farmer = await findFarmerByPhone(identifier);
   if (farmer) return { role: "farmer", account: farmer };
@@ -179,9 +196,15 @@ export async function login(body = {}) {
   }
   if (!validatePinFormat(body.pin)) throw unauthorized();
 
-  const found = await findAccountByIdentifier(identifier);
+  const found = await findAccountByIdentifier(identifier, { allowAdminPhone: false });
   if (found) {
-    if (!(await verifyPin(body.pin, found.account.pin_hash))) throw unauthorized();
+    assertNotLocked(found.account, "login");
+    if (!(await verifyPin(body.pin, found.account.pin_hash))) {
+      await failAndThrow(found.role, found.account.id, "login", unauthorized());
+    }
+    if (found.account.failed_login_count > 0 || found.account.locked_until) {
+      await clearFailures(found.role, found.account.id, ["login"]);
+    }
     if (found.account.status !== "active") throw inactive();
     const session = await createSession(found.role, found.account.id);
     return {
@@ -198,6 +221,26 @@ export async function login(body = {}) {
   throw unauthorized();
 }
 
+// Confirms the signed-in user's PIN before a sensitive change. Wrong guesses
+// count toward the same lock as sign-in, so a stolen session cannot be used to
+// discover the PIN.
+export async function verifyCurrentPin(role, userId, pin, client = null) {
+  const table = role === "farmer" ? "farmers" : "admin_users";
+  const run = client ? client.query.bind(client) : query;
+  const { rows } = await run(
+    `SELECT pin_hash, failed_login_count, locked_until FROM ${table} WHERE id = $1`,
+    [userId]
+  );
+  const row = rows[0];
+  const wrong = badRequest("Your current PIN is incorrect.", { field: "currentPin" });
+  if (!row) throw wrong;
+  assertNotLocked(row, "login");
+  if (!(await verifyPin(pin, row.pin_hash))) await failAndThrow(role, userId, "login", wrong);
+  if (row.failed_login_count > 0 || row.locked_until) {
+    await clearFailures(role, userId, ["login"], client);
+  }
+}
+
 export async function logout(sessionId) {
   await query(
     "UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
@@ -208,6 +251,7 @@ export async function logout(sessionId) {
 export async function changePin(auth, body = {}) {
   const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
   const newPin = requirePin(body.newPin, "newPin", "New PIN");
+  if (auth.role === "admin") requireAdminPin(newPin);
   if (body.confirmPin !== undefined && body.confirmPin !== newPin) {
     throw badRequest("The new PIN and confirmation do not match.", { field: "confirmPin" });
   }
@@ -218,10 +262,7 @@ export async function changePin(auth, body = {}) {
   const table = auth.role === "farmer" ? "farmers" : "admin_users";
   const ownerColumn = auth.role === "farmer" ? "farmer_id" : "admin_user_id";
 
-  const { rows } = await query(`SELECT pin_hash FROM ${table} WHERE id = $1`, [auth.userId]);
-  if (!rows[0] || !(await verifyPin(currentPin, rows[0].pin_hash))) {
-    throw badRequest("Your current PIN is incorrect.", { field: "currentPin" });
-  }
+  await verifyCurrentPin(auth.role, auth.userId, currentPin);
 
   const pinHash = await hashPin(newPin);
   await withTransaction(async (client) => {
@@ -250,10 +291,7 @@ export async function setupRecoveryQuestion(auth, body = {}) {
   }
 
   const table = auth.role === "farmer" ? "farmers" : "admin_users";
-  const { rows } = await query(`SELECT pin_hash FROM ${table} WHERE id = $1`, [auth.userId]);
-  if (!rows[0] || !(await verifyPin(currentPin, rows[0].pin_hash))) {
-    throw badRequest("Your current PIN is incorrect.", { field: "currentPin" });
-  }
+  await verifyCurrentPin(auth.role, auth.userId, currentPin);
 
   await query(
     `UPDATE ${table}
@@ -265,6 +303,14 @@ export async function setupRecoveryQuestion(auth, body = {}) {
     message: "Your recovery question has been saved.",
     securityQuestion: body.securityQuestion
   };
+}
+
+// Admin PINs guard every farmer's records, so new ones must be 6 digits.
+export function requireAdminPin(pin, field = "newPin") {
+  if (!/^\d{6}$/.test(pin)) {
+    throw badRequest("Admin PINs must be 6 digits.", { field });
+  }
+  return pin;
 }
 
 export { serializeFarmer, serializeAdmin };

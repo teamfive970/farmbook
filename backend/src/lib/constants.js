@@ -40,3 +40,23 @@ export const ACTIVITY_TYPES = [
   "cleaning",
   "other"
 ];
+
+export const SIZE_UNITS = ["acres", "hectares", "lots", "square_meters"];
+export const CURRENCIES = ["LRD", "USD"];
+export const QUALITY_GRADES = ["A", "B", "C", "rejected"];
+// Simple yes/no checks a farmer or extension officer can do by eye.
+export const QUALITY_CHECKS = ["dry", "clean", "no_pests", "no_mold", "sorted", "good_smell"];
+export const BUYER_TYPES = ["market_woman", "trader", "cooperative", "company", "neighbor", "other"];
+export const PAYMENT_METHODS = ["cash", "mobile_money", "bank", "other"];
+export const EXPENSE_CATEGORIES = [
+  "seeds",
+  "fertilizer",
+  "pesticide",
+  "labour",
+  "tools",
+  "transport",
+  "feed",
+  "medicine",
+  "land",
+  "other"
+];

@@ -6,18 +6,21 @@ import App from "./App.jsx";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
 import { SyncProvider } from "./contexts/SyncContext.jsx";
 import { ToastProvider } from "./contexts/ToastContext.jsx";
+import { VoiceProvider } from "./contexts/VoiceContext.jsx";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ToastProvider>
-        <AuthProvider>
-          <SyncProvider>
-            <App />
-          </SyncProvider>
-        </AuthProvider>
-      </ToastProvider>
+      <VoiceProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <SyncProvider>
+              <App />
+            </SyncProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </VoiceProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

@@ -19,10 +19,22 @@ import History from "./pages/farmer/History.jsx";
 import Profile from "./pages/farmer/Profile.jsx";
 import RecordActivity from "./pages/farmer/RecordActivity.jsx";
 import SyncStatus from "./pages/farmer/SyncStatus.jsx";
+import ExpenseForm from "./pages/farmer/ExpenseForm.jsx";
+import Group, { GroupDashboard } from "./pages/farmer/Group.jsx";
+import HarvestDetail from "./pages/farmer/HarvestDetail.jsx";
+import HarvestForm from "./pages/farmer/HarvestForm.jsx";
+import Harvests from "./pages/farmer/Harvests.jsx";
+import InspectionForm from "./pages/farmer/InspectionForm.jsx";
+import Money from "./pages/farmer/Money.jsx";
+import SaleDetail from "./pages/farmer/SaleDetail.jsx";
+import SaleForm from "./pages/farmer/SaleForm.jsx";
+import Passport from "./pages/Passport.jsx";
+import AdminCooperatives, { AdminCooperativeDetail } from "./pages/admin/AdminCooperatives.jsx";
 import ForgotPin from "./pages/ForgotPin.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Welcome from "./pages/Welcome.jsx";
+import WhoIsUsing from "./pages/WhoIsUsing.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -61,6 +73,10 @@ export default function App() {
           <Route path="/admin/login" element={<Login standalone />} />
         </Route>
 
+        <Route path="/who" element={<WhoIsUsing />} />
+        {/* Public: buyers scan a harvest batch's QR code. */}
+        <Route path="/p/:code" element={<Passport />} />
+
         <Route element={<RequireRole role="farmer" />}>
           <Route path="/app" element={<FarmerLayout />}>
             <Route index element={<Dashboard />} />
@@ -74,6 +90,18 @@ export default function App() {
             <Route path="activities/:clientId/edit" element={<EditActivity />} />
             <Route path="sync" element={<SyncStatus />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="harvests" element={<Harvests />} />
+            <Route path="harvests/new" element={<HarvestForm />} />
+            <Route path="harvests/:clientId" element={<HarvestDetail />} />
+            <Route path="harvests/:clientId/edit" element={<HarvestForm />} />
+            <Route path="harvests/:clientId/check" element={<InspectionForm />} />
+            <Route path="money" element={<Money />} />
+            <Route path="money/sell" element={<SaleForm />} />
+            <Route path="money/sales/:clientId" element={<SaleDetail />} />
+            <Route path="money/spend" element={<ExpenseForm />} />
+            <Route path="money/spend/:clientId" element={<ExpenseForm />} />
+            <Route path="group" element={<Group />} />
+            <Route path="group/:groupId" element={<GroupDashboard />} />
           </Route>
         </Route>
 
@@ -83,6 +111,8 @@ export default function App() {
             <Route path="farmers" element={<AdminFarmers />} />
             <Route path="farmers/:farmerId" element={<AdminFarmerDetail />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="cooperatives" element={<AdminCooperatives />} />
+            <Route path="cooperatives/:cooperativeId" element={<AdminCooperativeDetail />} />
           </Route>
         </Route>
 

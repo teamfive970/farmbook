@@ -17,7 +17,7 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { api } from "../../lib/api.js";
 import { formatDate, formatFullDate, formatPhone, initials } from "../../lib/format.js";
-import { COUNTIES, activityMeta, farmMeta } from "../../lib/labels.js";
+import { COUNTIES, activityMeta, activitySummary, farmMeta } from "../../lib/labels.js";
 
 export default function AdminFarmerDetail() {
   const { farmerId } = useParams();
@@ -356,7 +356,7 @@ export default function AdminFarmerDetail() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-ink">{meta.label}</p>
-                    <p className="line-clamp-2 text-xs text-ink-soft">{activity.description}</p>
+                    <p className="line-clamp-2 text-xs text-ink-soft">{activitySummary(activity)}</p>
                     <p className="mt-0.5 text-[11px] text-ink-soft">
                       {activity.farmName} · {formatFullDate(activity.activityDate)}
                     </p>

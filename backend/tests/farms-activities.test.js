@@ -271,18 +271,17 @@ test("activity validation rejects missing required fields", async () => {
   const farm = await createFarm();
   const farmId = farm.body.farm.id;
 
-  const noDescription = await api(server.baseUrl, "/api/activities", {
+  const noType = await api(server.baseUrl, "/api/activities", {
     method: "POST",
     token,
     body: {
       clientId: "validation-client-1",
       farmId,
-      activityType: "planting",
       activityDate: "2026-11-01"
     }
   });
-  assert.equal(noDescription.status, 400);
-  assert.equal(noDescription.body.error.details.field, "description");
+  assert.equal(noType.status, 400);
+  assert.equal(noType.body.error.details.field, "activityType");
 
   const badDate = await api(server.baseUrl, "/api/activities", {
     method: "POST",
@@ -322,4 +321,55 @@ test("activity validation rejects missing required fields", async () => {
     }
   });
   assert.equal(missingClientId.status, 400);
+});
+
+test("a record can be saved with taps only (no typed description)", async () => {
+  const farm = await createFarm();
+  const created = await api(server.baseUrl, "/api/activities", {
+    method: "POST",
+    token,
+    body: {
+      clientId: "taps-only-client-1",
+      farmId: farm.body.farm.id,
+      activityType: "planting",
+      activityDate: "2026-11-01",
+      quantity: 40,
+      unit: "stems"
+    }
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.activity.description, null);
+  assert.equal(created.body.activity.quantity, 40);
+
+  const cleared = await api(server.baseUrl, `/api/activities/${created.body.activity.id}`, {
+    method: "PATCH",
+    token,
+    body: { description: null }
+  });
+  assert.equal(cleared.status, 200);
+});
+
+test("replaying a create for a deleted record does not bring it back", async () => {
+  const farm = await createFarm();
+  const payload = {
+    clientId: "deleted-replay-client",
+    farmId: farm.body.farm.id,
+    activityType: "weeding",
+    activityDate: "2026-11-02"
+  };
+  const first = await api(server.baseUrl, "/api/activities", { method: "POST", token, body: payload });
+  assert.equal(first.status, 201);
+  const removed = await api(server.baseUrl, `/api/activities/${first.body.activity.id}`, {
+    method: "DELETE",
+    token
+  });
+  assert.equal(removed.status, 200);
+
+  const replay = await api(server.baseUrl, "/api/activities", { method: "POST", token, body: payload });
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.created, false);
+  assert.equal(replay.body.deleted, true);
+
+  const list = await api(server.baseUrl, "/api/activities", { token });
+  assert.equal(list.body.items.length, 0);
 });

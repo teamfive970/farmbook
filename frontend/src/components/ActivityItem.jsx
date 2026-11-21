@@ -1,7 +1,7 @@
 import { ChevronRight, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDate } from "../lib/format.js";
-import { activityMeta } from "../lib/labels.js";
+import { activityMeta, activitySummary } from "../lib/labels.js";
 import { StatusChip } from "./ui.jsx";
 
 export default function ActivityItem({ activity, compact = false }) {
@@ -9,6 +9,7 @@ export default function ActivityItem({ activity, compact = false }) {
   return (
     <Link
       to={`/app/activities/${activity.clientId}`}
+      data-say={`${activitySummary(activity)}. ${activity.farmName || ""}. ${formatDate(activity.activityDate)}.`}
       className="block rounded-2xl border border-line/80 bg-white p-4 shadow-card transition hover:border-primary/30"
     >
       <div className="flex items-start gap-3">
@@ -26,9 +27,9 @@ export default function ActivityItem({ activity, compact = false }) {
             </div>
             <StatusChip status={activity.syncStatus} />
           </div>
-          {!compact && activity.description && (
+          {!compact && (
             <p className="mt-2 line-clamp-2 text-sm leading-snug text-ink-soft">
-              {activity.description}
+              {activitySummary(activity)}
             </p>
           )}
           <div className="mt-2 flex items-center justify-between gap-2 text-xs text-ink-soft">

@@ -2,6 +2,7 @@ import { query } from "../config/database.js";
 import { encryptionAvailable } from "../lib/crypto.js";
 import { unauthenticated, inactive, forbidden } from "../lib/errors.js";
 import { hashToken } from "../lib/tokens.js";
+import { sessionDays } from "../services/authService.js";
 
 async function loadFarmer(userId) {
   const { rows } = await query(
@@ -54,7 +55,7 @@ export async function authenticate(req, res, next) {
     if (scheme !== "Bearer" || !token) throw unauthenticated();
 
     const { rows } = await query(
-      `SELECT id, role, farmer_id, admin_user_id, expires_at, revoked_at
+      `SELECT id, role, farmer_id, admin_user_id, expires_at, revoked_at, last_used_at
        FROM sessions WHERE token_hash = $1`,
       [hashToken(token)]
     );
@@ -69,6 +70,18 @@ export async function authenticate(req, res, next) {
         : await loadAdmin(session.admin_user_id);
     if (!user) throw unauthenticated();
     if (user.status !== "active") throw inactive();
+
+    // Sliding expiry: every use (at most once an hour) pushes the end date out
+    // again, so a farmer who keeps using the app stays signed in indefinitely.
+    if (!session.last_used_at || Date.now() - new Date(session.last_used_at).getTime() > 3600_000) {
+      await query(
+        `UPDATE sessions
+         SET last_used_at = now(),
+             expires_at = GREATEST(expires_at, now() + make_interval(days => $2))
+         WHERE id = $1`,
+        [session.id, sessionDays(session.role)]
+      );
+    }
 
     req.auth = { sessionId: session.id, role: session.role, userId: user.id, user };
     next();

@@ -1,7 +1,7 @@
 import { ChevronRight, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusChip } from "./ui.jsx";
-import { farmMeta } from "../lib/labels.js";
+import { farmMeta, formatFarmSize } from "../lib/labels.js";
 
 export default function FarmCard({ farm }) {
   const meta = farmMeta(farm.farmType);
@@ -21,7 +21,8 @@ export default function FarmCard({ farm }) {
         </p>
         <p className="mt-1 text-[11px] font-medium text-primary">
           {meta.label} · {farm.activityCount ?? 0}{" "}
-          {farm.activityCount === 1 ? "record" : "records"}
+          {farm.activityCount === 1 ? "work" : "work"}
+          {formatFarmSize(farm) ? ` · ${formatFarmSize(farm)}` : ""}
         </p>
         {farm.syncStatus && farm.syncStatus !== "synced" && (
           <div className="mt-1.5">

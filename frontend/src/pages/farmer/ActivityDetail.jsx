@@ -14,7 +14,7 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { formatFullDate, formatDateTime } from "../../lib/format.js";
-import { activityMeta } from "../../lib/labels.js";
+import { activityMeta, activitySummary } from "../../lib/labels.js";
 import { getActivity } from "../../lib/localStore.js";
 import { refreshActivities } from "../../lib/syncEngine.js";
 
@@ -112,7 +112,7 @@ export default function ActivityDetail() {
 
   return (
     <div>
-      <PageHeader title="Record details" backTo="/app/history" />
+      <PageHeader title="The work" backTo="/app/history" say={{ say: `${activitySummary(record)}.` }} />
 
       <div className="rounded-2xl bg-white p-5 shadow-card">
         <div className="flex items-start gap-3">
@@ -150,7 +150,7 @@ export default function ActivityDetail() {
 
         <div className="mt-4">
           <DetailRow label="Date">{formatFullDate(record.activityDate)}</DetailRow>
-          <DetailRow label="Description">{record.description}</DetailRow>
+          <DetailRow label="What happened">{activitySummary(record)}</DetailRow>
           {record.inputUsed && <DetailRow label="Input or material">{record.inputUsed}</DetailRow>}
           {quantityText && <DetailRow label="Quantity">{quantityText}</DetailRow>}
           {record.notes && <DetailRow label="Notes">{record.notes}</DetailRow>}

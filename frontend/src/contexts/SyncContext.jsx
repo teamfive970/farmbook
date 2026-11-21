@@ -1,8 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { getFailedRecords, getQueue } from "../lib/localStore.js";
+import { getFailedRecords, getQueue, requestPersistentStorage } from "../lib/localStore.js";
 import {
   flushQueue,
   removeActivityEverywhere,
+  removeRecordEverywhere,
+  retryRecord,
+  saveNewRecord,
+  saveRecordChanges,
   retryActivityRecord,
   retryFailedFarm,
   saveActivityChanges,
@@ -30,7 +34,9 @@ export function SyncProvider({ children }) {
       return;
     }
     const [queue, failed] = await Promise.all([getQueue(user.id), getFailedRecords(user.id)]);
-    setPendingCount(queue.length + failed.activities.length + failed.farms.length);
+    setPendingCount(
+      queue.length + failed.activities.length + failed.farms.length + failed.records.length
+    );
   }, [user]);
 
   const syncNow = useCallback(async () => {
@@ -68,6 +74,33 @@ export function SyncProvider({ children }) {
     if (online && user && token) syncNow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, user?.id, token]);
+
+  // Keep the farmer's records even when the phone runs low on space.
+  useEffect(() => {
+    if (user?.role === "farmer") requestPersistentStorage();
+  }, [user?.id, user?.role]);
+
+  // Paused sends (weak signal, busy server) are retried on their own: every
+  // minute while something is waiting, and whenever the app is opened again.
+  const syncRef = useRef(syncNow);
+  syncRef.current = syncNow;
+  useEffect(() => {
+    if (!user || !token) return undefined;
+    const tryAgain = async () => {
+      if (!navigator.onLine) return;
+      const queue = await getQueue(user.id).catch(() => []);
+      if (queue.length > 0) syncRef.current();
+    };
+    const timer = window.setInterval(tryAgain, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tryAgain();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [user, token]);
 
   const value = useMemo(
     () => ({
@@ -118,6 +151,33 @@ export function SyncProvider({ children }) {
       },
       async retryFarm(farm) {
         await retryFailedFarm(user.id, farm);
+        bump();
+        await refreshPending();
+        if (online) syncNow();
+      },
+      // Harvests, quality checks, buyers, sales, payments, expenses.
+      async createRecord(kind, payload) {
+        const record = await saveNewRecord(user.id, kind, payload);
+        bump();
+        await refreshPending();
+        if (online) syncNow();
+        return record;
+      },
+      async updateRecord(record, changes) {
+        const updated = await saveRecordChanges(user.id, record, changes);
+        bump();
+        await refreshPending();
+        if (online) syncNow();
+        return updated;
+      },
+      async deleteRecord(record) {
+        await removeRecordEverywhere(user.id, record);
+        bump();
+        await refreshPending();
+        if (online) syncNow();
+      },
+      async retryRecord(record) {
+        await retryRecord(user.id, record);
         bump();
         await refreshPending();
         if (online) syncNow();

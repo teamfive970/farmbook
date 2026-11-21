@@ -38,7 +38,10 @@ export default function AdminDashboard() {
     { label: "New this month", value: metrics.farmersThisMonth, Icon: UserPlus, tone: "bg-sky-100 text-sky-700" },
     { label: "Farms", value: metrics.totalFarms, Icon: Sprout, tone: "bg-emerald-100 text-emerald-700" },
     { label: "Activity records", value: metrics.totalActivities, Icon: ClipboardList, tone: "bg-amber-100 text-amber-700" },
-    { label: "Records this week", value: metrics.activitiesThisWeek, Icon: Activity, tone: "bg-indigo-100 text-indigo-700" }
+    { label: "Records this week", value: metrics.activitiesThisWeek, Icon: Activity, tone: "bg-indigo-100 text-indigo-700" },
+    { label: "Harvest batches", value: metrics.totalHarvests ?? 0, Icon: Sprout, tone: "bg-orange-100 text-orange-700" },
+    { label: "Sales", value: metrics.totalSales ?? 0, Icon: Activity, tone: "bg-emerald-100 text-emerald-700" },
+    { label: "Cooperatives", value: metrics.totalCooperatives ?? 0, Icon: Users, tone: "bg-sky-100 text-sky-700" }
   ];
 
   return (

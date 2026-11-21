@@ -1,4 +1,4 @@
-import { ClipboardCopy, Eye, KeyRound, ShieldCheck, ShieldQuestion, UserRound } from "lucide-react";
+import { ClipboardCopy, Eye, KeyRound, ShieldCheck, UserRound } from "lucide-react";
 import { useState } from "react";
 import {
   Button,
@@ -7,14 +7,12 @@ import {
   Field,
   Modal,
   PageHeader,
-  Select,
   TextInput
 } from "../../components/ui.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { api } from "../../lib/api.js";
 import { formatPhone } from "../../lib/format.js";
-import { SECURITY_QUESTIONS } from "../../lib/labels.js";
 
 const EMPTY = {
   currentPin: "",
@@ -52,8 +50,8 @@ export default function AdminSettings() {
     const changingPhone = form.phoneNumber.trim() !== (user.phoneNumber || "");
     const settingQuestion = form.securityQuestion.length > 0;
 
-    if (changingPin && !/^\d{4,6}$/.test(form.newPin)) {
-      return setError("Your new PIN must be 4 to 6 digits.");
+    if (changingPin && !/^\d{6}$/.test(form.newPin)) {
+      return setError("Your new PIN must be 6 digits.");
     }
     if (changingPin && form.newPin !== form.confirmPin) {
       return setError("The new PIN and confirmation do not match.");
@@ -217,7 +215,7 @@ export default function AdminSettings() {
             <Field
               label="Phone number"
               htmlFor="phoneNumber"
-              hint="Optional — lets you sign in with your phone and PIN."
+              hint="Optional — used to send you a PIN reset code by SMS. Sign-in always uses your access code."
             >
               <TextInput
                 id="phoneNumber"
@@ -231,7 +229,7 @@ export default function AdminSettings() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="New PIN" htmlFor="newPin" hint="Leave blank to keep your current PIN.">
+            <Field label="New PIN" htmlFor="newPin" hint="6 digits. Leave blank to keep your current PIN.">
               <TextInput
                 id="newPin"
                 type="password"
@@ -265,44 +263,11 @@ export default function AdminSettings() {
             </Field>
           </div>
 
-          <div className="rounded-xl border border-line bg-canvas/70 p-4">
-            <p className="flex items-center gap-2 text-xs font-bold text-ink">
-              <ShieldQuestion size={15} className="text-primary" /> Recovery question
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              {user.hasSecurityQuestion
-                ? "A recovery question is set. Choose a new one below to replace it."
-                : "Set a question so you can reset your PIN without help."}
-            </p>
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Question" htmlFor="securityQuestion">
-                <Select
-                  id="securityQuestion"
-                  value={form.securityQuestion}
-                  onChange={update("securityQuestion")}
-                >
-                  <option value="">
-                    {user.hasSecurityQuestion ? "Keep current question" : "Choose a question"}
-                  </option>
-                  {SECURITY_QUESTIONS.map((question) => (
-                    <option key={question.key} value={question.key}>
-                      {question.text}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Answer" htmlFor="securityAnswer">
-                <TextInput
-                  id="securityAnswer"
-                  value={form.securityAnswer}
-                  onChange={update("securityAnswer")}
-                  placeholder="Type your answer"
-                  autoComplete="off"
-                  disabled={!form.securityQuestion}
-                />
-              </Field>
-            </div>
-          </div>
+          <p className="rounded-xl border border-line bg-canvas/70 p-4 text-xs leading-relaxed text-ink-soft">
+            Recovery questions are not used for administrator accounts because the answers can be
+            guessed. If you forget your PIN, use SMS recovery with your phone number or ask another
+            administrator for help.
+          </p>
 
           <div className="flex justify-end">
             <Button type="submit" loading={busy}>

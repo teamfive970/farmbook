@@ -113,8 +113,10 @@ function activityFields(body, { partial = false } = {}) {
   if (!partial || body.activityDate !== undefined) {
     fields.activity_date = requireDateString(body.activityDate, "activityDate", "activity date");
   }
+  // Optional: a farmer can save a record with taps only. The app shows a
+  // summary built from the activity type, amount and unit instead.
   if (!partial || body.description !== undefined) {
-    fields.description = requireString(body.description, "description", {
+    fields.description = optionalString(body.description, "description", {
       max: 1000,
       label: "Activity description"
     });
@@ -173,7 +175,12 @@ export async function createActivity(farmerId, body = {}) {
     [farmerId, clientId]
   );
   if (!existing.rows[0]) throw badRequest("This record could not be saved. Please try again.");
-  return { activity: serializeActivity(existing.rows[0]), created: false };
+  // A replay of a record that was later deleted must not bring it back.
+  return {
+    activity: serializeActivity(existing.rows[0]),
+    created: false,
+    deleted: Boolean(existing.rows[0].deleted_at)
+  };
 }
 
 export async function updateActivity(farmerId, activityId, body = {}) {

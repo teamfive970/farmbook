@@ -1,10 +1,34 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../lib/api.js";
-import { rememberOfflineLogin, signInOffline } from "../lib/offlineAuth.js";
+import {
+  forgetOfflineLogin,
+  refreshOfflineProfile,
+  rememberOfflineLogin,
+  signInOffline
+} from "../lib/offlineAuth.js";
+import { deleteLocalData, hasUnsentWork } from "../lib/localStore.js";
+import {
+  clearUnlocked,
+  dropProfile,
+  isUnlocked,
+  markUnlocked,
+  profileList,
+  readProfiles,
+  saveProfile,
+  setProfileToken
+} from "../lib/profiles.js";
 
 const STORAGE_KEY = "minders.session";
 
 const AuthContext = createContext(null);
+
+// Offline is a core feature: once a farmer has signed in on this phone they stay
+// signed in, with or without a connection, until they choose to sign out.
+//  * No connection or a server problem never signs anyone out.
+//  * If the server says the session is no longer valid (PIN changed elsewhere,
+//    PIN reset by a helper), a farmer keeps working offline with their saved
+//    records; the app asks for the PIN only to send records online again.
+//  * Only a deactivated account, or the farmer pressing Sign out, ends it.
 
 function readStoredSession() {
   try {
@@ -22,11 +46,25 @@ function readStoredSession() {
 }
 
 function persistSession(token, user, offline) {
-  if (user && (token || offline)) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, user, offline }));
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
+  if (user?.role === "farmer") saveProfile(user, token, offline);
+  try {
+    if (user && (token || offline)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, user, offline }));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // Storage can be full or blocked; the in-memory session still works.
   }
+}
+
+// Errors that mean "the server could not be reached or had a problem", not
+// "your account is not valid". These must never end a farmer's session.
+export function isServerUnavailable(error) {
+  return (
+    error instanceof ApiError &&
+    (error.isNetworkError || error.status === 408 || error.status === 429 || error.status >= 500)
+  );
 }
 
 export function AuthProvider({ children }) {
@@ -35,12 +73,31 @@ export function AuthProvider({ children }) {
   const [user, setUserState] = useState(session.user);
   const [offline, setOffline] = useState(session.offline);
   const [checking, setChecking] = useState(Boolean(session.token));
+  const [profiles, setProfiles] = useState(() => {
+    if (session.user?.role === "farmer") saveProfile(session.user, session.token, session.offline);
+    return profileList();
+  });
+  // Shared phone: with more than one person saved here, ask who is using it
+  // each time the app is opened (a page reload in the same tab stays open).
+  const [locked, setLocked] = useState(
+    () =>
+      session.user?.role === "farmer" &&
+      profileList().length > 1 &&
+      !isUnlocked(session.user.id)
+  );
+  const userRef = useRef(user);
+  userRef.current = user;
+  const refreshProfiles = useCallback(() => setProfiles(profileList()), []);
 
   const applySession = useCallback((nextToken, nextUser, nextOffline = false) => {
+    const isOffline = Boolean(nextOffline) && !nextToken;
     setToken(nextToken || null);
     setUserState(nextUser);
-    setOffline(Boolean(nextOffline) && !nextToken);
-    persistSession(nextToken || null, nextUser, Boolean(nextOffline) && !nextToken);
+    setOffline(isOffline);
+    persistSession(nextToken || null, nextUser, isOffline);
+    if (nextUser) markUnlocked(nextUser.id);
+    setLocked(false);
+    setProfiles(profileList());
   }, []);
 
   const clearSession = useCallback(() => {
@@ -50,10 +107,33 @@ export function AuthProvider({ children }) {
     persistSession(null, null, false);
   }, []);
 
+  // The server no longer accepts this phone's session. A farmer keeps their
+  // profile and records and carries on offline; an admin must sign in again.
+  const handleSessionRejected = useCallback(() => {
+    const current = userRef.current;
+    if (current?.role === "farmer") {
+      setToken(null);
+      setOffline(true);
+      setProfileToken(current.id, null);
+      persistSession(null, current, true);
+    } else {
+      clearSession();
+    }
+  }, [clearSession]);
+
+  const handleAccountInactive = useCallback(() => {
+    const current = userRef.current;
+    if (current?.phoneNumber) forgetOfflineLogin(current.phoneNumber).catch(() => {});
+    if (current) dropProfile(current.id);
+    setProfiles(profileList());
+    clearSession();
+  }, [clearSession]);
+
   const setUser = useCallback(
     (nextUser) => {
       setUserState(nextUser);
       persistSession(token, nextUser, offline);
+      if (nextUser?.role === "farmer") refreshOfflineProfile(nextUser).catch(() => {});
     },
     [token, offline]
   );
@@ -70,12 +150,12 @@ export function AuthProvider({ children }) {
       .then(({ user: freshUser }) => {
         if (!active) return;
         setUserState(freshUser);
-        persistSession(token, freshUser);
+        persistSession(token, freshUser, false);
+        if (freshUser?.role === "farmer") refreshOfflineProfile(freshUser).catch(() => {});
       })
-      .catch((error) => {
-        if (!active) return;
-        // Offline: keep the cached farmer signed in so records stay accessible.
-        if (error instanceof ApiError && !error.isNetworkError) clearSession();
+      .catch(() => {
+        // 401 and inactive accounts are handled by the global events below;
+        // anything else (offline, server down) keeps the farmer signed in.
       })
       .finally(() => {
         if (active) setChecking(false);
@@ -83,13 +163,16 @@ export function AuthProvider({ children }) {
     return () => {
       active = false;
     };
-  }, [token, clearSession]);
+  }, [token]);
 
   useEffect(() => {
-    const handleExpired = () => clearSession();
-    window.addEventListener("minders:session-expired", handleExpired);
-    return () => window.removeEventListener("minders:session-expired", handleExpired);
-  }, [clearSession]);
+    window.addEventListener("minders:session-expired", handleSessionRejected);
+    window.addEventListener("minders:account-inactive", handleAccountInactive);
+    return () => {
+      window.removeEventListener("minders:session-expired", handleSessionRejected);
+      window.removeEventListener("minders:account-inactive", handleAccountInactive);
+    };
+  }, [handleSessionRejected, handleAccountInactive]);
 
   const login = useCallback(
     async (identifier, pin) => {
@@ -97,15 +180,31 @@ export function AuthProvider({ children }) {
       try {
         result = await api.post("/api/auth/login", { identifier, pin });
       } catch (error) {
-        if (!(error instanceof ApiError) || !error.isNetworkError) throw error;
-        // No connection: verify against the PIN this phone remembers.
-        const localUser = await signInOffline(identifier, pin);
+        if (error instanceof ApiError && error.code === "ACCOUNT_INACTIVE") {
+          await forgetOfflineLogin(identifier).catch(() => {});
+          throw error;
+        }
+        // No connection or the server is having trouble: check the PIN this
+        // phone remembers so the farmer can keep working.
+        if (!isServerUnavailable(error) || error.code === "ACCOUNT_LOCKED") throw error;
+        let localUser;
+        try {
+          localUser = await signInOffline(identifier, pin);
+        } catch (offlineError) {
+          // A phone that has never signed in should still see the server's
+          // problem rather than an offline message when it is online.
+          if (offlineError.code === "OFFLINE_SIGN_IN_UNAVAILABLE" && !error.isNetworkError) {
+            throw error;
+          }
+          throw offlineError;
+        }
         applySession(null, localUser, true);
         return localUser;
       }
       await rememberOfflineLogin(identifier, pin, result.user).catch(() => {});
       applySession(result.token, result.user);
-      return result.user;    },
+      return result.user;
+    },
     [applySession]
   );
 
@@ -125,8 +224,87 @@ export function AuthProvider({ children }) {
     } catch {
       // Signing out must work even without a connection.
     }
+    // The offline PIN check is kept so the farmer can sign in again offline;
+    // the saved session is not.
+    if (userRef.current?.role === "farmer") setProfileToken(userRef.current.id, null);
+    clearUnlocked();
     clearSession();
+    setProfiles(profileList());
   }, [token, clearSession]);
+
+  // ---------- Shared phone ----------
+
+  // Hand the phone to someone else: the current person's session stays saved
+  // (their PIN is needed to come back).
+  const lock = useCallback(() => {
+    clearUnlocked();
+    setProfiles(profileList());
+    setLocked(true);
+  }, []);
+
+  const unlockProfile = useCallback(
+    async (userId, pin) => {
+      const profile = readProfiles()[userId];
+      if (!profile) throw new ApiError(404, "PROFILE_NOT_FOUND", "This person is not saved on this phone.");
+      const phone = profile.user.phoneNumber;
+      let localUser = null;
+      try {
+        localUser = await signInOffline(phone, pin);
+      } catch (error) {
+        // The phone has no PIN check for this person, or the PIN was changed on
+        // another phone: ask the server when there is network.
+        const canAskServer =
+          navigator.onLine &&
+          (error.code === "OFFLINE_SIGN_IN_UNAVAILABLE" || error.code === "INVALID_CREDENTIALS");
+        if (!canAskServer) throw error;
+        return login(phone, pin);
+      }
+      let nextToken = profile.token;
+      if (!nextToken && navigator.onLine) {
+        try {
+          const result = await api.post("/api/auth/login", { identifier: phone, pin });
+          nextToken = result.token;
+          localUser = result.user;
+          await rememberOfflineLogin(phone, pin, result.user).catch(() => {});
+        } catch {
+          // Keep going offline; the app asks for the PIN again to send work.
+        }
+      }
+      const nextUser = { ...profile.user, ...localUser };
+      applySession(nextToken || null, nextUser, !nextToken);
+      return nextUser;
+    },
+    [applySession, login]
+  );
+
+  // Take a person off this phone. Refused while they still have work that
+  // has not been sent, so nothing is lost.
+  const removeProfile = useCallback(
+    async (userId, pin) => {
+      const profile = readProfiles()[userId];
+      if (!profile) return;
+      await signInOffline(profile.user.phoneNumber, pin);
+      if (await hasUnsentWork(userId)) {
+        throw new ApiError(
+          409,
+          "UNSENT_WORK",
+          "Some of this person's work is still on the phone. Send it first, when network come."
+        );
+      }
+      if (profile.token) {
+        api.post("/api/auth/logout", undefined, { token: profile.token }).catch(() => {});
+      }
+      await forgetOfflineLogin(profile.user.phoneNumber).catch(() => {});
+      await deleteLocalData(userId).catch(() => {});
+      dropProfile(userId);
+      if (userRef.current?.id === userId) {
+        clearUnlocked();
+        clearSession();
+      }
+      refreshProfiles();
+    },
+    [clearSession, refreshProfiles]
+  );
 
   const value = useMemo(
     () => ({
@@ -140,9 +318,31 @@ export function AuthProvider({ children }) {
       logout,
       clearSession,
       setUser,
-      establishSession: applySession
+      establishSession: applySession,
+      // Shared phone
+      locked,
+      profiles,
+      lock,
+      unlockProfile,
+      removeProfile
     }),
-    [token, user, checking, offline, login, register, logout, clearSession, setUser, applySession]
+    [
+      token,
+      user,
+      checking,
+      offline,
+      login,
+      register,
+      logout,
+      clearSession,
+      setUser,
+      applySession,
+      locked,
+      profiles,
+      lock,
+      unlockProfile,
+      removeProfile
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

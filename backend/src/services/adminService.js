@@ -4,7 +4,7 @@ import { COUNTIES } from "../lib/constants.js";
 import { decryptSecret, encryptSecret, encryptionAvailable } from "../lib/crypto.js";
 import { ApiError, badRequest, conflict, notFound } from "../lib/errors.js";
 import { normalizePhone } from "../lib/phone.js";
-import { hashPin, hashSecret, verifyPin } from "../lib/pin.js";
+import { hashPin, hashSecret } from "../lib/pin.js";
 import { isSecurityQuestionKey, normalizeSecurityAnswer } from "../lib/recovery.js";
 import { hashAccessCode, normalizeAccessCode } from "../lib/tokens.js";
 import {
@@ -16,7 +16,7 @@ import {
   requireUuid
 } from "../lib/validation.js";
 import { serializeActivity } from "./activityService.js";
-import { serializeAdmin } from "./authService.js";
+import { requireAdminPin, serializeAdmin, verifyCurrentPin } from "./authService.js";
 import { serializeFarm } from "./farmService.js";
 
 const SELECT_FARMER = `
@@ -60,7 +60,10 @@ export async function getDashboard() {
       (SELECT count(*)::int FROM farms) AS total_farms,
       (SELECT count(*)::int FROM farm_activities WHERE deleted_at IS NULL) AS total_activities,
       (SELECT count(*)::int FROM farm_activities
-        WHERE deleted_at IS NULL AND created_at >= now() - interval '7 days') AS activities_this_week`
+        WHERE deleted_at IS NULL AND created_at >= now() - interval '7 days') AS activities_this_week,
+      (SELECT count(*)::int FROM harvests WHERE deleted_at IS NULL) AS total_harvests,
+      (SELECT count(*)::int FROM sales WHERE deleted_at IS NULL) AS total_sales,
+      (SELECT count(*)::int FROM cooperatives WHERE status = 'active') AS total_cooperatives`
   );
   const metrics = rows[0];
 
@@ -75,7 +78,10 @@ export async function getDashboard() {
       farmersThisMonth: metrics.farmers_this_month,
       totalFarms: metrics.total_farms,
       totalActivities: metrics.total_activities,
-      activitiesThisWeek: metrics.activities_this_week
+      activitiesThisWeek: metrics.activities_this_week,
+      totalHarvests: metrics.total_harvests,
+      totalSales: metrics.total_sales,
+      totalCooperatives: metrics.total_cooperatives
     },
     recentFarmers: recentFarmers.rows.map(serializeFarmerSummary)
   };
@@ -228,7 +234,7 @@ export async function rotateAdminCredentials(adminAuth, body = {}) {
 
   const updates = {};
   if (body.newPin !== undefined) {
-    const newPin = requirePin(body.newPin, "newPin", "New PIN");
+    const newPin = requireAdminPin(requirePin(body.newPin, "newPin", "New PIN"));
     if (body.confirmPin !== undefined && body.confirmPin !== newPin) {
       throw badRequest("The new PIN and confirmation do not match.", { field: "confirmPin" });
     }
@@ -279,16 +285,12 @@ export async function rotateAdminCredentials(adminAuth, body = {}) {
   const entries = Object.entries(updates);
   if (entries.length === 0) throw badRequest("Choose at least one credential to update.");
 
+  // Checked before the transaction so a wrong PIN is still counted toward the
+  // lock (a rolled-back transaction would forget it).
+  await verifyCurrentPin("admin", adminAuth.userId, currentPin);
+
   try {
     return await withTransaction(async (client) => {
-      const { rows } = await client.query(
-        "SELECT pin_hash FROM admin_users WHERE id = $1 FOR UPDATE",
-        [adminAuth.userId]
-      );
-      if (!rows[0] || !(await verifyPin(currentPin, rows[0].pin_hash))) {
-        throw badRequest("Your current PIN is incorrect.", { field: "currentPin" });
-      }
-
       const assignments = entries.map(([column], index) => `${column} = $${index + 1}`);
       const values = entries.map(([, value]) => value);
       values.push(adminAuth.userId);
@@ -339,13 +341,12 @@ export async function rotateAdminCredentials(adminAuth, body = {}) {
 
 export async function revealAdminAccessCode(adminAuth, body = {}) {
   const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
+  await verifyCurrentPin("admin", adminAuth.userId, currentPin);
   const { rows } = await query(
-    "SELECT pin_hash, access_code_ciphertext FROM admin_users WHERE id = $1",
+    "SELECT access_code_ciphertext FROM admin_users WHERE id = $1",
     [adminAuth.userId]
   );
-  if (!rows[0] || !(await verifyPin(currentPin, rows[0].pin_hash))) {
-    throw badRequest("Your current PIN is incorrect.", { field: "currentPin" });
-  }
+  if (!rows[0]) throw notFound("Admin not found.");
   if (!encryptionAvailable()) {
     throw new ApiError(
       503,
@@ -379,17 +380,16 @@ export async function resetFarmerPin(adminAuth, farmerId, body = {}) {
   const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
   const tempPin = String(crypto.randomInt(100000, 1000000));
   const pinHash = await hashPin(tempPin);
+  await verifyCurrentPin("admin", adminAuth.userId, currentPin);
 
   await withTransaction(async (client) => {
-    const admin = await client.query("SELECT pin_hash FROM admin_users WHERE id = $1 FOR UPDATE", [
-      adminAuth.userId
-    ]);
-    if (!admin.rows[0] || !(await verifyPin(currentPin, admin.rows[0].pin_hash))) {
-      throw badRequest("Your current PIN is incorrect.", { field: "currentPin" });
-    }
-
+    // A helper reset also unlocks the farmer if they were waiting after wrong PINs.
     const updated = await client.query(
-      "UPDATE farmers SET pin_hash = $1, updated_at = now() WHERE id = $2 RETURNING id",
+      `UPDATE farmers
+       SET pin_hash = $1, updated_at = now(),
+           failed_login_count = 0, locked_until = NULL,
+           recovery_failed_count = 0, recovery_locked_until = NULL
+       WHERE id = $2 RETURNING id`,
       [pinHash, farmerId]
     );
     if (!updated.rows[0]) throw notFound("Farmer not found.");

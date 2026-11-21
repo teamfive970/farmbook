@@ -10,6 +10,10 @@ import activityRoutes from "./routes/activityRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import farmRoutes from "./routes/farmRoutes.js";
+import cooperativeRoutes from "./routes/cooperativeRoutes.js";
+import passportRoutes from "./routes/passportRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import { resourceRouter } from "./routes/resourceRoutes.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(here, "../../frontend/dist");
@@ -62,6 +66,15 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/farms", farmRoutes);
   app.use("/api/activities", activityRoutes);
+  app.use("/api/harvests", resourceRouter("harvests"));
+  app.use("/api/inspections", resourceRouter("inspections"));
+  app.use("/api/buyers", resourceRouter("buyers"));
+  app.use("/api/sales", resourceRouter("sales"));
+  app.use("/api/payments", resourceRouter("payments"));
+  app.use("/api/expenses", resourceRouter("expenses"));
+  app.use("/api/reports", reportRoutes);
+  app.use("/api/cooperatives", cooperativeRoutes);
+  app.use("/api/passport", passportRoutes);
   app.use("/api/admin", adminRoutes);
 
   app.use("/api", notFoundHandler);

@@ -296,3 +296,106 @@ test("admins can reveal their access code with the PIN and after rotation", asyn
   );
   assert.equal(audit.rowCount, 2);
 });
+
+test("recovery questions are limited per account and never unlock admins", async () => {
+  const registered = await registerWithQuestion({ phoneNumber: "0775557101" });
+  assert.equal(registered.status, 201);
+
+  let last;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    last = await api(server.baseUrl, "/api/auth/recovery/security-question", {
+      method: "POST",
+      body: {
+        identifier: "0775557101",
+        securityQuestion: "mother_first_name",
+        securityAnswer: `guess-${attempt}`,
+        newPin: "2222",
+        confirmPin: "2222"
+      }
+    });
+  }
+  assert.equal(last.status, 429);
+  assert.equal(last.body.error.code, "ACCOUNT_LOCKED");
+
+  // The right answer must wait too.
+  const right = await api(server.baseUrl, "/api/auth/recovery/security-question", {
+    method: "POST",
+    body: {
+      identifier: "0775557101",
+      securityQuestion: "mother_first_name",
+      securityAnswer: "Grace",
+      newPin: "2222",
+      confirmPin: "2222"
+    }
+  });
+  assert.equal(right.status, 429);
+
+  const { admin } = await createAdminRecord({ accessCode: "MND-QUESTION" });
+  // Give the admin a known answer ("grace", copied from the farmer above).
+  await query(
+    `UPDATE admin_users SET security_question = 'home_town',
+       security_answer_hash = (SELECT security_answer_hash FROM farmers WHERE phone_number = $1)
+     WHERE id = $2`,
+    ["+231775557101", admin.id]
+  );
+  const adminAttempt = await api(server.baseUrl, "/api/auth/recovery/security-question", {
+    method: "POST",
+    body: {
+      identifier: "MND-QUESTION",
+      securityQuestion: "home_town",
+      securityAnswer: "Grace",
+      newPin: "135790",
+      confirmPin: "135790"
+    }
+  });
+  assert.equal(adminAttempt.status, 401);
+});
+
+test("a helper PIN reset unlocks a farmer who was waiting", async () => {
+  const { pin: adminPin } = await createAdminRecord({ accessCode: "MND-HELPER", phoneNumber: null });
+  const adminLogin = await loginAs(server.baseUrl, "MND-HELPER", adminPin);
+  const { farmer } = await createFarmerRecord({ phoneNumber: "+231775557102" });
+  await query(
+    "UPDATE farmers SET failed_login_count = 7, locked_until = now() + interval '30 minutes' WHERE id = $1",
+    [farmer.id]
+  );
+
+  const reset = await api(server.baseUrl, `/api/admin/farmers/${farmer.id}/reset-pin`, {
+    method: "POST",
+    token: adminLogin.body.token,
+    body: { currentPin: adminPin }
+  });
+  assert.equal(reset.status, 200);
+  const signIn = await loginAs(server.baseUrl, "0775557102", reset.body.tempPin);
+  assert.equal(signIn.status, 200);
+});
+
+test("SMS codes cannot be guessed more than five times, even in parallel", async () => {
+  await createFarmerRecord({ phoneNumber: "+231775557103" });
+  const requested = await api(server.baseUrl, "/api/auth/recovery/sms/request", {
+    method: "POST",
+    body: { identifier: "0775557103" }
+  });
+  assert.equal(requested.status, 200);
+  const code = /(\d{6})/.exec(sentMessages[0].message)[1];
+  const wrong = code === "000000" ? "111111" : "000000";
+
+  const guesses = await Promise.all(
+    Array.from({ length: 10 }, () =>
+      api(server.baseUrl, "/api/auth/recovery/sms/verify", {
+        method: "POST",
+        body: { identifier: "0775557103", code: wrong, newPin: "3333", confirmPin: "3333" }
+      })
+    )
+  );
+  assert.ok(guesses.every((result) => result.status === 401));
+  const { rows } = await query("SELECT attempts FROM recovery_otps ORDER BY created_at DESC LIMIT 1");
+  assert.ok(rows[0].attempts <= 5, `attempts were ${rows[0].attempts}`);
+
+  // Even the right code is refused once the attempts are used up.
+  const late = await api(server.baseUrl, "/api/auth/recovery/sms/verify", {
+    method: "POST",
+    body: { identifier: "0775557103", code, newPin: "3333", confirmPin: "3333" }
+  });
+  assert.equal(late.status, 401);
+});

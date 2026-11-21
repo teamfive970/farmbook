@@ -1,4 +1,5 @@
 import { ClipboardList, CloudOff, CloudUpload, MapPin, Pencil, Plus, Sprout } from "lucide-react";
+import { WORDS } from "../../lib/words.js";
 import { useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ActivityItem from "../../components/ActivityItem.jsx";
@@ -12,7 +13,7 @@ import {
 } from "../../components/ui.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
-import { farmMeta } from "../../lib/labels.js";
+import { farmMeta, formatFarmSize } from "../../lib/labels.js";
 
 export default function FarmDetail() {
   const { farmId } = useParams();
@@ -123,6 +124,11 @@ export default function FarmDetail() {
               <MapPin size={14} className="shrink-0" />
               {farm.community}, {farm.district}, {farm.county}
             </p>
+            {formatFarmSize(farm) && (
+              <p className="mt-1 text-sm font-semibold text-ink" data-say={`The farm is ${formatFarmSize(farm)}.`}>
+                📐 {formatFarmSize(farm)}
+              </p>
+            )}
           </div>
         </div>
 
@@ -138,6 +144,23 @@ export default function FarmDetail() {
         {farm.description && (
           <p className="mt-4 text-sm leading-relaxed text-ink-soft">{farm.description}</p>
         )}
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Link
+            to={`/app/harvests/new?farm=${encodeURIComponent(farm.clientId || farm.id)}`}
+            data-say={WORDS.addHarvest.say}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-amber-100 px-3 text-sm font-bold text-amber-900"
+          >
+            🧺 {WORDS.addHarvest.text}
+          </Link>
+          <Link
+            to={`/app/money/spend?farm=${encodeURIComponent(farm.clientId || farm.id)}`}
+            data-say={WORDS.spend.say}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-rose-50 px-3 text-sm font-bold text-rose-900"
+          >
+            💸 {WORDS.spend.text}
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

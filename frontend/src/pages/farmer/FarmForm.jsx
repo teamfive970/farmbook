@@ -1,14 +1,13 @@
-import { CloudOff, MapPin } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CloudOff, Home, MapPin, PencilLine } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { StepIndicator } from "../../components/FormSteps.jsx";
+import { PictureChip } from "../../components/Voice.jsx";
 import {
   Button,
   ErrorBanner,
   Field,
   PageHeader,
   PageLoading,
-  Select,
   Textarea,
   TextInput
 } from "../../components/ui.jsx";
@@ -20,6 +19,23 @@ import { api } from "../../lib/api.js";
 import { newClientId } from "../../lib/format.js";
 import { COUNTIES, FARM_TYPES } from "../../lib/labels.js";
 import { upsertCachedFarm } from "../../lib/localStore.js";
+import {
+  ANIMALS,
+  CROPS,
+  FARM_TYPE_WORDS,
+  SIZE_UNITS,
+  WORDS,
+  farmNameChoices,
+  growChoices
+} from "../../lib/words.js";
+import { ChoiceButton, QuantityStepper } from "../../components/Choices.jsx";
+
+const KNOWN_GROWS = new Set([...CROPS, ...ANIMALS].map((item) => item.value));
+
+// One screen, mostly pictures:
+//   what kind of farm → what you grow or raise (pictures) → a suggested name
+//   → "same place I live" (filled from the farmer's own registration).
+// Typing is only needed for a custom name or a farm in another place.
 
 const EMPTY = {
   farmName: "",
@@ -28,10 +44,11 @@ const EMPTY = {
   district: "",
   community: "",
   mainCropOrLivestock: "",
-  description: ""
+  description: "",
+  size: "",
+  sizeUnit: "acres"
 };
 
-const STEPS = ["Farm basics", "Location", "Crops and notes"];
 
 function toForm(farm) {
   return {
@@ -41,7 +58,9 @@ function toForm(farm) {
     district: farm.district || "",
     community: farm.community || "",
     mainCropOrLivestock: farm.mainCropOrLivestock || "",
-    description: farm.description || ""
+    description: farm.description || "",
+    size: farm.size === null || farm.size === undefined ? "" : String(farm.size),
+    sizeUnit: farm.sizeUnit || "acres"
   };
 }
 
@@ -56,8 +75,20 @@ export default function FarmForm() {
 
   const resolvedFarmId = farmIdMap[farmId] || farmId;
 
-  const [form, setForm] = useState(editing ? null : EMPTY);
-  const [step, setStep] = useState(0);
+  const [form, setForm] = useState(
+    editing
+      ? null
+      : {
+          ...EMPTY,
+          county: user?.county || "",
+          district: user?.district || "",
+          community: user?.community || ""
+        }
+  );
+  const [nameTouched, setNameTouched] = useState(editing);
+  const [ownName, setOwnName] = useState(false);
+  const [otherPlace, setOtherPlace] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const [existing, setExisting] = useState(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState("");
@@ -95,41 +126,78 @@ export default function FarmForm() {
     return (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
   }
 
-  function validateStep(index) {
-    if (index === 0 && form.farmName.trim().length < 1) return "Enter a name for your farm.";
-    if (index === 1) {
-      if (!form.county) return "Choose the county where the farm is.";
-      if (!form.district.trim()) return "Enter the district.";
-      if (!form.community.trim()) return "Enter the community.";
-    }
-    return "";
+  const grown = (form?.mainCropOrLivestock || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const isHome =
+    form &&
+    form.county === (user?.county || "") &&
+    form.district.trim() === (user?.district || "") &&
+    form.community.trim() === (user?.community || "");
+  const showPlaceFields = otherPlace || (form && !isHome);
+
+  function chooseType(value) {
+    setError("");
+    setForm((current) => {
+      const allowed = new Set(growChoices(value).map((item) => item.value));
+      const kept = (current.mainCropOrLivestock || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item && (allowed.has(item) || !KNOWN_GROWS.has(item)));
+      const next = { ...current, farmType: value, mainCropOrLivestock: kept.join(", ") };
+      if (!nameTouched) next.farmName = kept[0] ? `${kept[0]} farm` : "";
+      return next;
+    });
   }
 
-  function goToStep(nextStep) {
+  function toggleGrow(value) {
     setError("");
-    setStep(nextStep);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setForm((current) => {
+      const list = (current.mainCropOrLivestock || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const nextList = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+      const next = { ...current, mainCropOrLivestock: nextList.join(", ") };
+      if (!nameTouched) next.farmName = nextList[0] ? `${nextList[0]} farm` : "";
+      return next;
+    });
+  }
+
+  function chooseName(text) {
+    setError("");
+    setNameTouched(true);
+    setOwnName(false);
+    setForm((current) => ({ ...current, farmName: text }));
+  }
+
+  function useHome() {
+    setOtherPlace(false);
+    setForm((current) => ({
+      ...current,
+      county: user?.county || "",
+      district: user?.district || "",
+      community: user?.community || ""
+    }));
+  }
+
+  function validate() {
+    if (form.farmName.trim().length < 1) return "Touch one name for the farm.";
+    if (!form.county) return "Choose the county where the farm is.";
+    if (!form.district.trim()) return "Put the district.";
+    if (!form.community.trim()) return "Put the town or community.";
+    return "";
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
-
-    if (step < STEPS.length - 1) {
-      const message = validateStep(step);
-      if (message) return setError(message);
-      goToStep(step + 1);
+    const message = validate();
+    if (message) {
+      setError(message);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
-    }
-
-    for (let index = 0; index < STEPS.length; index += 1) {
-      const message = validateStep(index);
-      if (message) {
-        setError(message);
-        setStep(index);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
     }
 
     const payload = {
@@ -139,7 +207,9 @@ export default function FarmForm() {
       district: form.district.trim(),
       community: form.community.trim(),
       mainCropOrLivestock: form.mainCropOrLivestock.trim() || null,
-      description: form.description.trim() || null
+      description: form.description.trim() || null,
+      size: form.size === "" ? null : Number(form.size),
+      sizeUnit: form.size === "" ? null : form.sizeUnit
     };
 
     setBusy(true);
@@ -150,9 +220,9 @@ export default function FarmForm() {
       toast.success(
         online
           ? editing
-            ? "Farm details updated."
-            : "Farm added."
-          : "Saved on this phone. It will sync when you have internet."
+            ? "The farm changed."
+            : "Your farm saved."
+          : "Your farm saved on your phone. It will go on the internet when network come."
       );
       navigate(`/app/farms/${record.id}`, { replace: true });
     } catch (requestError) {
@@ -166,180 +236,277 @@ export default function FarmForm() {
     return (
       <div>
         <PageHeader title="Farm not found" backTo="/app/farms" />
-        <p className="text-sm text-ink-soft">This farm is not saved on this phone.</p>
+        <p className="text-sm text-ink-soft">This farm is not on this phone.</p>
       </div>
     );
   }
 
   if (!form) {
-    return <PageLoading label="Loading farm details…" />;
+    return <PageLoading label="Opening the farm…" />;
   }
+
+  const choices = growChoices(form.farmType);
+  const names = farmNameChoices(grown[0]);
+  const nameIsSuggested = names.some((item) => item.text === form.farmName);
 
   return (
     <div>
       <PageHeader
-        title={editing ? "Edit farm" : "Add a new farm"}
-        subtitle={editing ? "Update your farm details." : "Tell us about the farm you want to track."}
+        title={editing ? "Change farm" : WORDS.farmTitle.text}
+        subtitle="Touch the pictures. You do not need to write."
         backTo={editing ? `/app/farms/${resolvedFarmId}` : "/app/farms"}
+        say={WORDS.farmTitle}
       />
 
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        <StepIndicator step={step} steps={STEPS} />
-
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {!online && (
-          <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-amber-800">
+          <div
+            className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-amber-800"
+            data-say={WORDS.noNetwork.say}
+          >
             <CloudOff size={17} className="mt-0.5 shrink-0" />
-            You are offline. The farm will be saved on this phone and sent to your account when
-            you have internet.
+            Network not there. No problem. The farm will stay on your phone and go later.
           </div>
         )}
         <ErrorBanner message={error} />
 
-        {step === 0 && (
-          <div className="rounded-2xl bg-white p-5 shadow-card">
-            <Field label="Farm name" htmlFor="farmName">
-              <TextInput
-                id="farmName"
-                value={form.farmName}
-                onChange={update("farmName")}
-                placeholder="e.g. Green Valley Farm"
-                autoComplete="off"
-              />
-            </Field>
+        {/* 1. Kind of farm */}
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={WORDS.whatFarm.say}>{WORDS.whatFarm.text}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {FARM_TYPES.map(({ value, Icon, tone }) => {
+              const selected = form.farmType === value;
+              const words = FARM_TYPE_WORDS[value];
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => chooseType(value)}
+                  data-say={words?.say}
+                  data-say-key={words?.key}
+                  className={`flex min-h-20 items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+                    selected ? "border-primary bg-primary-soft shadow-sm" : "border-line bg-white hover:border-primary/40"
+                  }`}
+                >
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                    <Icon size={24} aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-bold leading-tight text-ink">{words?.text}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-            <div className="mt-5">
-              <p className="label">What do you farm?</p>
-              <div className="grid grid-cols-2 gap-2.5">
-                {FARM_TYPES.map(({ value, label, description, Icon, tone }) => {
-                  const selected = form.farmType === value;
-                  return (
+        {/* 2. What you grow or raise */}
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={WORDS.whatGrow.say}>
+            {WORDS.whatGrow.text} <span className="font-normal text-ink-soft">(touch all)</span>
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            {choices.map((item) => (
+              <PictureChip
+                key={item.key}
+                item={item}
+                selected={grown.includes(item.value)}
+                onClick={() => toggleGrow(item.value)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Size (optional) */}
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={WORDS.farmSize.say}>
+            {WORDS.farmSize.text} <span className="font-normal text-ink-soft">(you can leave it)</span>
+          </p>
+          <QuantityStepper
+            value={form.size}
+            step={0.5}
+            label="Farm size"
+            onChange={(next) => setForm((current) => ({ ...current, size: next }))}
+          />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {SIZE_UNITS.map((unit) => (
+              <ChoiceButton
+                key={unit.value}
+                words={unit}
+                selected={form.size !== "" && form.sizeUnit === unit.value}
+                onClick={() =>
+                  setForm((current) => ({
+                    ...current,
+                    sizeUnit: unit.value,
+                    size: current.size === "" ? "1" : current.size
+                  }))
+                }
+              >
+                <span aria-hidden="true">{unit.emoji}</span> {unit.text}
+              </ChoiceButton>
+            ))}
+            <ChoiceButton
+              words={WORDS.dontKnow}
+              selected={form.size === ""}
+              onClick={() => setForm((current) => ({ ...current, size: "" }))}
+              className="col-span-2"
+            >
+              🤷🏾 {WORDS.dontKnow.text}
+            </ChoiceButton>
+          </div>
+        </section>
+
+        {/* 3. Name */}
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={WORDS.farmName.say}>{WORDS.farmName.text}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {names.map((item) => {
+              const selected = form.farmName === item.text && !ownName;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => chooseName(item.text)}
+                  data-say={item.say}
+                  data-say-key={item.key}
+                  className={`flex min-h-14 items-center justify-between gap-2 rounded-xl border-2 px-3 text-left text-sm font-bold transition ${
+                    selected ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-white text-ink"
+                  }`}
+                >
+                  {item.text}
+                  {selected && <Check size={18} aria-hidden="true" />}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              aria-pressed={ownName || (!nameIsSuggested && Boolean(form.farmName))}
+              onClick={() => {
+                setOwnName(true);
+                setNameTouched(true);
+              }}
+              data-say={WORDS.ownName.say}
+              className={`flex min-h-14 items-center gap-2 rounded-xl border-2 px-3 text-left text-sm font-bold ${
+                ownName || (!nameIsSuggested && form.farmName)
+                  ? "border-primary bg-primary-soft text-primary-dark"
+                  : "border-line bg-white text-ink"
+              }`}
+            >
+              <PencilLine size={18} aria-hidden="true" /> {WORDS.ownName.text}
+            </button>
+          </div>
+          {(ownName || (!nameIsSuggested && form.farmName)) && (
+            <TextInput
+              id="farmName"
+              aria-label="Farm name"
+              value={form.farmName}
+              onChange={(event) => {
+                setNameTouched(true);
+                update("farmName")(event);
+              }}
+              placeholder="e.g. Green Valley Farm"
+              autoComplete="off"
+              className="mt-3"
+            />
+          )}
+        </section>
+
+        {/* 4. Where */}
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={WORDS.where.say}>{WORDS.where.text}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              aria-pressed={!showPlaceFields}
+              onClick={useHome}
+              data-say={`${WORDS.samePlace.say} ${user?.community || ""}, ${user?.district || ""}.`}
+              className={`flex min-h-16 flex-col items-start justify-center rounded-xl border-2 px-3 py-2 text-left ${
+                !showPlaceFields ? "border-primary bg-primary-soft" : "border-line bg-white"
+              }`}
+            >
+              <span className="flex items-center gap-1.5 text-sm font-bold text-ink">
+                <Home size={18} aria-hidden="true" /> {WORDS.samePlace.text}
+              </span>
+              <span className="text-xs text-ink-soft">
+                {[user?.community, user?.district].filter(Boolean).join(", ")}
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={showPlaceFields}
+              onClick={() => setOtherPlace(true)}
+              data-say={WORDS.otherPlace.say}
+              className={`flex min-h-16 items-center gap-1.5 rounded-xl border-2 px-3 text-sm font-bold text-ink ${
+                showPlaceFields ? "border-primary bg-primary-soft" : "border-line bg-white"
+              }`}
+            >
+              <MapPin size={18} aria-hidden="true" /> {WORDS.otherPlace.text}
+            </button>
+          </div>
+
+          {showPlaceFields && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="label">County</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {COUNTIES.map((county) => (
                     <button
-                      key={value}
+                      key={county}
                       type="button"
-                      aria-pressed={selected}
-                      onClick={() => setForm((current) => ({ ...current, farmType: value }))}
-                      className={`flex min-h-20 flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
-                        selected
-                          ? "border-primary bg-primary-soft/70 shadow-sm"
-                          : "border-line bg-white hover:border-primary/40"
+                      aria-pressed={form.county === county}
+                      onClick={() => setForm((current) => ({ ...current, county }))}
+                      className={`min-h-12 rounded-lg border-2 px-1 text-xs font-bold ${
+                        form.county === county
+                          ? "border-primary bg-primary-soft text-primary-dark"
+                          : "border-line bg-white text-ink"
                       }`}
                     >
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${tone}`}>
-                        <Icon size={17} />
-                      </span>
-                      <span className="text-sm font-semibold text-ink">{label}</span>
-                      <span className="text-[11px] leading-tight text-ink-soft">{description}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="rounded-2xl bg-white p-5 shadow-card">
-            <Field label="County" htmlFor="county">
-              <div className="relative">
-                <MapPin
-                  size={18}
-                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft"
-                  aria-hidden="true"
-                />
-                <Select
-                  id="county"
-                  value={form.county}
-                  onChange={update("county")}
-                  className="pl-11 pr-10"
-                >
-                  <option value="">Choose county</option>
-                  {COUNTIES.map((county) => (
-                    <option key={county} value={county}>
                       {county}
-                    </option>
+                    </button>
                   ))}
-                </Select>
+                </div>
               </div>
-            </Field>
-
-            <div className="mt-4">
               <Field label="District" htmlFor="district">
-                <TextInput
-                  id="district"
-                  value={form.district}
-                  onChange={update("district")}
-                  placeholder="e.g. Gbarnga"
-                />
+                <TextInput id="district" value={form.district} onChange={update("district")} placeholder="e.g. Gbarnga" />
+              </Field>
+              <Field label="Town or community" htmlFor="community">
+                <TextInput id="community" value={form.community} onChange={update("community")} placeholder="e.g. Kpelleh Town" />
               </Field>
             </div>
+          )}
+        </section>
 
+        {/* Notes, only for a helper who can write */}
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <button
+            type="button"
+            onClick={() => setShowNotes((value) => !value)}
+            className="flex w-full items-center justify-between text-left"
+            aria-expanded={showNotes}
+            data-say={WORDS.writeMyself.say}
+          >
+            <span className="flex items-center gap-2 text-sm font-bold text-ink">
+              <PencilLine size={20} className="text-ink-soft" aria-hidden="true" /> {WORDS.writeMyself.text}
+            </span>
+            {showNotes ? <ChevronUp size={20} className="text-ink-soft" /> : <ChevronDown size={20} className="text-ink-soft" />}
+          </button>
+          {showNotes && (
             <div className="mt-4">
-              <Field label="Community" htmlFor="community">
-                <TextInput
-                  id="community"
-                  value={form.community}
-                  onChange={update("community")}
-                  placeholder="e.g. Kpelleh Town"
-                />
-              </Field>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="rounded-2xl bg-white p-5 shadow-card">
-            <Field
-              label="Main crop or livestock (optional)"
-              htmlFor="mainCropOrLivestock"
-              hint="For example: cassava, rice, layer chickens."
-            >
-              <TextInput
-                id="mainCropOrLivestock"
-                value={form.mainCropOrLivestock}
-                onChange={update("mainCropOrLivestock")}
-                placeholder="e.g. Cassava and rice"
-              />
-            </Field>
-
-            <div className="mt-4">
-              <Field label="Notes about this farm (optional)" htmlFor="description">
+              <Field label="Things to remember about this farm" htmlFor="description">
                 <Textarea
                   id="description"
                   value={form.description}
                   onChange={update("description")}
-                  placeholder="Anything you want to remember about this farm."
                   maxLength={1000}
                 />
               </Field>
             </div>
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          {step > 0 && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              className="flex-1"
-              onClick={() => goToStep(step - 1)}
-            >
-              Back
-            </Button>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            className={step > 0 ? "flex-1" : "w-full"}
-            loading={busy}
-          >
-            {step < STEPS.length - 1
-              ? "Continue"
-              : editing
-                ? "Save changes"
-                : "Save farm"}
-          </Button>
-        </div>
+        </section>
+
+        <Button type="submit" size="lg" className="w-full text-lg" loading={busy} data-say={WORDS.saveFarm.say}>
+          {editing ? "Save" : WORDS.saveFarm.text}
+        </Button>
       </form>
     </div>
   );

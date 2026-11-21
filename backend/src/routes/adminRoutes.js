@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.js";
-import { loginLimiter } from "../middleware/rateLimit.js";
+import { pinCheckLimiter } from "../middleware/rateLimit.js";
 import {
   getDashboard,
   getFarmerDetail,
@@ -11,6 +11,15 @@ import {
   setFarmerStatus,
   updateFarmer
 } from "../services/adminService.js";
+import {
+  adminAddMember,
+  adminCreateCooperative,
+  adminGetCooperative,
+  adminListCooperatives,
+  adminRemoveMember,
+  adminSetMemberRole,
+  adminUpdateCooperative
+} from "../services/cooperativeService.js";
 
 const router = Router();
 
@@ -46,19 +55,47 @@ router.post("/farmers/:id/reactivate", async (req, res) => {
   res.json({ farmer, message: "Farmer account reactivated." });
 });
 
-router.post("/farmers/:id/reset-pin", loginLimiter, async (req, res) => {
+router.post("/farmers/:id/reset-pin", pinCheckLimiter, async (req, res) => {
   const result = await resetFarmerPin(req.auth, req.params.id, req.body);
   res.json(result);
 });
 
-router.patch("/me/credentials", async (req, res) => {
+router.patch("/me/credentials", pinCheckLimiter, async (req, res) => {
   const admin = await rotateAdminCredentials(req.auth, req.body);
   res.json({ admin, message: "Your admin credentials have been updated." });
 });
 
-router.post("/me/access-code/reveal", loginLimiter, async (req, res) => {
+router.post("/me/access-code/reveal", pinCheckLimiter, async (req, res) => {
   const result = await revealAdminAccessCode(req.auth, req.body);
   res.json(result);
+});
+
+router.get("/cooperatives", async (req, res) => {
+  res.json(await adminListCooperatives());
+});
+
+router.post("/cooperatives", async (req, res) => {
+  res.status(201).json(await adminCreateCooperative(req.auth, req.body));
+});
+
+router.get("/cooperatives/:id", async (req, res) => {
+  res.json(await adminGetCooperative(req.params.id, req.query));
+});
+
+router.patch("/cooperatives/:id", async (req, res) => {
+  res.json(await adminUpdateCooperative(req.auth, req.params.id, req.body));
+});
+
+router.post("/cooperatives/:id/members", async (req, res) => {
+  res.status(201).json(await adminAddMember(req.auth, req.params.id, req.body));
+});
+
+router.patch("/cooperatives/:id/members/:farmerId", async (req, res) => {
+  res.json(await adminSetMemberRole(req.auth, req.params.id, req.params.farmerId, req.body));
+});
+
+router.delete("/cooperatives/:id/members/:farmerId", async (req, res) => {
+  res.json(await adminRemoveMember(req.auth, req.params.id, req.params.farmerId));
 });
 
 export default router;

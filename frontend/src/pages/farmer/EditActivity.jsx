@@ -77,8 +77,9 @@ export default function EditActivity() {
   return (
     <div>
       <PageHeader
-        title="Edit record"
-        subtitle="Change the details and save."
+        title="Change the work"
+        subtitle="Touch what you want to change, then save."
+        say={{ key: "edit.title", say: "Change the work. Touch what you want to change, then save." }}
         backTo={`/app/activities/${record.clientId}`}
       />
       <ActivityForm

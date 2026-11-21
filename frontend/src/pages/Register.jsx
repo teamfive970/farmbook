@@ -16,6 +16,7 @@ import { Button, ErrorBanner, Field, Select, TextInput } from "../components/ui.
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { useToast } from "../contexts/ToastContext.jsx";
 import { firstName } from "../lib/format.js";
+import { SpeakButton, VoiceToggle, useSpeakOnOpen } from "../components/Voice.jsx";
 import { COUNTIES, SECURITY_QUESTIONS } from "../lib/labels.js";
 
 const EMPTY = {
@@ -30,7 +31,15 @@ const EMPTY = {
   securityAnswer: ""
 };
 
-const STEPS = ["Your details", "Where you farm", "Secure your account"];
+const STEPS = ["Your name", "Where you live", "Your secret PIN"];
+
+// Read out at the start of each step when "Talk to me" is on. A helper usually
+// does the typing at registration; the farmer can follow by listening.
+const STEP_SAY = [
+  { key: "register.step1", say: "Make your account. First, put your name and your phone number. Somebody can help you write it." },
+  { key: "register.step2", say: "Where you live? Touch your county. Then put your district and your town." },
+  { key: "register.step3", say: "Choose a secret number, your PIN. Four to six numbers. Do not tell anybody. Put it two times." }
+];
 
 export default function Register() {
   const { register } = useAuth();
@@ -38,6 +47,7 @@ export default function Register() {
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
   const [step, setStep] = useState(0);
+  useSpeakOnOpen(STEP_SAY[step]);
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -122,21 +132,25 @@ export default function Register() {
   return (
     <div className="flex min-h-dvh flex-col bg-canvas px-5 py-8">
       <div className="mx-auto w-full max-w-md">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Brand to="/" />
+          <VoiceToggle compact />
           <Link
             to="/login"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft hover:text-primary"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-ink-soft hover:text-primary"
           >
-            <ArrowLeft size={16} /> Sign in
+            <ArrowLeft size={16} /> I have account
           </Link>
         </div>
 
-        <div className="mt-8">
-          <h1 className="text-2xl font-bold text-ink">Create your account</h1>
-          <p className="mt-2 text-sm text-ink-soft">
-            It only takes a minute. You can start recording your farm work right away.
-          </p>
+        <div className="mt-8 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-ink">Make your account</h1>
+            <p className="mt-2 text-sm text-ink-soft">
+              Somebody can help you write. It will not take long.
+            </p>
+          </div>
+          <SpeakButton phrase={STEP_SAY[step]} />
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
@@ -190,28 +204,28 @@ export default function Register() {
 
           {step === 1 && (
             <>
-              <Field label="County" htmlFor="county">
-                <div className="relative">
-                  <MapPin
-                    size={18}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft"
-                    aria-hidden="true"
-                  />
-                  <Select
-                    id="county"
-                    value={form.county}
-                    onChange={update("county")}
-                    className="pl-11 pr-10"
-                  >
-                    <option value="">Choose your county</option>
-                    {COUNTIES.map((county) => (
-                      <option key={county} value={county}>
-                        {county}
-                      </option>
-                    ))}
-                  </Select>
+              <div>
+                <p className="label flex items-center gap-1.5">
+                  <MapPin size={16} aria-hidden="true" /> County
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {COUNTIES.map((county) => (
+                    <button
+                      key={county}
+                      type="button"
+                      aria-pressed={form.county === county}
+                      onClick={() => setForm((current) => ({ ...current, county }))}
+                      className={`min-h-12 rounded-lg border-2 px-1 text-xs font-bold ${
+                        form.county === county
+                          ? "border-primary bg-primary-soft text-primary-dark"
+                          : "border-line bg-white text-ink"
+                      }`}
+                    >
+                      {county}
+                    </button>
+                  ))}
                 </div>
-              </Field>
+              </div>
 
               <Field label="District" htmlFor="district">
                 <TextInput
@@ -222,7 +236,7 @@ export default function Register() {
                 />
               </Field>
 
-              <Field label="Community" htmlFor="community">
+              <Field label="Town or community" htmlFor="community">
                 <TextInput
                   id="community"
                   value={form.community}

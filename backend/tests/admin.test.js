@@ -250,8 +250,17 @@ test("admin can rotate access code, PIN and add a phone number", async () => {
   assert.equal(newCodeNewPin.status, 200);
   assert.equal(newCodeNewPin.body.user.role, "admin");
 
+  // The phone is for SMS recovery only; admins sign in with the access code.
   const phoneLogin = await loginAs(server.baseUrl, "0778887777", "864209");
-  assert.equal(phoneLogin.status, 200);
+  assert.equal(phoneLogin.status, 401);
+
+  const shortPin = await api(server.baseUrl, "/api/admin/me/credentials", {
+    method: "PATCH",
+    token: newCodeNewPin.body.token,
+    body: { currentPin: "864209", newPin: "1357", confirmPin: "1357" }
+  });
+  assert.equal(shortPin.status, 400);
+  assert.equal(shortPin.body.error.details.field, "newPin");
 
   const { rows: audit } = await query(
     "SELECT action, metadata FROM audit_logs WHERE admin_user_id = $1",

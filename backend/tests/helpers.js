@@ -25,8 +25,15 @@ export async function startServer() {
 }
 
 export async function resetDatabase() {
+  // The tests wipe every table. Refuse unless the database is clearly a test one.
+  const name = new URL(process.env.DATABASE_URL).pathname.replace(/^\//, "");
+  if (!/test/i.test(name)) {
+    throw new Error(`Refusing to reset database "${name}": its name must contain "test".`);
+  }
   await query(
-    "TRUNCATE TABLE audit_logs, recovery_otps, farm_activities, farms, sessions, admin_users, farmers CASCADE"
+    `TRUNCATE TABLE audit_logs, recovery_otps, payments, sales, buyers, quality_inspections, harvests,
+       expenses, cooperative_members, cooperatives, farm_activities, farms, sessions, admin_users,
+       farmers CASCADE`
   );
 }
 
