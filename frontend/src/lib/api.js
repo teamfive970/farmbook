@@ -1,4 +1,8 @@
-const BASE_URL = import.meta.env?.VITE_API_URL || "";
+// Leave VITE_API_URL unset when the API serves this app (one address, the
+// usual setup). A leftover placeholder such as "your-backend..." is ignored,
+// because building with it makes every request fail.
+const configuredApiUrl = (import.meta.env?.VITE_API_URL || "").trim().replace(/\/+$/, "");
+const BASE_URL = /your-backend|example\.(com|org)|\.example\b/i.test(configuredApiUrl) ? "" : configuredApiUrl;
 
 export class ApiError extends Error {
   constructor(status, code, message, details) {

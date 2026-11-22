@@ -40,3 +40,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---------- Not part of the app ----------
+# A second copy of this repository inside it (git cannot track a repo in a repo)
+/farmbook/
+# Presentation files: workbook, demo videos, test logins
+/Claude outputs/

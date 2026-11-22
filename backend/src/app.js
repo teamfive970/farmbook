@@ -30,7 +30,13 @@ function allowedOrigins() {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return configured.length ? configured : defaultOrigins;
+  const origins = configured.length ? configured : [...defaultOrigins];
+  // The server's own public address (Railway sets RAILWAY_PUBLIC_DOMAIN).
+  // When the app and the API share one address no CORS is needed, but this
+  // keeps a separately hosted copy of the web app on that address working too.
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) origins.push(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+  if (process.env.PUBLIC_URL) origins.push(process.env.PUBLIC_URL.replace(/\/+$/, ""));
+  return origins.map((origin) => origin.replace(/\/+$/, ""));
 }
 
 const STARTED_AT = new Date().toISOString();
