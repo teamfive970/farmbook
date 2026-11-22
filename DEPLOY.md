@@ -49,6 +49,21 @@ Variables. The admin keeps working.
 This only happens while the database has no admin. To add more admins, use
 `railway ssh` on the Backend, then `npm run admin:create -- --name "…"`.
 
+## Tester login on the home page (for judges)
+
+On the **Backend**, set `DEMO_ADMIN_ACCESS_CODE` (e.g. `Minister-Demo`) and
+`DEMO_ADMIN_PIN` (6 digits, e.g. `112233`). Railway redeploys. Then:
+
+- the server creates that admin, or puts its PIN right and unlocks it, on every start;
+- the home page shows a **For testers and judges** box with the code, the PIN
+  and an **Admin sign-in** button that fills in the code;
+- that login can look around and try things, but cannot change its code or PIN
+  and cannot send SMS (its announcements stay in the app).
+
+Anyone who opens the site can use it, so **delete both variables after
+judging**. On the next start the box disappears and the tester login is
+switched off and signed out. Choosing a new code does the same to the old one.
+
 ## Demo data (test servers only)
 
 `npm run seed:demo` (in `backend/`) adds James Kollie and 40 demo farmers, all

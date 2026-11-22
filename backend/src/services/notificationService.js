@@ -1,5 +1,6 @@
 import { query, withTransaction } from "../config/database.js";
 import { writeAudit } from "../lib/audit.js";
+import { isDemoAdmin } from "../lib/demoAccess.js";
 import { COUNTIES } from "../lib/constants.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import { sendSms, smsAvailable } from "../lib/sms.js";
@@ -366,7 +367,9 @@ export async function sendAnnouncement(auth, req, body = {}) {
   const title = requireString(body.title, "title", { min: 3, max: 80, label: "Title" });
   const text = requireString(body.body, "body", { min: 3, max: 500, label: "Message" });
   const audience = await resolveAudience(body.audience || {});
-  const wantSms = body.sendSms === true;
+  // The shared tester login (lib/demoAccess.js) can try announcements, but
+  // they stay in the app: no SMS that would cost money or reach real phones.
+  const wantSms = body.sendSms === true && !(await isDemoAdmin(auth.userId));
   const reason = body.reason ? requireReason(body.reason) : null;
   const smsReady = smsAvailable();
   const smsStatus = !wantSms ? "none" : smsReady ? "sending" : "unavailable";

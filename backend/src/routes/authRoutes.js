@@ -8,6 +8,7 @@ import {
   recoveryOptions,
   requestSmsRecovery
 } from "../services/recoveryService.js";
+import { blockDemoAdmin } from "../lib/demoAccess.js";
 
 const router = Router();
 
@@ -31,11 +32,13 @@ router.get("/me", authenticate, (req, res) => {
 });
 
 router.post("/pin", authenticate, pinCheckLimiter, async (req, res) => {
+  await blockDemoAdmin(req);
   const result = await changePin(req.auth, req.body);
   res.json(result);
 });
 
 router.post("/recovery/setup", authenticate, pinCheckLimiter, async (req, res) => {
+  await blockDemoAdmin(req);
   const result = await setupRecoveryQuestion(req.auth, req.body);
   res.json(result);
 });

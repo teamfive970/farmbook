@@ -1,4 +1,5 @@
 import { createApp } from "./app.js";
+import { ensureDemoAdmin } from "./lib/demoAccess.js";
 import { pool } from "./config/database.js";
 import { encryptSecret } from "./lib/crypto.js";
 import { pendingMigrations, runMigrations } from "./lib/migrations.js";
@@ -75,6 +76,7 @@ async function bootstrapAdmin() {
 
 await prepareDatabase();
 await bootstrapAdmin();
+await ensureDemoAdmin();
 
 const app = createApp();
 

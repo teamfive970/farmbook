@@ -33,6 +33,7 @@ import {
   previewAudience,
   sendAnnouncement
 } from "../services/notificationService.js";
+import { blockDemoAdmin } from "../lib/demoAccess.js";
 
 const router = Router();
 
@@ -117,6 +118,7 @@ router.get("/audit", adminReadLimiter, async (req, res) => {
 });
 
 router.patch("/me/credentials", pinCheckLimiter, async (req, res) => {
+  await blockDemoAdmin(req);
   const admin = await rotateAdminCredentials(req.auth, req, req.body);
   res.json({ admin, message: "Your admin credentials have been updated." });
 });

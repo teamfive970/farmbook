@@ -164,6 +164,7 @@ The dev server forwards `/api` to the API on port 8000, so no extra settings are
 | `BCRYPT_COST` | PIN hashing cost (default 10) |
 | `SMS_PROVIDER` | `disabled`, `console`, `twilio` or `africastalking`, for PIN reset and announcements by SMS |
 | `ANNOUNCEMENT_SMS_LIMIT` | Most SMS one announcement may send (default 1000) |
+| `DEMO_ADMIN_ACCESS_CODE`, `DEMO_ADMIN_PIN` | Shared tester login shown on the home page. The server keeps this admin working; it cannot change its code or PIN or send SMS. Delete both and the next start switches it off |
 | `ADMIN_NAME`, `ADMIN_ACCESS_CODE`, `ADMIN_PIN`, `ADMIN_PHONE` | Creates the first admin at start-up while none exists |
 
 ### Web app (`frontend/.env`)

@@ -5,6 +5,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { checkDatabase } from "./config/database.js";
+import { publicDemoAccess } from "./lib/demoAccess.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import activityRoutes from "./routes/activityRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -79,6 +80,12 @@ export function createApp() {
     } catch {
       res.status(503).json({ status: "unavailable" });
     }
+  });
+
+  // Shared tester login for the home page (only when DEMO_ADMIN_* are set).
+  app.get("/api/public/demo-access", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json(publicDemoAccess());
   });
 
   app.use("/api/auth", authRoutes);

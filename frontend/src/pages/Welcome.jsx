@@ -1,6 +1,7 @@
 import { ArrowRight, CloudOff, NotebookPen, ShieldCheck, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
+import DemoAccessCard from "../components/DemoAccessCard.jsx";
 import WelcomeDesktop from "../components/WelcomeDesktop.jsx";
 import { SpeakButton, VoiceToggle, useSpeakOnOpen } from "../components/Voice.jsx";
 import { buttonClass } from "../components/ui.jsx";
@@ -94,6 +95,9 @@ export default function Welcome() {
           >
             {WORDS.haveAccount.text}
           </Link>
+          <div className="pt-3">
+            <DemoAccessCard />
+          </div>
           <p className="pt-2 text-center text-xs text-ink-soft">FarmBok · Farm records for every season</p>
         </div>
       </div>

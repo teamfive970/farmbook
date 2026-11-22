@@ -22,6 +22,7 @@ import { QrCode } from "./Choices.jsx";
 import { SpeakButton, VoiceToggle } from "./Voice.jsx";
 import { buttonClass } from "./ui.jsx";
 import { WORDS } from "../lib/words.js";
+import DemoAccessCard from "./DemoAccessCard.jsx";
 
 // The welcome page on a computer screen (1024px and wider). The phone keeps
 // its own simple welcome page; this one has room to show what the app does.
@@ -193,6 +194,8 @@ export default function WelcomeDesktop() {
           </div>
         </div>
       </header>
+
+      <DemoAccessCard variant="strip" />
 
       {/* Hero */}
       <section className="relative overflow-hidden">

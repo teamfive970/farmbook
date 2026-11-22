@@ -35,7 +35,10 @@ export default function Login({ standalone = false }) {
       user.phoneNumber
   );
   const [useOtherNumber, setUseOtherNumber] = useState(false);
-  const [identifier, setIdentifier] = useState(knownFarmer ? user.phoneNumber : "");
+  // The home page's "For testers" box opens this page with the shared code filled in.
+  const [identifier, setIdentifier] = useState(
+    knownFarmer ? user.phoneNumber : (standalone && location.state?.accessCode) || ""
+  );
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState("");
