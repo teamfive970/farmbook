@@ -373,3 +373,32 @@ test("replaying a create for a deleted record does not bring it back", async () 
   const list = await api(server.baseUrl, "/api/activities", { token });
   assert.equal(list.body.items.length, 0);
 });
+
+test("crop check, feeding and animal health details are saved and returned", async () => {
+  const check = await createActivity({
+    activityType: "monitoring",
+    growthStage: "flowering",
+    pests: "aphids",
+    diseases: "leaf spot"
+  });
+  assert.equal(check.status, 201);
+  assert.deepEqual(
+    [check.body.activity.growthStage, check.body.activity.pests, check.body.activity.diseases],
+    ["flowering", "aphids", "leaf spot"]
+  );
+
+  const health = await createActivity({
+    activityType: "health_check",
+    animalDisease: "coughing",
+    symptoms: "weak and not eating",
+    treatment: "gave medicine for 3 days",
+    vetVisit: "Vet came on Friday",
+    feedSchedule: "twice_a_day"
+  });
+  assert.equal(health.status, 201);
+  assert.equal(health.body.activity.treatment, "gave medicine for 3 days");
+  assert.equal(health.body.activity.feedSchedule, "twice_a_day");
+
+  const bad = await createActivity({ activityType: "monitoring", growthStage: "tall" });
+  assert.equal(bad.status, 400);
+});

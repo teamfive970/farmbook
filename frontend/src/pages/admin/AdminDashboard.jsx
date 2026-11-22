@@ -29,7 +29,7 @@ import { ErrorBanner, PageLoading, buttonClass } from "../../components/ui.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { api, downloadFile } from "../../lib/api.js";
-import { formatDate, formatPhone, initials } from "../../lib/format.js";
+import { formatDate } from "../../lib/format.js";
 import { ACTIVITY_TYPES, COUNTIES, FARM_TYPES } from "../../lib/labels.js";
 import { EXPENSE_CATEGORIES } from "../../lib/words.js";
 
@@ -116,11 +116,11 @@ export default function AdminDashboard() {
   const [currency, setCurrency] = useState("LRD");
   const [countyMeasure, setCountyMeasure] = useState("farmers");
   const [data, setData] = useState(null);
-  const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState("");
+  const [purpose, setPurpose] = useState("");
   const requestId = useRef(0);
 
   const range = useMemo(() => periodRange(period, custom), [period, custom]);
@@ -133,19 +133,14 @@ export default function AdminDashboard() {
   const load = useCallback(async () => {
     const id = ++requestId.current;
     setLoading(true);
-    // Load the two parts separately, so one failing never blanks the page.
-    const [analyticsResult, dashboardResult] = await Promise.allSettled([
-      api.get(`/api/admin/analytics?${queryString}`, { token }),
-      api.get("/api/admin/dashboard", { token })
-    ]);
-    if (id !== requestId.current) return;
-    if (dashboardResult.status === "fulfilled") setRecent(dashboardResult.value.recentFarmers || []);
-    if (analyticsResult.status === "fulfilled") {
+    try {
+      const result = await api.get(`/api/admin/analytics?${queryString}`, { token });
+      if (id !== requestId.current) return;
       // Keep the previous render on screen until new data arrives.
-      setData(analyticsResult.value);
+      setData(result);
       setError("");
-    } else {
-      const failure = analyticsResult.reason;
+    } catch (failure) {
+      if (id !== requestId.current) return;
       if (failure?.status === 404) {
         // Ask the server what it is, so the message says exactly what to fix.
         let started = "";
@@ -157,14 +152,15 @@ export default function AdminDashboard() {
         }
         if (id !== requestId.current) return;
         setError(
-          `The API server answering on port 8000 is an older copy of Minders without the reports.${started} ` +
+          `The API server answering on port 8000 is an older copy of FarmBok without the reports.${started} ` +
             "Close every backend terminal (or end all node.exe processes), start the backend again with npm run dev in the backend folder, then press Refresh."
         );
       } else {
         setError(failure?.message || "Could not load the reports.");
       }
+    } finally {
+      if (id === requestId.current) setLoading(false);
     }
-    setLoading(false);
   }, [queryString, token]);
 
   useEffect(() => {
@@ -197,12 +193,18 @@ export default function AdminDashboard() {
   }, [exportOpen]);
 
   async function handleExport(dataset) {
+    const why = purpose.trim();
+    if (why.length < 3) {
+      toast.error("Say why you need this file before downloading.");
+      return;
+    }
     setExportOpen(false);
     setExporting(dataset);
     try {
-      await downloadFile(`/api/admin/exports/${dataset}?${queryString}`, {
+      const params = `${queryString}&purpose=${encodeURIComponent(why)}`;
+      await downloadFile(`/api/admin/exports/${dataset}?${params}`, {
         token,
-        fallbackName: `minders-${dataset}.csv`
+        fallbackName: `farmbok-${dataset}.csv`
       });
     } catch (downloadError) {
       toast.error(downloadError.message);
@@ -324,15 +326,30 @@ export default function AdminDashboard() {
                   className="absolute right-0 top-11 z-30 w-64 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-float"
                 >
                   <p className="px-3 py-1.5 text-[11px] text-ink-soft">
-                    Uses the period and county above. Every download is recorded in the audit log.
+                    Uses the period and county above. Each file is capped at 5,000 rows and every
+                    download is saved in the audit log.
                   </p>
+                  <div className="px-3 pb-2">
+                    <label htmlFor="exportPurpose" className="text-[11px] font-semibold text-ink">
+                      Why do you need this file?
+                    </label>
+                    <input
+                      id="exportPurpose"
+                      value={purpose}
+                      maxLength={200}
+                      onChange={(event) => setPurpose(event.target.value)}
+                      placeholder="For example: monthly county report"
+                      className="mt-1 h-9 w-full rounded-lg border border-line px-2 text-sm text-ink"
+                    />
+                  </div>
                   {EXPORTS.map((item) => (
                     <button
                       key={item.key}
                       type="button"
                       role="menuitem"
+                      disabled={purpose.trim().length < 3}
                       onClick={() => handleExport(item.key)}
-                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-canvas"
+                      className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {item.label}
                     </button>
@@ -355,14 +372,13 @@ export default function AdminDashboard() {
           countyMeasure={countyMeasure}
           setCountyMeasure={setCountyMeasure}
           onPickCounty={setCounty}
-          recent={recent}
         />
       ) : null}
     </div>
   );
 }
 
-function Dashboard({ data, busy, currency, county, countyMeasure, setCountyMeasure, onPickCounty, recent }) {
+function Dashboard({ data, busy, currency, county, countyMeasure, setCountyMeasure, onPickCounty }) {
   const { kpis, monthly, engagement } = data;
   const m = kpis.money;
   const monthKeys = monthly.map((row) => row.month);
@@ -772,48 +788,6 @@ function Dashboard({ data, busy, currency, county, countyMeasure, setCountyMeasu
         <BarList items={coopItems} emptyText="No cooperatives yet. Create one under Cooperatives." />
       </ChartCard>
 
-      {/* Recently registered */}
-      <section>
-        <div className="mb-3 mt-4 flex items-center justify-between">
-          <h2 className="text-base font-bold text-ink">Recently registered farmers</h2>
-          <Link to="/admin/farmers" className="text-xs font-semibold text-primary hover:underline">
-            See all
-          </Link>
-        </div>
-        {recent.length ? (
-          <div className="overflow-hidden rounded-2xl bg-white shadow-card">
-            {recent.map((farmer, index) => (
-              <Link
-                key={farmer.id}
-                to={`/admin/farmers/${farmer.id}`}
-                className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-canvas ${
-                  index > 0 ? "border-t border-line/70" : ""
-                }`}
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary-dark">
-                  {initials(farmer.fullName)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">{farmer.fullName}</p>
-                  <p className="truncate text-xs text-ink-soft">
-                    {formatPhone(farmer.phoneNumber)} · {farmer.county}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-medium text-ink-soft">
-                    {farmer.farmCount} {farmer.farmCount === 1 ? "farm" : "farms"}
-                  </p>
-                  <p className="text-[11px] text-ink-soft">{formatDate(farmer.createdAt)}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-line bg-white/70 px-6 py-10 text-center text-sm text-ink-soft">
-            No farmers have registered yet.
-          </div>
-        )}
-      </section>
     </div>
   );
 }

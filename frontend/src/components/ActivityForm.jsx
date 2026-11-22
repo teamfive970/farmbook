@@ -5,12 +5,30 @@ import { PictureChip, SpeakButton } from "./Voice.jsx";
 import { formatDate, todayInputValue, yesterdayInputValue } from "../lib/format.js";
 import { UNITS, activityMeta, activitySummary, farmMeta } from "../lib/labels.js";
 import { activityTypesForFarm, farmSupportsActivity, unitsForFarm } from "../lib/farmTypes.js";
-import { WORDS, growIcon, inputChoices, phraseChoices } from "../lib/words.js";
+import {
+  FEED_SCHEDULES,
+  GROWTH_STAGES,
+  PREGNANCY_OPTIONS,
+  WORDS,
+  growIcon,
+  inputChoices,
+  phraseChoices
+} from "../lib/words.js";
 import { productionTitle, productionsForFarm } from "../lib/production.js";
 
 // Feeding can use leftovers from a crop; fertilizer can be dung from animals.
 // Mixed farms record that link here (the guide's "resource movement").
 const SOURCE_KIND = { fertilizer_application: "animal", feeding: "crop" };
+
+// The extra details the production record guide asks for, shown only for the
+// work they belong to. Everything here is optional.
+const DETAIL_KIND = {
+  monitoring: "crop",
+  feeding: "feed",
+  vaccination: "health",
+  health_check: "health",
+  breeding: "breeding"
+};
 
 // One screen, designed for farmers who read little and type less:
 //   1. farm (chosen for them when they have only one)
@@ -102,7 +120,16 @@ export default function ActivityForm({
     unit: knownUnit(initialUnit) ? initialUnit.toLowerCase() : initialUnit,
     notes: initial.notes || "",
     productionClientId: initial.productionClientId || defaultProductionId || "",
-    sourceProductionClientId: initial.sourceProductionClientId || ""
+    sourceProductionClientId: initial.sourceProductionClientId || "",
+    growthStage: initial.growthStage || "",
+    pests: initial.pests || "",
+    diseases: initial.diseases || "",
+    feedSchedule: initial.feedSchedule || "",
+    animalDisease: initial.animalDisease || "",
+    symptoms: initial.symptoms || "",
+    treatment: initial.treatment || "",
+    vetVisit: initial.vetVisit || "",
+    pregnancy: initial.pregnancy || ""
   });
   const [dateMode, setDateMode] = useState(() => dateChoice(initial.activityDate));
   const [otherUnit, setOtherUnit] = useState(Boolean(initialUnit) && !knownUnit(initialUnit));
@@ -154,7 +181,20 @@ export default function ActivityForm({
         productionClientId: farmId === current.farmId ? current.productionClientId : "",
         activityType: allowType ? current.activityType : "",
         inputUsed: allowType ? current.inputUsed : "",
-        unit: allowType && allowUnit ? current.unit : ""
+        unit: allowType && allowUnit ? current.unit : "",
+        ...(allowType
+          ? {}
+          : {
+              growthStage: "",
+              pests: "",
+              diseases: "",
+              feedSchedule: "",
+              animalDisease: "",
+              symptoms: "",
+              treatment: "",
+              vetVisit: "",
+              pregnancy: ""
+            })
       };
     });
   }
@@ -186,12 +226,22 @@ export default function ActivityForm({
       const category = activityMeta(value).category;
       const chosen = productions.find((item) => item.clientId === current.productionClientId);
       const keepProduction = !chosen || category === "any" || chosen.productionKind === category;
+      const keepDetail = (DETAIL_KIND[value] || "") === (DETAIL_KIND[current.activityType] || "");
       return {
         ...current,
         activityType: value,
         inputUsed: keepInput || typedInput ? current.inputUsed : "",
         productionClientId: keepProduction ? current.productionClientId : "",
-        sourceProductionClientId: SOURCE_KIND[value] ? current.sourceProductionClientId : ""
+        sourceProductionClientId: SOURCE_KIND[value] ? current.sourceProductionClientId : "",
+        growthStage: keepDetail ? current.growthStage : "",
+        pests: keepDetail ? current.pests : "",
+        diseases: keepDetail ? current.diseases : "",
+        feedSchedule: keepDetail ? current.feedSchedule : "",
+        animalDisease: keepDetail ? current.animalDisease : "",
+        symptoms: keepDetail ? current.symptoms : "",
+        treatment: keepDetail ? current.treatment : "",
+        vetVisit: keepDetail ? current.vetVisit : "",
+        pregnancy: keepDetail ? current.pregnancy : ""
       };
     });
     const allowed = new Set(phraseChoices(value).map((item) => item.value));
@@ -230,6 +280,8 @@ export default function ActivityForm({
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    const detail = DETAIL_KIND[form.activityType] || "";
+    const text = (value) => value.trim() || null;
     await onSubmit({
       farmId: form.farmId,
       activityType: form.activityType,
@@ -245,7 +297,16 @@ export default function ActivityForm({
       sourceProductionClientId:
         sourceKind && sources.some((item) => item.clientId === form.sourceProductionClientId)
           ? form.sourceProductionClientId
-          : null
+          : null,
+      growthStage: detail === "crop" ? form.growthStage || null : null,
+      pests: detail === "crop" ? text(form.pests) : null,
+      diseases: detail === "crop" ? text(form.diseases) : null,
+      feedSchedule: detail === "feed" ? form.feedSchedule || null : null,
+      animalDisease: detail === "health" ? text(form.animalDisease) : null,
+      symptoms: detail === "health" ? text(form.symptoms) : null,
+      treatment: detail === "health" ? text(form.treatment) : null,
+      vetVisit: detail === "health" ? text(form.vetVisit) : null,
+      pregnancy: detail === "breeding" ? form.pregnancy || null : null
     });
   }
 
@@ -279,6 +340,17 @@ export default function ActivityForm({
       )
     : [];
   const sourceWords = sourceKind === "animal" ? WORDS.manureFrom : WORDS.leftoversFrom;
+  const detailKind = DETAIL_KIND[form.activityType] || "";
+  const detailWords =
+    detailKind === "crop"
+      ? WORDS.growthStage
+      : detailKind === "feed"
+        ? WORDS.feedSchedule
+        : detailKind === "health"
+          ? WORDS.animalDisease
+          : detailKind === "breeding"
+            ? WORDS.pregnancy
+            : WORDS.fieldNote;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -526,6 +598,115 @@ export default function ActivityForm({
               />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* 6b. Crop check, feeding, health and breeding details */}
+      {detailKind && (
+        <section className="rounded-2xl bg-white p-4 shadow-card">
+          <p className="label" data-say={detailWords.say}>
+            {detailWords.text} <span className="font-normal text-ink-soft">(you can skip)</span>
+          </p>
+
+          {detailKind === "crop" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                {GROWTH_STAGES.map((item) => (
+                  <PictureChip
+                    key={item.value}
+                    item={item}
+                    selected={form.growthStage === item.value}
+                    onClick={() => set("growthStage", form.growthStage === item.value ? "" : item.value)}
+                  />
+                ))}
+              </div>
+              <Field label={WORDS.pests.text} htmlFor="pests">
+                <TextInput
+                  id="pests"
+                  value={form.pests}
+                  onChange={update("pests")}
+                  placeholder="e.g. grasshoppers, worms"
+                  maxLength={200}
+                />
+              </Field>
+              <Field label={WORDS.diseases.text} htmlFor="diseases">
+                <TextInput
+                  id="diseases"
+                  value={form.diseases}
+                  onChange={update("diseases")}
+                  placeholder="e.g. yellow leaves, rot"
+                  maxLength={200}
+                />
+              </Field>
+            </div>
+          )}
+
+          {detailKind === "feed" && (
+            <div className="grid grid-cols-2 gap-2">
+              {FEED_SCHEDULES.map((item) => (
+                <PictureChip
+                  key={item.value}
+                  item={item}
+                  selected={form.feedSchedule === item.value}
+                  onClick={() => set("feedSchedule", form.feedSchedule === item.value ? "" : item.value)}
+                />
+              ))}
+            </div>
+          )}
+
+          {detailKind === "health" && (
+            <div className="space-y-4">
+              <Field label={WORDS.animalDisease.text} htmlFor="animalDisease">
+                <TextInput
+                  id="animalDisease"
+                  value={form.animalDisease}
+                  onChange={update("animalDisease")}
+                  placeholder="e.g. coughing, running stomach"
+                  maxLength={120}
+                />
+              </Field>
+              <Field label={WORDS.symptoms.text} htmlFor="symptoms">
+                <Textarea
+                  id="symptoms"
+                  value={form.symptoms}
+                  onChange={update("symptoms")}
+                  placeholder="e.g. weak, not eating, hot body"
+                  maxLength={300}
+                />
+              </Field>
+              <Field label={WORDS.treatment.text} htmlFor="treatment">
+                <Textarea
+                  id="treatment"
+                  value={form.treatment}
+                  onChange={update("treatment")}
+                  placeholder="e.g. Gave medicine for 3 days"
+                  maxLength={300}
+                />
+              </Field>
+              <Field label={WORDS.vetVisit.text} htmlFor="vetVisit">
+                <TextInput
+                  id="vetVisit"
+                  value={form.vetVisit}
+                  onChange={update("vetVisit")}
+                  placeholder="e.g. Vet came, or no vet"
+                  maxLength={120}
+                />
+              </Field>
+            </div>
+          )}
+
+          {detailKind === "breeding" && (
+            <div className="grid grid-cols-3 gap-2">
+              {PREGNANCY_OPTIONS.map((item) => (
+                <PictureChip
+                  key={item.value}
+                  item={item}
+                  selected={form.pregnancy === item.value}
+                  onClick={() => set("pregnancy", form.pregnancy === item.value ? "" : item.value)}
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
 

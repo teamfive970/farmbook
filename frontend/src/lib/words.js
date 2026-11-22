@@ -1,5 +1,6 @@
 import {
   CircleHelp,
+  Clock,
   HandHeart,
   Drumstick,
   HandCoins,
@@ -165,7 +166,7 @@ export const WORDS = {
   today: w("record.today", "Today", "Today."),
   yesterday: w("record.yesterday", "Yesterday", "Yesterday."),
   otherDay: w("record.otherday", "Pick a day", "Another day. Choose the day."),
-  howMuch: w("record.howmuch", "How much?", "How much? You can leave it if you do not know."),
+  howMuch: w("record.howmuch", "Amount?", "Amount? You can leave it if you do not know."),
   more: w("record.more", "More", "Put one more."),
   less: w("record.less", "Less", "Take one away."),
   whatUsed: w("record.used", "What did you use?", "What you use for the work? Touch the picture."),
@@ -283,7 +284,10 @@ export const ANIMALS = [
 // choosing what a farm raises.
 export const ANIMAL_PRODUCTS = [
   { value: "Eggs", Icon: Egg, ...w("product.eggs", "Eggs", "Eggs.") },
-  { value: "Milk", Icon: Milk, ...w("product.milk", "Milk", "Milk.") }
+  { value: "Milk", Icon: Milk, ...w("product.milk", "Milk", "Milk.") },
+  { value: "Meat", Icon: Drumstick, ...w("product.meat", "Meat", "Meat.") },
+  { value: "Weight gain", Icon: Weight, ...w("product.weight", "Weight gain", "Weight gain, the animal growing bigger.") },
+  { value: "Manure", Icon: Recycle, ...w("product.manure", "Manure", "Manure, animal dung for the soil.") }
 ];
 
 export const BIRDS = ["Chicken", "Duck"];
@@ -440,12 +444,12 @@ Object.assign(WORDS, {
   harvestTitle: w("harvest.title", "My harvest", "Your harvest. All the crops you brought from the farm."),
   addHarvest: w("harvest.add", "Harvest", "Put the crop you brought from the farm."),
   whatCrop: w("harvest.crop", "What did you harvest?", "What crop you harvest? Touch the picture."),
-  harvestHowMuch: w("harvest.howmuch", "How much did you get?", "How much you get? Touch plus to add."),
+  harvestHowMuch: w("harvest.howmuch", "Amount did you get?", "Amount you get? Touch plus to add."),
   whereKept: w("harvest.where", "Where is it stored?", "Where you keep it? You can leave it."),
   inStore: w("harvest.instore", "In store", "You still have all of it."),
   partSold: w("harvest.partsold", "Some sold", "You sold some. Some still left."),
   soldOut: w("harvest.soldout", "All sold", "You sold all of it."),
-  left: w("harvest.left", "Left", "How much still left."),
+  left: w("harvest.left", "Left", "Amount still left."),
   noHarvest: w("harvest.none", "No harvest yet", "You never put any harvest yet."),
 
   // Quality
@@ -472,7 +476,7 @@ Object.assign(WORDS, {
   profit: w("money.profit", "Profit", "Profit. What you keep. Your income, take away what you spend."),
   loss: w("money.loss", "Loss", "You spend more than you get."),
   whoBuy: w("money.whobuy", "Who bought it?", "Who buy it? Touch one, or leave it."),
-  pricePerOne: w("money.priceeach", "Price for each one", "How much for each one?"),
+  pricePerOne: w("money.priceeach", "Price for each one", "Amount for each one?"),
   totalMoney: w("money.total", "Total price", "All the money together."),
   moneyType: w("money.type", "Which money?", "Liberian dollars or US dollars?"),
   didTheyPay: w("money.paid", "Did they pay?", "They pay you the money?"),
@@ -481,7 +485,7 @@ Object.assign(WORDS, {
   paidNone: w("money.paidnone", "Not paid yet", "They not pay yet."),
   addPayment: w("money.addpay", "Add payment", "Put the money they pay you."),
   spentOn: w("money.spenton", "What did you spend on?", "What you spend the money on? Touch the picture."),
-  howMuchMoney: w("money.howmuch", "How much money?", "How much money? Use the numbers."),
+  howMuchMoney: w("money.howmuch", "Amount money?", "Amount money? Use the numbers."),
   thisMonth: w("money.month", "This month", "This month."),
   thisYear: w("money.year", "This year", "This year."),
   allTime: w("money.all", "All time", "All the time."),
@@ -589,12 +593,13 @@ export const EXPENSE_CATEGORIES = [
   { value: "transport", Icon: Truck, ...w("spend.transport", "Transport", "Transport, car or keke.") },
   { value: "feed", Icon: Utensils, ...w("spend.feed", "Animal feed", "Animal feed.") },
   { value: "medicine", Icon: Syringe, ...w("spend.medicine", "Animal medicine", "Animal medicine.") },
+  { value: "veterinary", Icon: Thermometer, ...w("spend.vet", "Vet visit", "Vet visit, the animal doctor.") },
   { value: "land", Icon: LandPlot, ...w("spend.land", "Land", "Land rent.") },
   { value: "other", Icon: CircleEllipsis, ...w("spend.other", "Other", "Other things.") }
 ];
 
 const CROP_EXPENSES = new Set(["seeds", "fertilizer", "pesticide", "labour", "tools", "transport", "land", "other"]);
-const ANIMAL_EXPENSES = new Set(["feed", "medicine", "labour", "tools", "transport", "land", "other"]);
+const ANIMAL_EXPENSES = new Set(["feed", "medicine", "veterinary", "labour", "tools", "transport", "land", "other"]);
 
 // The costs that make sense for a kind of farm ("crop", "animal" or "mixed").
 export function expenseCategoriesForCategory(category) {
@@ -737,6 +742,48 @@ export const DEATH_CAUSES = [
   { value: "weather", Icon: CloudRain, ...w("cause.weather", "Weather", "Rain, cold or hot weather.") },
   { value: "unknown", Icon: CircleHelp, ...w("cause.unknown", "I don't know", "I don't know.") },
   { value: "other", Icon: CircleEllipsis, ...w("cause.other", "Other", "Something else.") }
+];
+
+// ---------- Crop and animal details from the production record guide ----------
+
+Object.assign(WORDS, {
+  growthStage: w("detail.growth", "How is the crop growing?", "How the crop growing? Touch the one you see."),
+  pests: w("detail.pests", "Any pests?", "You see any pests, any bugs on the crop? You can leave it."),
+  diseases: w("detail.diseases", "Any sickness on the crop?", "You see any sickness on the crop? You can leave it."),
+  fieldNote: w("detail.fieldnote", "What did you see on the farm?", "What you see on the farm? You can write it."),
+  feedSchedule: w("detail.feedschedule", "How often do you feed?", "How many times a day you feed the animals?"),
+  animalDisease: w("detail.animaldisease", "What sickness?", "What sickness the animals get? You can leave it."),
+  symptoms: w("detail.symptoms", "What signs do you see?", "What signs you see on the animals? You can write it."),
+  treatment: w("detail.treatment", "What treatment did you give?", "What medicine or treatment you give? You can write it."),
+  vetVisit: w("detail.vet", "Did the vet come?", "The animal doctor, the vet, did they come? You can leave it."),
+  pregnancy: w("detail.pregnant", "Is she pregnant?", "The female, she pregnant?"),
+  spacing: w("detail.spacing", "Spacing", "How far apart you plant them? Like 70 by 30 centimetre."),
+  tagNumber: w("detail.tag", "Tag or ID number", "The tag or ID number on the animal. You can leave it."),
+  maleFemale: w("detail.malefemale", "Male and female", "How many male, how many female? You can leave it."),
+  male: w("detail.male", "Male", "Male."),
+  female: w("detail.female", "Female", "Female.")
+});
+
+export const GROWTH_STAGES = [
+  { value: "seedling", Icon: Sprout, ...w("stage.seedling", "Just planted", "Just planted, small young plant.") },
+  { value: "growing", Icon: Leaf, ...w("stage.growing", "Growing", "The plant growing, getting bigger.") },
+  { value: "flowering", Icon: Cherry, ...w("stage.flowering", "Flowering", "The plant get flower.") },
+  { value: "fruiting", Icon: Citrus, ...w("stage.fruiting", "Fruiting", "The plant get fruit now.") },
+  { value: "ready", Icon: CircleCheck, ...w("stage.ready", "Ready to harvest", "The crop ready to harvest.") }
+];
+
+export const FEED_SCHEDULES = [
+  { value: "once_a_day", Icon: Clock, ...w("feed.once", "Once a day", "One time a day.") },
+  { value: "twice_a_day", Icon: Clock, ...w("feed.twice", "Two times a day", "Two times a day, morning and evening.") },
+  { value: "three_times_a_day", Icon: Clock, ...w("feed.three", "Three times a day", "Three times a day.") },
+  { value: "all_day", Icon: Clock, ...w("feed.allday", "All day", "Feed stay there all day.") },
+  { value: "other", Icon: CircleEllipsis, ...w("feed.other", "Other way", "Another way.") }
+];
+
+export const PREGNANCY_OPTIONS = [
+  { value: "pregnant", Icon: Baby, ...w("pregnant.yes", "Pregnant", "She pregnant.") },
+  { value: "not_pregnant", Icon: CircleX, ...w("pregnant.no", "Not pregnant", "She not pregnant.") },
+  { value: "not_sure", Icon: CircleHelp, ...w("pregnant.notsure", "Not sure", "You not sure.") }
 ];
 
 // ---------- The farmer's report (summary, saved as PDF or CSV) ----------

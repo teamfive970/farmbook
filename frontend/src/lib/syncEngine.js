@@ -55,7 +55,16 @@ export function payloadFromRecord(record) {
     unit: record.unit ?? null,
     notes: record.notes ?? null,
     productionClientId: record.productionClientId ?? null,
-    sourceProductionClientId: record.sourceProductionClientId ?? null
+    sourceProductionClientId: record.sourceProductionClientId ?? null,
+    growthStage: record.growthStage ?? null,
+    pests: record.pests ?? null,
+    diseases: record.diseases ?? null,
+    feedSchedule: record.feedSchedule ?? null,
+    animalDisease: record.animalDisease ?? null,
+    symptoms: record.symptoms ?? null,
+    treatment: record.treatment ?? null,
+    vetVisit: record.vetVisit ?? null,
+    pregnancy: record.pregnancy ?? null
   };
 }
 

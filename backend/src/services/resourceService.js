@@ -162,11 +162,15 @@ export const RESOURCES = {
       plot: text("plot", { max: 80, label: "Plot" }),
       area: number("area", { max: 100000, label: "Size" }),
       areaUnit: choice("area_unit", SIZE_UNITS, { label: "size unit" }),
+      // Crop planting: how far apart the plants are.
+      spacing: text("spacing", { max: 60, label: "Spacing" }),
       startDate: date("start_date", { required: true, label: "start date" }),
       source: choice("source", PRODUCTION_SOURCES, { label: "where it came from" }),
       method: choice("method", CROP_METHODS, { label: "how it was planted" }),
       startCount: integer("start_count", { max: 1000000, label: "Number of animals" }),
       ageGroup: choice("age_group", AGE_GROUPS, { label: "age" }),
+      // Animal group: the tag, pen number or ID the farmer uses.
+      tagNumber: text("tag_number", { max: 60, label: "Tag or ID number" }),
       status: choice("status", ["active", "finished"], { defaultValue: "active", label: "status" }),
       endDate: date("end_date", { label: "end date" }),
       notes: text("notes", { max: 1000, label: "Notes" })
@@ -266,6 +270,9 @@ export const RESOURCES = {
       quantity: integer("quantity", { required: true, min: 1, max: 1000000, label: "How many" }),
       eventDate: date("event_date", { required: true, label: "date" }),
       cause: choice("cause", DEATH_CAUSES, { label: "cause" }),
+      // A birth can say how many were male and how many female.
+      maleCount: integer("male_count", { max: 1000000, label: "Male" }),
+      femaleCount: integer("female_count", { max: 1000000, label: "Female" }),
       notes: text("notes", { max: 1000, label: "Notes" })
     },
     refs: {
@@ -283,6 +290,22 @@ export const RESOURCES = {
       const quantity = values.quantity ?? existing?.quantity;
       if (type === "died") values.cause = values.cause ?? existing?.cause ?? "unknown";
       else if ("event_type" in values) values.cause = null;
+      // Male and female only make sense for a birth, and cannot add up to
+      // more young ones than were born.
+      if (type !== "born") {
+        if ("event_type" in values) {
+          values.male_count = null;
+          values.female_count = null;
+        }
+      } else {
+        const male = Number(values.male_count ?? existing?.male_count ?? 0);
+        const female = Number(values.female_count ?? existing?.female_count ?? 0);
+        if ("male_count" in values || "female_count" in values || "quantity" in values) {
+          if (male + female > quantity) {
+            throw badRequest(`Male and female cannot be more than the ${quantity} born.`, { field: "maleCount" });
+          }
+        }
+      }
       const count = await animalCount(db, production.id, { exceptEventId: existing?.id ?? null });
       const after = ANIMAL_ADD_EVENTS.includes(type) ? count + quantity : count - quantity;
       if (after < 0) {
@@ -357,7 +380,7 @@ export const RESOURCES = {
           throw badRequest(
             production.kind === "crop"
               ? `This planting is ${production.name}, so the harvest must be ${production.name}.`
-              : `From ${production.name} you can put eggs or milk.`,
+              : `From ${production.name} you can put ${ANIMAL_PRODUCTS.map((item) => item.toLowerCase()).join(", ")}.`,
             { field: "crop" }
           );
         }

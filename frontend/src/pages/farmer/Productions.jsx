@@ -25,7 +25,7 @@ import {
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
-import { farmCrops } from "../../lib/farmCrops.js";
+import { ANIMAL_PRODUCT_NAMES, farmCrops } from "../../lib/farmCrops.js";
 import { farmCategory, farmSupportsAnimals, farmSupportsCrops } from "../../lib/farmTypes.js";
 import { formatDate, newClientId, todayInputValue } from "../../lib/format.js";
 import { ICONS } from "../../lib/icons.js";
@@ -121,6 +121,8 @@ export function ProductionForm() {
         plot: existing.plot || "",
         area: existing.area === null || existing.area === undefined ? "" : String(existing.area),
         areaUnit: existing.areaUnit || "acres",
+        spacing: existing.spacing || "",
+        tagNumber: existing.tagNumber || "",
         startDate: existing.startDate,
         source: existing.source || "",
         method: existing.method || "",
@@ -149,6 +151,8 @@ export function ProductionForm() {
       plot: "",
       area: "",
       areaUnit: farm.sizeUnit || "acres",
+      spacing: "",
+      tagNumber: "",
       startDate: todayInputValue(),
       source: "",
       method: "",
@@ -180,7 +184,7 @@ export function ProductionForm() {
   const base = isAnimal ? ANIMALS : CROPS;
   const own = farmCrops(farm)
     .filter((name) => !base.some((item) => item.value.toLowerCase() === name.toLowerCase()))
-    .filter((name) => !["eggs", "milk"].includes(name.toLowerCase()))
+    .filter((name) => !ANIMAL_PRODUCT_NAMES.some((product) => product.toLowerCase() === name.toLowerCase()))
     .map((name) => growOption(name));
   const nameChoices = [...base, ...(isAnimal ? [] : own)];
   const backTo = editing ? `/app/productions/${clientId}` : `/app/farms/${farm?.id || ""}`;
@@ -218,12 +222,14 @@ export function ProductionForm() {
       ...(isAnimal
         ? {
             startCount: Math.max(0, Math.round(Number(form.startCount || 0))),
-            ageGroup: form.ageGroup || null
+            ageGroup: form.ageGroup || null,
+            tagNumber: form.tagNumber.trim() || null
           }
         : {
             plot: form.plot || null,
             area: form.area === "" ? null : Number(form.area),
             areaUnit: form.area === "" ? null : form.areaUnit,
+            spacing: form.spacing.trim() || null,
             method: form.method || null
           }),
       ...extra
@@ -256,7 +262,7 @@ export function ProductionForm() {
         : "Crop or animals?";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={title}
         subtitle={farm ? farm.farmName : undefined}
@@ -323,6 +329,15 @@ export function ProductionForm() {
                 <Section title={WORDS.howOld} hint="you can leave it">
                   <PictureGrid items={AGE_GROUPS} value={form.ageGroup} onChange={set("ageGroup")} />
                 </Section>
+                <Section title={WORDS.tagNumber} hint="you can leave it">
+                  <TextInput
+                    id="tagNumber"
+                    value={form.tagNumber}
+                    onChange={(event) => set("tagNumber")(event.target.value)}
+                    placeholder="e.g. Tag 12, pen 3"
+                    maxLength={60}
+                  />
+                </Section>
               </>
             ) : (
               <>
@@ -362,6 +377,15 @@ export function ProductionForm() {
                       ))}
                     </div>
                   )}
+                </Section>
+                <Section title={WORDS.spacing} hint="you can leave it">
+                  <TextInput
+                    id="spacing"
+                    value={form.spacing}
+                    onChange={(event) => set("spacing")(event.target.value)}
+                    placeholder="e.g. 70 x 30 cm"
+                    maxLength={60}
+                  />
                 </Section>
               </>
             )}
@@ -520,6 +544,7 @@ export function ProductionDetail() {
         ["At the start", production.startCount],
         [WORDS.animalsFrom.text, optionFor(ANIMAL_SOURCES, production.source)?.text],
         [WORDS.howOld.text, optionFor(AGE_GROUPS, production.ageGroup)?.text],
+        [WORDS.tagNumber.text, production.tagNumber],
         ["Breed", production.variety]
       ]
     : [
@@ -528,15 +553,17 @@ export function ProductionDetail() {
         [WORDS.seedFrom.text, optionFor(SEED_SOURCES, production.source)?.text],
         ["Place", production.plot],
         ["Size", production.area ? `${production.area} ${optionFor(SIZE_UNITS, production.areaUnit)?.text || ""}` : null],
+        [WORDS.spacing.text, production.spacing],
         ["Variety", production.variety]
       ];
   const harvestWords = isAnimal
-    ? { text: "Eggs or milk", say: "Put the eggs or milk you get." }
+    ? { text: "Eggs, milk or meat", say: "Put what the animals give: eggs, milk, meat or manure." }
     : WORDS.addHarvest;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 desk-flow lg:grid lg:grid-cols-12 lg:items-start lg:gap-4 lg:space-y-0">
       <PageHeader
+        className="lg:col-span-12 desk-span"
         title={productionTitle(production)}
         subtitle={`${farm?.farmName || "Farm"}${finished ? ` · ${WORDS.finished.text}` : ""}`}
         backTo={farm ? `/app/farms/${farm.id}` : "/app/farms"}
@@ -548,7 +575,7 @@ export function ProductionDetail() {
         }
       />
 
-      <section className="rounded-2xl bg-white p-5 shadow-card">
+      <section className="rounded-2xl bg-white p-5 shadow-card lg:col-span-5">
         <div className="flex items-center gap-3">
           <CropIcon name={production.name} size={28} className="h-14 w-14" />
           <div className="min-w-0 flex-1">
@@ -590,13 +617,13 @@ export function ProductionDetail() {
       </section>
 
       {finished ? (
-        <p className="rounded-xl bg-canvas px-4 py-3 text-sm text-ink-soft" data-say={WORDS.finished.say}>
+        <p className="rounded-xl bg-canvas px-4 py-3 text-sm text-ink-soft lg:col-span-7" data-say={WORDS.finished.say}>
           This one is finished{production.endDate ? ` (${formatDate(production.endDate)})` : ""}. Its records stay here.
         </p>
       ) : (
         <>
           {isAnimal && (
-            <Section title={{ text: "Change in number", say: "Did the number of animals change? Choose what happened." }}>
+            <Section title={{ text: "Change in number", say: "Did the number of animals change? Choose what happened." }} className="lg:col-span-7">
               <div className="grid grid-cols-4 gap-2">
                 {ANIMAL_EVENTS.map((item) => (
                   <ActionTile
@@ -610,7 +637,7 @@ export function ProductionDetail() {
               </div>
             </Section>
           )}
-          <Section title={{ text: "Add a record", say: "What you want to put? Touch the picture." }}>
+          <Section title={{ text: "Add a record", say: "What you want to put? Touch the picture." }} className="lg:col-span-7">
             <div className="grid grid-cols-3 gap-2">
               {isAnimal
                 ? ["feeding", "health_check", "vaccination", "breeding", "cleaning"].map((type) => workTile(type, id))
@@ -627,7 +654,7 @@ export function ProductionDetail() {
       )}
 
       {money.length > 0 && (
-        <section className="rounded-2xl bg-white p-5 shadow-card">
+        <section className="rounded-2xl bg-white p-5 shadow-card lg:col-span-5">
           <h2 className="text-sm font-bold text-ink" data-say="The money for this one.">
             Money for this one
           </h2>
@@ -666,7 +693,7 @@ export function ProductionDetail() {
       )}
 
       {linked.events.length > 0 && (
-        <section className="rounded-2xl bg-white p-4 shadow-card">
+        <section className="rounded-2xl bg-white p-4 shadow-card lg:col-span-7">
           <h2 className="mb-2 text-sm font-bold text-ink">Number changes</h2>
           <ul className="divide-y divide-line">
             {linked.events.slice(0, showAll ? undefined : 6).map((event) => {
@@ -679,6 +706,9 @@ export function ProductionDetail() {
                     <span className="flex-1 text-sm font-semibold text-ink">
                       {meta.text}
                       {event.eventType === "died" && event.cause ? ` · ${optionFor(DEATH_CAUSES, event.cause)?.text}` : ""}
+                      {event.eventType === "born" && (event.maleCount != null || event.femaleCount != null)
+                        ? ` · ${event.maleCount ?? 0} ${WORDS.male.text.toLowerCase()}, ${event.femaleCount ?? 0} ${WORDS.female.text.toLowerCase()}`
+                        : ""}
                     </span>
                     <span className={`text-sm font-bold ${added ? "text-success" : "text-rose-700"}`}>
                       {added ? "+" : "−"}
@@ -699,7 +729,7 @@ export function ProductionDetail() {
       )}
 
       {linked.harvests.length > 0 && (
-        <section className="rounded-2xl bg-white p-4 shadow-card">
+        <section className="rounded-2xl bg-white p-4 shadow-card lg:col-span-5">
           <h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink">
             <ICONS.harvest size={16} aria-hidden="true" /> Harvests
           </h2>
@@ -720,9 +750,9 @@ export function ProductionDetail() {
       )}
 
       {linked.activities.length > 0 && (
-        <section>
+        <section className="lg:col-span-12 desk-span">
           <h2 className="mb-2 text-sm font-bold text-ink">Work done</h2>
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
             {linked.activities.slice(0, 10).map((activity) => (
               <ActivityItem key={activity.clientId} activity={activity} />
             ))}
@@ -770,6 +800,9 @@ export function AnimalEventForm() {
         quantity: String(existing.quantity),
         eventDate: existing.eventDate,
         cause: existing.cause || "",
+        maleCount: existing.maleCount === null || existing.maleCount === undefined ? "" : String(existing.maleCount),
+        femaleCount:
+          existing.femaleCount === null || existing.femaleCount === undefined ? "" : String(existing.femaleCount),
         notes: existing.notes || "",
         price: "",
         currency: "LRD",
@@ -783,6 +816,8 @@ export function AnimalEventForm() {
       quantity: "",
       eventDate: todayInputValue(),
       cause: "",
+      maleCount: "",
+      femaleCount: "",
       notes: "",
       price: "",
       currency: "LRD",
@@ -822,6 +857,9 @@ export function AnimalEventForm() {
       return setError(before > 0 ? `Only ${before} ${production.name} in this group.` : `No ${production.name} left in this group.`);
     }
     if (form.eventDate > todayInputValue()) return setError("That date is in the future. Choose another day.");
+    const male = form.eventType === "born" ? Math.round(Number(form.maleCount || 0)) : 0;
+    const female = form.eventType === "born" ? Math.round(Number(form.femaleCount || 0)) : 0;
+    if (male + female > qty) return setError(`Male and female cannot be more than the ${qty} born.`);
     const price = Math.round(Number(form.price || 0) * 100) / 100;
     if (withMoney && form.currency === "LRD" && !Number.isInteger(price)) {
       return setError("Liberian dollars have no cents. Remove the decimal point.");
@@ -831,6 +869,8 @@ export function AnimalEventForm() {
       quantity: qty,
       eventDate: form.eventDate,
       cause: form.eventType === "died" ? form.cause || "unknown" : null,
+      maleCount: form.eventType === "born" && form.maleCount !== "" ? male : null,
+      femaleCount: form.eventType === "born" && form.femaleCount !== "" ? female : null,
       notes: form.notes.trim() || null
     };
     setBusy(true);
@@ -871,7 +911,7 @@ export function AnimalEventForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={meta ? `${meta.text} · ${production.name}` : productionTitle(production)}
         subtitle={`${WORDS.countNow.text}: ${before}`}
@@ -902,6 +942,29 @@ export function AnimalEventForm() {
         </Section>
       )}
 
+      {form.eventType === "born" && (
+        <Section title={WORDS.maleFemale} hint="you can leave it">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="label" data-say={WORDS.male.say}>{WORDS.male.text}</p>
+              <QuantityStepper
+                value={form.maleCount}
+                onChange={(value) => set("maleCount")(value === "" ? "" : String(Math.round(Number(value))))}
+                label="How many male"
+              />
+            </div>
+            <div>
+              <p className="label" data-say={WORDS.female.say}>{WORDS.female.text}</p>
+              <QuantityStepper
+                value={form.femaleCount}
+                onChange={(value) => set("femaleCount")(value === "" ? "" : String(Math.round(Number(value))))}
+                label="How many female"
+              />
+            </div>
+          </div>
+        </Section>
+      )}
+
       <DateChoice value={form.eventDate} onChange={set("eventDate")} />
 
       {withMoney && (
@@ -926,7 +989,7 @@ export function AnimalEventForm() {
               ))}
             </div>
           </Section>
-          <Section title={{ text: "Total price", say: "How much money for all of them? You can leave it." }} hint="you can leave it">
+          <Section title={{ text: "Total price", say: "Amount money for all of them? You can leave it." }} hint="you can leave it">
             <MoneyPad value={form.price} onChange={set("price")} currency={form.currency} />
           </Section>
           {Number(form.price) > 0 && (

@@ -90,7 +90,7 @@ export async function getPassport(code) {
         unit: row.unit
       })),
       notice:
-        "Recorded by the farmer in the Minders app. This is not an official certification."
+        "Recorded by the farmer in the FarmBok app. This is not an official certification."
     }
   };
 }

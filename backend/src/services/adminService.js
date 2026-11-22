@@ -3,21 +3,20 @@ import { query, withTransaction } from "../config/database.js";
 import { COUNTIES } from "../lib/constants.js";
 import { decryptSecret, encryptSecret, encryptionAvailable } from "../lib/crypto.js";
 import { ApiError, badRequest, conflict, notFound } from "../lib/errors.js";
-import { normalizePhone } from "../lib/phone.js";
+import { maskPhone, normalizePhone } from "../lib/phone.js";
 import { hashPin, hashSecret } from "../lib/pin.js";
 import { isSecurityQuestionKey, normalizeSecurityAnswer } from "../lib/recovery.js";
 import { hashAccessCode, normalizeAccessCode } from "../lib/tokens.js";
+import { writeAudit } from "../lib/audit.js";
 import {
-  optionalString,
   parsePagination,
   requireEnum,
   requirePin,
+  requireReason,
   requireString,
   requireUuid
 } from "../lib/validation.js";
-import { serializeActivity } from "./activityService.js";
 import { requireAdminPin, serializeAdmin, verifyCurrentPin } from "./authService.js";
-import { serializeFarm } from "./farmService.js";
 
 const SELECT_FARMER = `
   SELECT f.*,
@@ -26,14 +25,15 @@ const SELECT_FARMER = `
       WHERE a.farmer_id = f.id AND a.deleted_at IS NULL) AS activity_count
   FROM farmers f`;
 
-function serializeFarmerSummary(row) {
-  return {
+// Phone numbers are never returned in clear by the admin API. A farmer's own
+// session is the only place the full number should appear.
+function serializeFarmerSummary(row, { detail = false } = {}) {
+  const summary = {
     id: row.id,
     fullName: row.full_name,
-    phoneNumber: row.phone_number,
+    phoneNumber: maskPhone(row.phone_number),
+    hasPhone: Boolean(row.phone_number),
     county: row.county,
-    district: row.district,
-    community: row.community,
     status: row.status,
     hasSecurityQuestion: Boolean(row.security_question),
     farmCount: row.farm_count === undefined ? undefined : Number(row.farm_count),
@@ -41,14 +41,19 @@ function serializeFarmerSummary(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+  if (detail) {
+    summary.district = row.district;
+    summary.community = row.community;
+  }
+  return summary;
 }
 
-async function recordAudit(client, { adminUserId, action, targetType, targetId, metadata }) {
-  await client.query(
-    `INSERT INTO audit_logs (admin_user_id, action, target_type, target_id, metadata)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [adminUserId, action, targetType, targetId ?? null, JSON.stringify(metadata ?? {})]
-  );
+function safeAction(value, field = "action") {
+  const text = requireString(value, field, { min: 3, max: 60 });
+  if (!/^[a-z][a-z0-9_.]*$/.test(text)) {
+    throw badRequest("Use a lowercase audit action name.", { field });
+  }
+  return text;
 }
 
 export async function getDashboard() {
@@ -67,10 +72,6 @@ export async function getDashboard() {
   );
   const metrics = rows[0];
 
-  const recentFarmers = await query(
-    `${SELECT_FARMER} ORDER BY f.created_at DESC LIMIT 5`
-  );
-
   return {
     metrics: {
       totalFarmers: metrics.total_farmers,
@@ -82,18 +83,19 @@ export async function getDashboard() {
       totalHarvests: metrics.total_harvests,
       totalSales: metrics.total_sales,
       totalCooperatives: metrics.total_cooperatives
-    },
-    recentFarmers: recentFarmers.rows.map(serializeFarmerSummary)
+    }
   };
 }
 
-export async function listFarmers(params = {}) {
+export async function listFarmers(adminAuth, req, params = {}) {
   const { page, pageSize, offset } = parsePagination(params);
   const conditions = [];
   const values = [];
+  let searched = false;
 
   if (params.search !== undefined && params.search !== "") {
     const search = requireString(params.search, "search", { max: 80 });
+    searched = true;
     values.push(`%${search}%`);
     conditions.push(`(f.full_name ILIKE $${values.length} OR f.phone_number ILIKE $${values.length})`);
   }
@@ -117,42 +119,84 @@ export async function listFarmers(params = {}) {
     [...values, pageSize, offset]
   );
 
+  // The search text itself is not stored: it can contain a phone number.
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "farmer.list_viewed",
+    targetType: "farmer",
+    metadata: {
+      searched,
+      county: county || null,
+      status: status || null,
+      page,
+      pageSize,
+      resultCount: countResult.rows[0].total
+    },
+    req
+  });
+
   return {
-    items: rows.map(serializeFarmerSummary),
+    items: rows.map((row) => serializeFarmerSummary(row)),
     pagination: { page, pageSize, total: countResult.rows[0].total }
   };
 }
 
-export async function getFarmerDetail(farmerId) {
-  requireUuid(farmerId, "farmerId", "farmer");
+async function loadFarmerDetail(farmerId) {
   const farmerResult = await query(`${SELECT_FARMER} WHERE f.id = $1`, [farmerId]);
   if (!farmerResult.rows[0]) throw notFound("Farmer not found.");
 
+  // Farm cards carry counts only. Farm descriptions, sizes, notes and daily
+  // activities stay with the farmer and their chosen farm managers.
   const farmsResult = await query(
-    `SELECT f.*,
+    `SELECT f.id, f.farm_name, f.farm_type, f.created_at,
       (SELECT count(*)::int FROM farm_activities a
         WHERE a.farm_id = f.id AND a.deleted_at IS NULL) AS activity_count
      FROM farms f WHERE f.farmer_id = $1 ORDER BY f.created_at DESC`,
     [farmerId]
   );
-  const activitiesResult = await query(
-    `SELECT a.*, f.farm_name
+  const activityResult = await query(
+    `SELECT a.activity_type, count(*)::int AS count
      FROM farm_activities a
-     JOIN farms f ON f.id = a.farm_id
      WHERE a.farmer_id = $1 AND a.deleted_at IS NULL
-     ORDER BY a.activity_date DESC, a.created_at DESC
-     LIMIT 10`,
+     GROUP BY a.activity_type
+     ORDER BY count DESC, a.activity_type`,
     [farmerId]
   );
 
   return {
-    farmer: serializeFarmerSummary(farmerResult.rows[0]),
-    farms: farmsResult.rows.map(serializeFarm),
-    recentActivities: activitiesResult.rows.map(serializeActivity)
+    farmer: serializeFarmerSummary(farmerResult.rows[0], { detail: true }),
+    farms: farmsResult.rows.map((row) => ({
+      id: row.id,
+      farmName: row.farm_name,
+      farmType: row.farm_type,
+      activityCount: row.activity_count,
+      createdAt: row.created_at
+    })),
+    activity: {
+      total: activityResult.rows.reduce((sum, row) => sum + row.count, 0),
+      byType: activityResult.rows.map((row) => ({ type: row.activity_type, count: row.count }))
+    }
   };
 }
 
-export async function updateFarmer(adminAuth, farmerId, body = {}) {
+export async function getFarmerDetail(adminAuth, req, farmerId, reason) {
+  requireUuid(farmerId, "farmerId", "farmer");
+  const why = requireReason(reason);
+
+  const detail = await loadFarmerDetail(farmerId);
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "farmer.detail_viewed",
+    targetType: "farmer",
+    targetId: farmerId,
+    metadata: { reason: why },
+    reason: why,
+    req
+  });
+  return detail;
+}
+
+export async function updateFarmer(adminAuth, req, farmerId, body = {}) {
   requireUuid(farmerId, "farmerId", "farmer");
   const fields = {};
   if (body.fullName !== undefined) {
@@ -174,6 +218,13 @@ export async function updateFarmer(adminAuth, farmerId, body = {}) {
   if (entries.length === 0) throw badRequest("Provide at least one field to update.");
 
   const result = await withTransaction(async (client) => {
+    const before = await client.query(
+      "SELECT full_name, county, district, community FROM farmers WHERE id = $1 FOR UPDATE",
+      [farmerId]
+    );
+    if (!before.rows[0]) throw notFound("Farmer not found.");
+    const previous = before.rows[0];
+
     const assignments = entries.map(([column], index) => `${column} = $${index + 1}`);
     const values = entries.map(([, value]) => value);
     values.push(farmerId);
@@ -184,20 +235,28 @@ export async function updateFarmer(adminAuth, farmerId, body = {}) {
       values
     );
     if (!rows[0]) throw notFound("Farmer not found.");
-    await recordAudit(client, {
+
+    const changes = {};
+    for (const [column, next] of entries) {
+      const from = previous[column];
+      if (from !== next) changes[column] = { from, to: next };
+    }
+    await writeAudit({
+      client,
       adminUserId: adminAuth.userId,
       action: "farmer.updated",
       targetType: "farmer",
       targetId: farmerId,
-      metadata: { fields: Object.keys(fields) }
+      metadata: { changes },
+      req
     });
     return rows[0];
   });
 
-  return getFarmerDetail(result.id);
+  return loadFarmerDetail(result.id);
 }
 
-export async function setFarmerStatus(adminAuth, farmerId, status) {
+export async function setFarmerStatus(adminAuth, req, farmerId, status) {
   requireUuid(farmerId, "farmerId", "farmer");
   requireEnum(status, ["active", "inactive"], "status", "status");
 
@@ -216,11 +275,13 @@ export async function setFarmerStatus(adminAuth, farmerId, status) {
         [farmerId]
       );
     }
-    await recordAudit(client, {
+    await writeAudit({
+      client,
       adminUserId: adminAuth.userId,
       action: status === "inactive" ? "farmer.deactivated" : "farmer.reactivated",
       targetType: "farmer",
-      targetId: farmerId
+      targetId: farmerId,
+      req
     });
     return rows[0];
   });
@@ -228,8 +289,88 @@ export async function setFarmerStatus(adminAuth, farmerId, status) {
   return serializeFarmerSummary(result);
 }
 
+// Full phone numbers are only released after a PIN check and a written reason.
+export async function revealFarmerPhone(adminAuth, req, farmerId, body = {}) {
+  requireUuid(farmerId, "farmerId", "farmer");
+  const why = requireReason(body.reason);
+  const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
+  await verifyCurrentPin("admin", adminAuth.userId, currentPin);
+
+  const { rows } = await query("SELECT phone_number FROM farmers WHERE id = $1", [farmerId]);
+  if (!rows[0]) throw notFound("Farmer not found.");
+  if (!rows[0].phone_number) throw notFound("This farmer has no phone number on file.");
+
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "farmer.phone_revealed",
+    targetType: "farmer",
+    targetId: farmerId,
+    metadata: { phone: maskPhone(rows[0].phone_number) },
+    reason: why,
+    req
+  });
+
+  return { phoneNumber: rows[0].phone_number, reason: why };
+}
+
+export async function listAuditLog(adminAuth, req, params = {}) {
+  const { page, pageSize, offset } = parsePagination(params);
+  const conditions = [];
+  const values = [];
+  const action = params.action ? safeAction(params.action) : null;
+  if (action) {
+    values.push(action);
+    conditions.push(`a.action = $${values.length}`);
+  }
+  const targetType = params.targetType
+    ? safeAction(params.targetType, "targetType").replace(/\./g, "_")
+    : null;
+  if (targetType) {
+    values.push(targetType);
+    conditions.push(`a.target_type = $${values.length}`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // Recorded first, so the viewer's own use shows up in this same page.
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "audit.viewed",
+    targetType: "audit_log",
+    metadata: { action, targetType, page },
+    req
+  });
+
+  const countResult = await query(`SELECT count(*)::int AS total FROM audit_logs a ${where}`, values);
+  const { rows } = await query(
+    `SELECT a.id, a.action, a.target_type, a.target_id, a.metadata, a.reason,
+            a.ip_address, a.user_agent, a.created_at, au.display_name AS admin_name
+     FROM audit_logs a
+     JOIN admin_users au ON au.id = a.admin_user_id
+     ${where}
+     ORDER BY a.created_at DESC
+     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+    [...values, pageSize, offset]
+  );
+
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      action: row.action,
+      targetType: row.target_type,
+      targetId: row.target_id,
+      reason: row.reason,
+      ipAddress: row.ip_address,
+      userAgent: row.user_agent,
+      metadata: row.metadata,
+      adminName: row.admin_name,
+      createdAt: row.created_at
+    })),
+    pagination: { page, pageSize, total: countResult.rows[0].total }
+  };
+}
+
 // Rotates admin credentials. Every change requires the current PIN and is audited.
-export async function rotateAdminCredentials(adminAuth, body = {}) {
+export async function rotateAdminCredentials(adminAuth, req, body = {}) {
   const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
 
   const updates = {};
@@ -309,7 +450,8 @@ export async function rotateAdminCredentials(adminAuth, body = {}) {
           [adminAuth.userId, adminAuth.sessionId]
         );
       }
-      await recordAudit(client, {
+      await writeAudit({
+        client,
         adminUserId: adminAuth.userId,
         action: "admin.credentials_updated",
         targetType: "admin_user",
@@ -327,7 +469,8 @@ export async function rotateAdminCredentials(adminAuth, body = {}) {
               })
             )
           ]
-        }
+        },
+        req
       });
       return serializeAdmin(updated.rows[0]);
     });
@@ -339,7 +482,7 @@ export async function rotateAdminCredentials(adminAuth, body = {}) {
   }
 }
 
-export async function revealAdminAccessCode(adminAuth, body = {}) {
+export async function revealAdminAccessCode(adminAuth, req, body = {}) {
   const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
   await verifyCurrentPin("admin", adminAuth.userId, currentPin);
   const { rows } = await query(
@@ -363,19 +506,18 @@ export async function revealAdminAccessCode(adminAuth, body = {}) {
     );
   }
 
-  await withTransaction(async (client) => {
-    await recordAudit(client, {
-      adminUserId: adminAuth.userId,
-      action: "admin.access_code_revealed",
-      targetType: "admin_user",
-      targetId: adminAuth.userId
-    });
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "admin.access_code_revealed",
+    targetType: "admin_user",
+    targetId: adminAuth.userId,
+    req
   });
 
   return { accessCode };
 }
 
-export async function resetFarmerPin(adminAuth, farmerId, body = {}) {
+export async function resetFarmerPin(adminAuth, req, farmerId, body = {}) {
   requireUuid(farmerId, "farmerId", "farmer");
   const currentPin = requirePin(body.currentPin, "currentPin", "Current PIN");
   const tempPin = String(crypto.randomInt(100000, 1000000));
@@ -402,11 +544,13 @@ export async function resetFarmerPin(adminAuth, farmerId, body = {}) {
       "UPDATE recovery_otps SET used_at = now() WHERE farmer_id = $1 AND used_at IS NULL",
       [farmerId]
     );
-    await recordAudit(client, {
+    await writeAudit({
+      client,
       adminUserId: adminAuth.userId,
       action: "farmer.pin_reset",
       targetType: "farmer",
-      targetId: farmerId
+      targetId: farmerId,
+      req
     });
   });
 

@@ -44,7 +44,7 @@ export default function Harvests() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 xl:grid-cols-3">
           {records.harvests.map((harvest) => {
             const status = batchStatus(harvest, records.sales, records.inspections);
             const state = BATCH_STATE_WORDS[status.state];

@@ -266,7 +266,7 @@ export default function FarmForm() {
   const nameIsSuggested = names.some((item) => item.text === form.farmName);
 
   return (
-    <div>
+    <div className="lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={editing ? "Change farm" : WORDS.farmTitle.text}
         subtitle="Tap the pictures. No typing needed."

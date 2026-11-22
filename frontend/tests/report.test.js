@@ -45,7 +45,18 @@ const records = {
 const activities = [
   { clientId: "w1", farmId: "f1", activityType: "weeding", activityDate: "2026-04-01" },
   { clientId: "w2", farmId: "f1", activityType: "weeding", activityDate: "2026-05-01" },
-  { clientId: "w3", farmId: "f2", activityType: "feeding", activityDate: "2026-05-01" }
+  { clientId: "w3", farmId: "f2", activityType: "feeding", activityDate: "2026-05-01" },
+  {
+    clientId: "w4",
+    farmId: "f1",
+    farmClientId: "fc1",
+    activityType: "fertilizer_application",
+    activityDate: "2026-04-02",
+    productionClientId: "p1",
+    sourceProductionClientId: "p2",
+    quantity: 4,
+    unit: "buckets"
+  }
 ];
 const user = { fullName: "Musu Kollie", phoneNumber: "0770000001", community: "Kpelleh Town", district: "Gbarnga", county: "Bong" };
 const now = new Date(2026, 10, 21);
@@ -74,7 +85,16 @@ test("the report's money matches the Money screen, and keeps the currencies apar
   const hens = report.animals[0];
   assert.deepEqual([hens.added, hens.died, hens.sold, hens.now], [12, 3, 0, 44]);
   assert.deepEqual(report.work[0], { name: report.work[0].name, count: 2 });
-  assert.equal(report.counts.work, 3);
+  assert.equal(report.counts.work, 4);
+  assert.deepEqual(report.resourceMovements, [
+    {
+      date: "2026-04-02",
+      what: "Animal manure for fertilizer",
+      from: "Chicken",
+      to: "Rice · Big swamp",
+      quantity: "4 buckets"
+    }
+  ]);
 });
 
 test("a report for one farm only counts that farm", () => {
@@ -89,9 +109,10 @@ test("a report for one farm only counts that farm", () => {
 
 test("CSV: sections, quoted commas and quotes, and no spreadsheet formulas", () => {
   const csv = reportCsv(buildFarmerReport({ user, farms, records, activities, choice: "year", now }));
-  assert.ok(csv.startsWith("﻿Minders farm report"));
+  assert.ok(csv.startsWith("﻿FarmBok farm report"));
   assert.match(csv, /\r\nSUMMARY\r\nCurrency,Total sales,Total income,Total expenses,Profit\r\nLRD,25600,20000,11500,8500\r\nUSD,18,12.50,7.25,5.25/);
   assert.match(csv, /"Ma Hawa, ""Red"" market"/);
+  assert.match(csv, /RESOURCES MOVED\r\nDate,What,From,To,Amount\r\n2026-04-02,Animal manure for fertilizer,Chicken,Rice · Big swamp,4 buckets/);
   assert.match(csv, /'=cmd/);
   assert.ok(!/,=cmd/.test(csv));
 });

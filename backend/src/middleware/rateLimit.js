@@ -22,3 +22,13 @@ export const registerLimiter = rateLimit({ ...options, limit: 30 });
 export const smsLimiter = rateLimit({ ...options, limit: 5 });
 // Signed-in actions that confirm the current PIN (change PIN, reveal access code…).
 export const pinCheckLimiter = rateLimit({ ...options, limit: 20 });
+// Admin browsing is slower than farmer traffic on purpose: a single console
+// should not be able to walk the whole register in one sitting.
+export const adminReadLimiter = rateLimit({
+  ...options,
+  limit: Number(process.env.ADMIN_READ_LIMIT || 300)
+});
+export const adminExportLimiter = rateLimit({
+  ...options,
+  limit: Number(process.env.ADMIN_EXPORT_LIMIT || 10)
+});

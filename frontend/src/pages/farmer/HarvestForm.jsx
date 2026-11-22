@@ -161,7 +161,7 @@ export default function HarvestForm() {
     if (!form.farmClientId) return setError("Choose the farm.");
     if (!form.crop) return setError("Choose the crop you harvested.");
     if (!locked && !farmYields(farm, form.crop)) return setError(`${form.crop} is not on this farm. Add it to the farm first.`);
-    if (form.quantity === "" || Number(form.quantity) <= 0) return setError("Enter how much you harvested.");
+    if (form.quantity === "" || Number(form.quantity) <= 0) return setError("Enter Amount you harvested.");
     if (Number(form.quantity) < sold) {
       return setError(`You already sold ${sold} ${unitText(form.unit)} from this harvest. It can't be less than that.`);
     }
@@ -188,7 +188,7 @@ export default function HarvestForm() {
   }
 
   return (
-    <div>
+    <div className="lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={editing ? "Change harvest" : WORDS.addHarvest.text}
         subtitle="Tap the pictures. No typing needed."
@@ -199,7 +199,7 @@ export default function HarvestForm() {
         <ErrorBanner message={error} />
 
         {locked && (
-          <p className="rounded-xl bg-primary-soft px-4 py-3 text-sm text-primary-dark" data-say="You already sold from this harvest, so only how much, the day and where you keep it can change.">
+          <p className="rounded-xl bg-primary-soft px-4 py-3 text-sm text-primary-dark" data-say="You already sold from this harvest, so only Amount, the day and where you keep it can change.">
             You already sold {sold} {unitText(form.unit)} from this harvest, so the farm, the crop and the unit stay
             the same.
           </p>
@@ -257,7 +257,7 @@ export default function HarvestForm() {
         )}
 
         <Section title={WORDS.harvestHowMuch}>
-          <QuantityStepper value={form.quantity} onChange={set("quantity")} label="How much" />
+          <QuantityStepper value={form.quantity} onChange={set("quantity")} label="Amount" />
           {locked ? (
             <p className="mt-2 text-sm text-ink-soft">
               In {unitText(form.unit)}. At least {sold}, because that much is sold.

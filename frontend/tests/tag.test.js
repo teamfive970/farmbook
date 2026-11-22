@@ -11,7 +11,7 @@ const tag = tagData({
   gradeText: "Grade A",
   checks: ["Dry", "Clean", "No bugs"],
   unit: "Bags",
-  url: "https://minders.example.org/p/LR-ABCDEFGH23"
+  url: "https://farmbok.example.org/p/LR-ABCDEFGH23"
 });
 
 test("the tag shows the first name only, never the phone number", () => {

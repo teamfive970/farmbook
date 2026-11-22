@@ -59,6 +59,15 @@ export function requireUuid(value, field, label = field) {
   return value;
 }
 
+// Administrators must say why before farmer information is shown to them or
+// downloaded. A short plain-English sentence is enough.
+export function requireReason(value, field = "reason", label = "Reason") {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (text.length < 3) fail(field, `Say why you need this. ${label} is required.`);
+  if (text.length > 200) fail(field, `${label} must be 200 characters or fewer.`);
+  return text;
+}
+
 export function requirePin(value, field = "pin", label = "PIN") {
   if (typeof value !== "string" || !/^\d{4,6}$/.test(value)) {
     fail(field, `${label} must be 4 to 6 digits.`);

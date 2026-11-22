@@ -175,24 +175,37 @@ test("analytics totals, monthly series and county rows reconcile", async () => {
 
 test("CSV exports are safe, filtered and audited", async () => {
   await seed();
-  const response = await fetch(`${server.baseUrl}/api/admin/exports/farmers.csv?from=2026-01-01&to=2026-06-30`, {
-    headers: { Authorization: `Bearer ${adminToken}` }
-  });
+  const missingPurpose = await api(
+    server.baseUrl,
+    "/api/admin/exports/farmers.csv?from=2026-01-01&to=2026-06-30",
+    { token: adminToken }
+  );
+  assert.equal(missingPurpose.status, 400);
+  assert.equal(missingPurpose.body.error.details.field, "purpose");
+
+  const response = await fetch(
+    `${server.baseUrl}/api/admin/exports/farmers.csv?from=2026-01-01&to=2026-06-30&purpose=${encodeURIComponent("County reporting")}`,
+    { headers: { Authorization: `Bearer ${adminToken}` } }
+  );
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type"), /text\/csv/);
-  assert.match(response.headers.get("content-disposition"), /minders-farmers-2026-01-01_to_2026-06-30\.csv/);
+  assert.match(response.headers.get("content-disposition"), /farmbok-farmers-2026-01-01_to_2026-06-30\.csv/);
+  assert.equal(response.headers.get("x-export-rows"), "2");
+  assert.equal(response.headers.get("x-export-truncated"), "no");
   const text = await response.text();
   const lines = text.replace(/^﻿/, "").trim().split("\r\n");
   assert.equal(lines.length, 3);
   assert.ok(lines[0].startsWith("Full name,Phone,County"));
-  assert.ok(text.includes("+231772000001"), "phone numbers are not mangled");
+  assert.ok(text.includes("+231 ••• ••• 001"), "phone numbers are masked");
+  assert.ok(!text.includes("+231772000001"), "a full phone number is never exported");
   assert.ok(text.includes(`"'=HYPERLINK(""x"")"`), "formula cells are neutralised");
   assert.ok(!/pin|security/i.test(lines[0]));
   assert.ok(text.includes("Bong Rice Growers"));
 
-  const counties = await fetch(`${server.baseUrl}/api/admin/exports/counties`, {
-    headers: { Authorization: `Bearer ${adminToken}` }
-  });
+  const counties = await fetch(
+    `${server.baseUrl}/api/admin/exports/counties?purpose=${encodeURIComponent("County reporting")}`,
+    { headers: { Authorization: `Bearer ${adminToken}` } }
+  );
   assert.equal((await counties.text()).trim().split("\r\n").length, 16);
 
   const unknown = await api(server.baseUrl, "/api/admin/exports/passwords", { token: adminToken });
@@ -202,6 +215,11 @@ test("CSV exports are safe, filtered and audited", async () => {
   const denied = await api(server.baseUrl, "/api/admin/exports/farmers", { token: farmer.token });
   assert.equal(denied.status, 403);
 
-  const audit = await query(`SELECT target_id FROM audit_logs WHERE action = 'data_exported' ORDER BY created_at`);
+  const audit = await query(
+    `SELECT target_id, reason, metadata FROM audit_logs WHERE action = 'data_exported' ORDER BY created_at`
+  );
   assert.deepEqual(audit.rows.map((r) => r.target_id), ["farmers", "counties"]);
+  assert.equal(audit.rows[0].reason, "County reporting");
+  assert.equal(audit.rows[0].metadata.purpose, "County reporting");
+  assert.equal(audit.rows[0].metadata.rowCount, 2);
 });

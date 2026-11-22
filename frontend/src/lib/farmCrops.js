@@ -35,10 +35,10 @@ export function allFarmCrops(farms) {
   return [...seen.values()];
 }
 
-// What animals give (eggs, milk): any farm that keeps animals can record
-// them, as well as what is on its own list. Same rule as the server
-// (farmYields in backend/src/services/farmService.js).
-export const ANIMAL_PRODUCT_NAMES = ["Eggs", "Milk"];
+// What animals give (eggs, milk, meat, weight gain, manure): any farm that
+// keeps animals can record them, as well as what is on its own list. Same
+// rule as the server (ANIMAL_PRODUCTS in backend/src/services/farmService.js).
+export const ANIMAL_PRODUCT_NAMES = ["Eggs", "Milk", "Meat", "Weight gain", "Manure"];
 const ANIMAL_FARM_TYPES = new Set(["livestock", "poultry", "mixed_farming", "other"]);
 
 export function farmKeepsAnimals(farm) {

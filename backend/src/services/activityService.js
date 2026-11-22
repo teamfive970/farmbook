@@ -1,5 +1,10 @@
 import { query } from "../config/database.js";
-import { ACTIVITY_TYPES } from "../lib/constants.js";
+import {
+  ACTIVITY_TYPES,
+  FEED_SCHEDULES,
+  GROWTH_STAGES,
+  PREGNANCY_STATES
+} from "../lib/constants.js";
 import { ApiError, badRequest, notFound } from "../lib/errors.js";
 import {
   optionalEnum,
@@ -33,6 +38,16 @@ export function serializeActivity(row) {
     notes: row.notes,
     productionClientId: row.production_client_id ?? null,
     sourceProductionClientId: row.source_production_client_id ?? null,
+    // Details that belong to one kind of work (migration 009).
+    growthStage: row.growth_stage ?? null,
+    pests: row.pests ?? null,
+    diseases: row.diseases ?? null,
+    feedSchedule: row.feed_schedule ?? null,
+    animalDisease: row.animal_disease ?? null,
+    symptoms: row.symptoms ?? null,
+    treatment: row.treatment ?? null,
+    vetVisit: row.vet_visit ?? null,
+    pregnancy: row.pregnancy ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -138,6 +153,40 @@ function activityFields(body, { partial = false } = {}) {
   if (!partial || body.notes !== undefined) {
     fields.notes = optionalString(body.notes, "notes", { max: 1000 });
   }
+  // Crop check: growth stage, pests and disease seen in the field.
+  if (!partial || body.growthStage !== undefined) {
+    fields.growth_stage = optionalEnum(body.growthStage, GROWTH_STAGES, "growthStage", "growth stage");
+  }
+  if (!partial || body.pests !== undefined) {
+    fields.pests = optionalString(body.pests, "pests", { max: 200, label: "Pests seen" });
+  }
+  if (!partial || body.diseases !== undefined) {
+    fields.diseases = optionalString(body.diseases, "diseases", { max: 200, label: "Disease seen" });
+  }
+  // Feeding: how often the animals are fed.
+  if (!partial || body.feedSchedule !== undefined) {
+    fields.feed_schedule = optionalEnum(body.feedSchedule, FEED_SCHEDULES, "feedSchedule", "feeding times");
+  }
+  // Animal health: sickness, signs, treatment and the vet who came.
+  if (!partial || body.animalDisease !== undefined) {
+    fields.animal_disease = optionalString(body.animalDisease, "animalDisease", {
+      max: 120,
+      label: "Sickness"
+    });
+  }
+  if (!partial || body.symptoms !== undefined) {
+    fields.symptoms = optionalString(body.symptoms, "symptoms", { max: 300, label: "Signs seen" });
+  }
+  if (!partial || body.treatment !== undefined) {
+    fields.treatment = optionalString(body.treatment, "treatment", { max: 300, label: "Treatment" });
+  }
+  if (!partial || body.vetVisit !== undefined) {
+    fields.vet_visit = optionalString(body.vetVisit, "vetVisit", { max: 120, label: "Vet or officer" });
+  }
+  // Breeding: whether the animal is pregnant.
+  if (!partial || body.pregnancy !== undefined) {
+    fields.pregnancy = optionalEnum(body.pregnancy, PREGNANCY_STATES, "pregnancy", "pregnancy");
+  }
   return fields;
 }
 
@@ -185,8 +234,10 @@ export async function createActivity(farmerId, body = {}) {
     `INSERT INTO farm_activities
       (farmer_id, farm_id, client_id, activity_type, activity_date, description,
        input_used, quantity, unit, notes,
-       production_id, production_client_id, source_production_id, source_production_client_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       production_id, production_client_id, source_production_id, source_production_client_id,
+       growth_stage, pests, diseases, feed_schedule, animal_disease, symptoms, treatment, vet_visit, pregnancy)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+             $15, $16, $17, $18, $19, $20, $21, $22, $23)
      ON CONFLICT (farmer_id, client_id) DO NOTHING
      RETURNING *`,
     [
@@ -203,7 +254,16 @@ export async function createActivity(farmerId, body = {}) {
       links.production_id,
       links.production_client_id,
       links.source_production_id,
-      links.source_production_client_id
+      links.source_production_client_id,
+      fields.growth_stage ?? null,
+      fields.pests ?? null,
+      fields.diseases ?? null,
+      fields.feed_schedule ?? null,
+      fields.animal_disease ?? null,
+      fields.symptoms ?? null,
+      fields.treatment ?? null,
+      fields.vet_visit ?? null,
+      fields.pregnancy ?? null
     ]
   );
 

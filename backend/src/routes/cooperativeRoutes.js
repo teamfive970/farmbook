@@ -5,7 +5,8 @@ import {
   cooperativeDashboard,
   joinCooperative,
   leaveCooperative,
-  myCooperatives
+  myCooperatives,
+  setConsent
 } from "../services/cooperativeService.js";
 
 const router = Router();
@@ -18,6 +19,10 @@ router.get("/mine", async (req, res) => {
 // Rate limited so join codes cannot be guessed.
 router.post("/join", pinCheckLimiter, async (req, res) => {
   res.json(await joinCooperative(req.auth.userId, req.body));
+});
+
+router.post("/:id/consent", async (req, res) => {
+  res.json(await setConsent(req.auth.userId, req.params.id, req.body?.consent));
 });
 
 router.post("/:id/leave", async (req, res) => {

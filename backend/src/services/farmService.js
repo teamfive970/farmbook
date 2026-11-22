@@ -41,9 +41,9 @@ export function farmGrows(farm, crop) {
   return (farm.crops || []).some((item) => item.toLowerCase() === wanted);
 }
 
-// What animals give (eggs, milk) can be recorded from any farm that keeps
-// animals, as well as anything on the farm's own list.
-export const ANIMAL_PRODUCTS = ["Eggs", "Milk"];
+// What animals give (eggs, milk, meat, weight gain, manure) can be recorded
+// from any farm that keeps animals, as well as anything on the farm's own list.
+export const ANIMAL_PRODUCTS = ["Eggs", "Milk", "Meat", "Weight gain", "Manure"];
 const ANIMAL_FARM_TYPES = new Set(["livestock", "poultry", "mixed_farming", "other"]);
 
 export function farmYields(farm, crop) {

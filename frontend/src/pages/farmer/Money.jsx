@@ -38,10 +38,10 @@ export default function Money() {
     .slice(0, 12);
 
   return (
-    <div className="space-y-4">
-      <PageHeader title={WORDS.moneyTitle.text} subtitle="What you sell, spend and keep." say={WORDS.moneyTitle} />
+    <div className="space-y-4 desk-flow lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-4 lg:space-y-0">
+      <PageHeader className="lg:col-span-12 desk-span" title={WORDS.moneyTitle.text} subtitle="What you sell, spend and keep." say={WORDS.moneyTitle} />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 lg:col-span-4">
         <Link
           to="/app/money/sell"
           data-say={WORDS.sell.say}
@@ -60,7 +60,7 @@ export default function Money() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 lg:col-span-8">
         {[
           ["month", WORDS.thisMonth],
           ["year", WORDS.thisYear],
@@ -81,7 +81,7 @@ export default function Money() {
         ];
         const ProfitIcon = profit >= 0 ? ICONS.profit : ICONS.loss;
         return (
-          <Section key={currency}>
+          <Section key={currency} className="lg:col-span-6">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-soft">{CURRENCY_NAME[currency]}</p>
             <div className="grid grid-cols-3 gap-2">
               {tiles.map(({ Icon, words, amount, tone }) => (
@@ -119,14 +119,14 @@ export default function Money() {
         );
       })}
 
-      <Section title={{ text: "In this time", say: "What you did in this time." }}>
-        <div className="grid grid-cols-3 gap-2 text-center">
+      <Section title={{ text: "In this time", say: "What you did in this time." }} className="lg:col-span-6 lg:flex lg:flex-col">
+        <div className="grid grid-cols-3 gap-2 text-center lg:flex-1">
           {[
             { Icon: ICONS.sale, label: "Sales", value: summary.counts.sales },
             { Icon: ICONS.expense, label: "Costs", value: summary.counts.expenses },
             { Icon: ICONS.harvest, label: "Harvests", value: summary.counts.harvests }
           ].map(({ Icon, label, value }) => (
-            <div key={label} className="rounded-xl bg-canvas p-2.5" data-say={`${value} ${label.toLowerCase()}.`}>
+                          <div key={label} className="rounded-xl bg-canvas p-2.5 lg:flex lg:flex-col lg:items-center lg:justify-center" data-say={`${value} ${label.toLowerCase()}.`}>
               <Icon size={18} className="mx-auto text-ink-soft" aria-hidden="true" />
               <p className="mt-1 text-lg font-bold text-ink">{value}</p>
               <p className="text-[11px] text-ink-soft">{label}</p>
@@ -136,7 +136,7 @@ export default function Money() {
       </Section>
 
       {summary.spentByCategory.length > 0 && (
-        <Section title={{ text: "Where the money went", say: "What you spend the money on." }}>
+        <Section title={{ text: "Where the money went", say: "What you spend the money on." }} className="lg:col-span-6">
           <div className="space-y-1.5">
             {summary.spentByCategory.map((row) => {
               const category = optionFor(EXPENSE_CATEGORIES, row.category) || EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1];
@@ -160,7 +160,7 @@ export default function Money() {
       )}
 
       {perFarm.length > 0 && (
-        <Section title={{ text: "Each farm", say: "How each farm did. Income from its harvests, take away its costs." }}>
+        <Section title={{ text: "Each farm", say: "How each farm did. Income from its harvests, take away its costs." }} className="lg:col-span-6">
           <div className="space-y-2">
             {perFarm.map((row) => {
               const farm = farms.find((item) => item.clientId === row.farmClientId);
@@ -191,7 +191,7 @@ export default function Money() {
       <Link
         to="/app/report"
         data-say={WORDS.reportOpen.say}
-        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card lg:col-span-6"
       >
         <ICONS.report size={22} className="text-primary" aria-hidden="true" />
         <span className="flex-1">
@@ -204,18 +204,18 @@ export default function Money() {
       <Link
         to="/app/money/buyers"
         data-say="See and change your buyers."
-        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card lg:col-span-6"
       >
         <ICONS.buyer size={22} className="text-ink-soft" aria-hidden="true" />
         <span className="flex-1 text-sm font-bold text-ink">My buyers</span>
         <ChevronRight size={18} className="text-ink-soft" />
       </Link>
 
-      <Section title={{ text: "Lately", say: "What you sold and spent lately." }}>
+      <Section title={{ text: "Lately", say: "What you sold and spent lately." }} className="lg:col-span-12 desk-span">
         {recent.length === 0 ? (
           <EmptyState title="Nothing yet" description="Touch the green or red button to start." />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0">
             {recent.map(({ type, item }) => {
               if (type === "sale") {
                 return (

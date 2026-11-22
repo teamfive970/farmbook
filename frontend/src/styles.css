@@ -76,3 +76,26 @@
     @apply rounded-2xl bg-white p-5 shadow-card;
   }
 }
+
+/* Desktop only (1024px and wider). Phones never see these rules.
+   .desk-flow lays a page's cards in two balanced columns with no empty
+   holes, keeping the same order as on the phone. The first child (the page
+   title) and anything marked .desk-span go across the whole width. */
+@media (min-width: 64rem) {
+  .desk-flow {
+    display: block !important;
+    column-count: 2;
+    column-gap: 1.25rem;
+  }
+
+  .desk-flow > * {
+    break-inside: avoid;
+    margin-top: 0 !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  .desk-flow > :first-child,
+  .desk-flow > .desk-span {
+    column-span: all;
+  }
+}

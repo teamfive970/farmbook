@@ -18,7 +18,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { api } from "../../lib/api.js";
-import { formatDate, formatPhone } from "../../lib/format.js";
+import { formatDate } from "../../lib/format.js";
 import { COUNTIES } from "../../lib/labels.js";
 import { formatMoney } from "../../lib/ledger.js";
 
@@ -295,6 +295,10 @@ export function AdminCooperativeDetail() {
 
       <Card>
         <h2 className="text-sm font-bold text-ink">Members</h2>
+        <p className="mt-1 text-xs text-ink-soft">
+          A member's sales, harvests, farms and phone number stay private. Only the group total
+          above is shown.
+        </p>
         {members.length === 0 ? (
           <p className="mt-2 text-sm text-ink-soft">No members yet.</p>
         ) : (
@@ -303,10 +307,8 @@ export function AdminCooperativeDetail() {
               <thead className="text-xs uppercase text-ink-soft">
                 <tr>
                   <th className="py-2 pr-3">Farmer</th>
-                  <th className="py-2 pr-3">Phone</th>
-                  <th className="py-2 pr-3">Farms</th>
-                  <th className="py-2 pr-3">Harvests</th>
-                  <th className="py-2 pr-3">Sold</th>
+                  <th className="py-2 pr-3">Role</th>
+                  <th className="py-2 pr-3">Shares totals</th>
                   <th className="py-2 pr-3">Joined</th>
                   <th className="py-2" />
                 </tr>
@@ -318,17 +320,19 @@ export function AdminCooperativeDetail() {
                       <Link to={`/admin/farmers/${member.farmerId}`} className="font-semibold text-primary hover:underline">
                         {member.fullName}
                       </Link>
-                      {member.role === "leader" && (
-                        <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                    </td>
+                    <td className="py-2 pr-3">
+                      {member.role === "leader" ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
                           <Star size={10} /> Leader
                         </span>
+                      ) : (
+                        "Member"
                       )}
-                      <p className="text-xs text-ink-soft">{member.community}</p>
                     </td>
-                    <td className="py-2 pr-3">{formatPhone(member.phoneNumber)}</td>
-                    <td className="py-2 pr-3">{member.farmCount}</td>
-                    <td className="py-2 pr-3">{member.harvestCount}</td>
-                    <td className="py-2 pr-3">{formatMoney(member.sold.LRD, "LRD")}</td>
+                    <td className="py-2 pr-3 text-xs">
+                      {member.sharesTotals ? "Yes, agreed at join" : "No, totals private"}
+                    </td>
                     <td className="py-2 pr-3">{formatDate(member.joinedAt)}</td>
                     <td className="py-2 text-right">
                       <div className="flex justify-end gap-1">

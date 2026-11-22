@@ -37,7 +37,7 @@ export function reportCsv(report) {
     rows.forEach((cells) => row(...cells));
   };
 
-  row("Minders farm report");
+  row("FarmBok farm report");
   row("Farmer", report.farmer.name);
   if (report.farmer.phone) row("Phone", report.farmer.phone);
   if (report.farmer.place) row("Place", report.farmer.place);
@@ -94,6 +94,13 @@ export function reportCsv(report) {
     report.animals.map((r) => [r.name, r.farm, r.added, r.died, r.sold, r.otherOut, r.now, r.status])
   );
   section("Work done", ["Work", "Times"], report.work.map((r) => [r.name, r.count]));
+  if (report.resourceMovements?.length) {
+    section(
+      "Resources moved",
+      ["Date", "What", "From", "To", "Amount"],
+      report.resourceMovements.map((r) => [r.date, r.what, r.from, r.to, r.quantity])
+    );
+  }
   section(
     "Sales",
     ["Date", "What", "Quantity", "Unit", "Buyer", "Farm", "Currency", "Total", "Paid", "Still to pay"],
@@ -156,7 +163,7 @@ export function reportPdf(report) {
     color: "#e8f5e9",
     maxWidth: width - 150
   });
-  doc.text("Minders", doc.width - MARGIN, 34, { size: 12, bold: true, color: "#ffffff", align: "right" });
+  doc.text("FarmBok", doc.width - MARGIN, 34, { size: 12, bold: true, color: "#ffffff", align: "right" });
   doc.text("Farm records", doc.width - MARGIN, 48, { size: 8.5, color: "#c8ecd6", align: "right" });
 
   y = 124;
@@ -370,6 +377,21 @@ export function reportPdf(report) {
     table("Work done", "", [{ title: "Work", width: 3 }, { title: "Times", width: 1, align: "right" }], report.work.map((r) => [r.name, String(r.count)]));
   }
 
+  if (report.resourceMovements?.length) {
+    table(
+      "Resources moved",
+      "Manure to the crops, or crop leftovers to the animals",
+      [
+        { title: "Date", width: 1.1 },
+        { title: "What", width: 2.2 },
+        { title: "From", width: 2 },
+        { title: "To", width: 2 },
+        { title: "Amount", width: 1.2, align: "right" }
+      ],
+      report.resourceMovements.map((r) => [longDate(r.date), r.what, r.from, r.to, r.quantity || "-"])
+    );
+  }
+
   // Sales and expenses lists, with totals per currency at the bottom.
   const saleTotals = report.currencies
     .map((currency) => {
@@ -385,7 +407,7 @@ export function reportPdf(report) {
     [
       { title: "Date", width: 1.05 },
       { title: "What", width: 1.6 },
-      { title: "How much", width: 1.05, align: "right" },
+      { title: "Amount", width: 1.05, align: "right" },
       { title: "Buyer", width: 1.4 },
       { title: "Total", width: 1.1, align: "right", bold: true },
       { title: "Paid", width: 1.1, align: "right" },
@@ -428,7 +450,7 @@ export function reportPdf(report) {
   doc.eachPage((page, pages) => {
     const footY = doc.height - MARGIN + 6;
     doc.line(MARGIN, footY - 12, doc.width - MARGIN, footY - 12, { color: COLOR.line });
-    doc.text("Made with Minders. Numbers come from the records saved on this phone.", MARGIN, footY, { size: 7.5, color: COLOR.soft });
+    doc.text("Made with FarmBok. Numbers come from the records saved on this phone.", MARGIN, footY, { size: 7.5, color: COLOR.soft });
     doc.text(`Page ${page} of ${pages}`, doc.width - MARGIN, footY, { size: 7.5, color: COLOR.soft, align: "right" });
   });
 

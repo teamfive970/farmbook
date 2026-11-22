@@ -210,6 +210,27 @@ export function buildFarmerReport({ user = {}, farms = [], records, activities =
   }
   const work = [...workCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
 
+  // Something taken from one production and used by another: dung from the
+  // animals used as fertilizer, or crop leftovers used as animal feed.
+  const allProductions = new Map((records.productions || []).map((item) => [item.clientId, item]));
+  const resourceMovements = scoped.activities
+    .filter((activity) => activity.sourceProductionClientId && inRange(activity.activityDate, period))
+    .map((activity) => {
+      const source = allProductions.get(activity.sourceProductionClientId);
+      const target = allProductions.get(activity.productionClientId);
+      return {
+        date: activity.activityDate,
+        what: activity.activityType === "feeding" ? "Crop leftovers for feed" : "Animal manure for fertilizer",
+        from: source ? productionTitle(source) : "Other production",
+        to: target ? productionTitle(target) : "This farm",
+        quantity:
+          activity.quantity === null || activity.quantity === undefined
+            ? ""
+            : `${activity.quantity}${activity.unit ? ` ${activity.unit}` : ""}`
+      };
+    })
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
   const sales = data.sales
     .filter((sale) => inRange(sale.saleDate, period))
     .sort((a, b) => String(a.saleDate).localeCompare(String(b.saleDate)))
@@ -278,6 +299,7 @@ export function buildFarmerReport({ user = {}, farms = [], records, activities =
     crops,
     animals,
     work,
+    resourceMovements,
     sales,
     expenses
   };

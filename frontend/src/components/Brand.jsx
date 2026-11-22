@@ -16,7 +16,7 @@ export default function Brand({ to = "/", size = "md" }) {
     <Link to={to} className="inline-flex items-center gap-2.5 text-primary-dark">
       <BrandMark size={size} />
       <span className={`font-bold tracking-tight ${size === "lg" ? "text-2xl" : "text-lg"}`}>
-        Minders
+        FarmBok
       </span>
     </Link>
   );

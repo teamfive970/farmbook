@@ -6,7 +6,8 @@ import {
   MapPin,
   Phone,
   ShieldQuestion,
-  UserRound
+  UserRound,
+  WifiOff
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -14,6 +15,7 @@ import Brand from "../components/Brand.jsx";
 import { StepIndicator } from "../components/FormSteps.jsx";
 import { Button, ErrorBanner, Field, Select, TextInput } from "../components/ui.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { useSync } from "../contexts/SyncContext.jsx";
 import { useToast } from "../contexts/ToastContext.jsx";
 import { firstName } from "../lib/format.js";
 import { SpeakButton, VoiceToggle, useSpeakOnOpen } from "../components/Voice.jsx";
@@ -43,6 +45,7 @@ const STEP_SAY = [
 
 export default function Register() {
   const { register } = useAuth();
+  const { online } = useSync();
   const navigate = useNavigate();
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
@@ -69,7 +72,7 @@ export default function Register() {
     if (index === 2) {
       if (!/^\d{4,6}$/.test(form.pin)) return "Your PIN must be 4 to 6 digits.";
       if (form.pin !== form.confirmPin) return "The PIN and confirmation do not match.";
-      if (form.securityQuestion && !form.securityAnswer.trim()) {
+      if (online && form.securityQuestion && !form.securityAnswer.trim()) {
         return "Enter an answer for your recovery question.";
       }
     }
@@ -113,14 +116,20 @@ export default function Register() {
         community: form.community.trim(),
         pin: form.pin,
         confirmPin: form.confirmPin,
-        ...(form.securityQuestion
+        // A recovery question needs the server. It is added later, after the
+        // offline account has been sent.
+        ...(online && form.securityQuestion
           ? {
               securityQuestion: form.securityQuestion,
               securityAnswer: form.securityAnswer.trim()
             }
           : {})
       });
-      toast.success(`Welcome to Minders, ${firstName(user.fullName)}.`);
+      toast.success(
+        user.pendingRegistration
+          ? "Account saved on this phone. Send it with your PIN when you have network."
+          : `Welcome to FarmBok, ${firstName(user.fullName)}.`
+      );
       navigate("/app", { replace: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -152,6 +161,16 @@ export default function Register() {
           </div>
           <SpeakButton phrase={STEP_SAY[step]} />
         </div>
+
+        {!online && (
+          <div className="mt-4 flex gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
+            <WifiOff size={18} className="mt-0.5 shrink-0 text-amber-700" aria-hidden="true" />
+            <p className="text-sm leading-relaxed text-amber-900">
+              No network. You can still make your account now. It stays on this phone until
+              you send it with your PIN when network comes.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
           <StepIndicator step={step} steps={STEPS} />
@@ -306,42 +325,54 @@ export default function Register() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-line bg-white p-4">
-                <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <ShieldQuestion size={16} className="text-primary" /> Recovery question
-                  <span className="text-[11px] font-medium text-ink-soft">Optional</span>
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-                  If you forget your PIN, this question helps you get back into your account.
-                </p>
-                <div className="mt-3 space-y-3">
-                  <Field label="Choose a question" htmlFor="securityQuestion">
-                    <Select
-                      id="securityQuestion"
-                      value={form.securityQuestion}
-                      onChange={update("securityQuestion")}
-                    >
-                      <option value="">Skip for now</option>
-                      {SECURITY_QUESTIONS.map((question) => (
-                        <option key={question.key} value={question.key}>
-                          {question.text}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  {form.securityQuestion && (
-                    <Field label="Your answer" htmlFor="securityAnswer">
-                      <TextInput
-                        id="securityAnswer"
-                        value={form.securityAnswer}
-                        onChange={update("securityAnswer")}
-                        placeholder="Type your answer"
-                        autoComplete="off"
-                      />
+              {online ? (
+                <div className="rounded-2xl border border-line bg-white p-4">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                    <ShieldQuestion size={16} className="text-primary" /> Recovery question
+                    <span className="text-[11px] font-medium text-ink-soft">Optional</span>
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                    If you forget your PIN, this question helps you get back into your account.
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    <Field label="Choose a question" htmlFor="securityQuestion">
+                      <Select
+                        id="securityQuestion"
+                        value={form.securityQuestion}
+                        onChange={update("securityQuestion")}
+                      >
+                        <option value="">Skip for now</option>
+                        {SECURITY_QUESTIONS.map((question) => (
+                          <option key={question.key} value={question.key}>
+                            {question.text}
+                          </option>
+                        ))}
+                      </Select>
                     </Field>
-                  )}
+                    {form.securityQuestion && (
+                      <Field label="Your answer" htmlFor="securityAnswer">
+                        <TextInput
+                          id="securityAnswer"
+                          value={form.securityAnswer}
+                          onChange={update("securityAnswer")}
+                          placeholder="Type your answer"
+                          autoComplete="off"
+                        />
+                      </Field>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-2xl border border-line bg-white p-4">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                    <ShieldQuestion size={16} className="text-primary" /> Recovery question
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                    You can add a recovery question after your account is sent, when you have
+                    network.
+                  </p>
+                </div>
+              )}
             </>
           )}
 

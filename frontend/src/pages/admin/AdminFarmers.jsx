@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { EmptyState, ErrorBanner, PageLoading, Select, TextInput } from "../../components/ui.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { api } from "../../lib/api.js";
-import { formatPhone, initials } from "../../lib/format.js";
+import { initials } from "../../lib/format.js";
 import { COUNTIES } from "../../lib/labels.js";
 
 const PAGE_SIZE = 12;
@@ -74,7 +74,8 @@ export default function AdminFarmers() {
       <div className="mb-5">
         <h1 className="text-2xl font-bold text-ink">Farmers</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Search and review every farmer registered in Minders.
+          Search and review every farmer registered in FarmBok. Phone numbers are hidden; open a
+          farmer to ask for the full number.
         </p>
       </div>
 
@@ -131,12 +132,12 @@ export default function AdminFarmers() {
             {total} {total === 1 ? "farmer" : "farmers"}
             {debouncedSearch ? ` matching “${debouncedSearch}”` : ""}
           </p>
-          <div className="overflow-hidden rounded-2xl bg-white shadow-card">
+          <div className="overflow-hidden rounded-2xl bg-white shadow-card lg:grid lg:grid-cols-2 lg:gap-3 lg:overflow-visible lg:rounded-none lg:bg-transparent lg:shadow-none">
             {data.items.map((farmer, index) => (
               <Link
                 key={farmer.id}
                 to={`/admin/farmers/${farmer.id}`}
-                className={`flex items-center gap-3 px-4 py-4 transition hover:bg-canvas ${
+                className={`flex items-center gap-3 px-4 py-4 transition hover:bg-canvas lg:rounded-2xl lg:border-t-0 lg:bg-white lg:px-5 lg:shadow-card ${
                   index > 0 ? "border-t border-line/70" : ""
                 }`}
               >
@@ -145,7 +146,9 @@ export default function AdminFarmers() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">{farmer.fullName}</p>
-                  <p className="truncate text-xs text-ink-soft">{formatPhone(farmer.phoneNumber)}</p>
+                  <p className="truncate text-xs text-ink-soft">
+                    {farmer.phoneNumber || "No phone number"}
+                  </p>
                   <p className="mt-0.5 text-[11px] text-ink-soft">
                     {farmer.county} · {farmer.farmCount} {farmer.farmCount === 1 ? "farm" : "farms"} ·{" "}
                     {farmer.activityCount} {farmer.activityCount === 1 ? "record" : "records"}

@@ -85,6 +85,10 @@ function cryptoAvailable() {
   return Boolean(globalThis.crypto && globalThis.crypto.subtle);
 }
 
+export function offlineSignInAvailable() {
+  return cryptoAvailable();
+}
+
 // Called after every successful online sign-in or PIN change so this phone can
 // sign the farmer in again without a connection.
 export async function rememberOfflineLogin(identifier, pin, user) {
@@ -130,7 +134,7 @@ export async function signInOffline(identifier, pin) {
     throw new ApiError(
       0,
       "OFFLINE_SIGN_IN_UNAVAILABLE",
-      "This phone has not signed in to Minders before. Connect to the internet to sign in the first time."
+      "This phone has not signed in to FarmBok before. Connect to the internet to sign in the first time."
     );
   }
 

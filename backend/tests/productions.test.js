@@ -324,3 +324,52 @@ test("records of one farmer can't point at another farmer's planting", async () 
   const list = (await api(server.baseUrl, "/api/productions", { token: two })).body.items;
   assert.equal(list.length, 0);
 });
+
+test("spacing, animal tags and male/female young ones are kept", async () => {
+  const token = await newFarmer();
+  const cropFarm = await newFarm(token, "crop_farming", ["Rice"]);
+  const rice = await newProduction(token, cropFarm, {
+    productionKind: "crop",
+    name: "Rice",
+    spacing: "70 x 30 cm",
+    method: "seeds"
+  });
+  assert.equal(rice.status, 201, JSON.stringify(rice.body));
+  assert.equal(rice.body.record.spacing, "70 x 30 cm");
+
+  const animalFarm = await newFarm(token, "poultry", ["Chicken"]);
+  const hens = await newProduction(token, animalFarm, {
+    productionKind: "animal",
+    name: "Chicken",
+    startCount: 10,
+    tagNumber: "Pen 3",
+    source: "bought",
+    ageGroup: "grown"
+  });
+  assert.equal(hens.status, 201, JSON.stringify(hens.body));
+  assert.equal(hens.body.record.tagNumber, "Pen 3");
+
+  const born = await post("/api/animalEvents", token, {
+    clientId: uid(),
+    productionClientId: hens.body.record.clientId,
+    eventType: "born",
+    quantity: 6,
+    eventDate: "2026-04-01",
+    maleCount: 2,
+    femaleCount: 4
+  });
+  assert.equal(born.status, 201, JSON.stringify(born.body));
+  assert.equal(born.body.record.maleCount, 2);
+  assert.equal(born.body.record.femaleCount, 4);
+
+  const tooMany = await post("/api/animalEvents", token, {
+    clientId: uid(),
+    productionClientId: hens.body.record.clientId,
+    eventType: "born",
+    quantity: 2,
+    eventDate: "2026-04-02",
+    maleCount: 2,
+    femaleCount: 1
+  });
+  assert.equal(tooMany.status, 400);
+});

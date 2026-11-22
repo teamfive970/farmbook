@@ -143,7 +143,7 @@ function drawTag(doc, x, y, w, h, tag) {
   // Footer.
   doc.rect(left, top + th - 22 * s, tw, 22 * s, { fill: COLOR.primarySoft, radius: 10 * s });
   doc.rect(left, top + th - 22 * s, tw, 10 * s, { fill: COLOR.primarySoft });
-  doc.text("Minders", left + pad, top + th - 8 * s, { size: 7.5 * s, bold: true, color: COLOR.primaryDark });
+  doc.text("FarmBok", left + pad, top + th - 8 * s, { size: 7.5 * s, bold: true, color: COLOR.primaryDark });
   doc.text(shortUrl(tag.url), left + tw - pad, top + th - 8 * s, { size: 7 * s, color: COLOR.primaryDark, align: "right", maxWidth: inner - 50 * s });
 }
 

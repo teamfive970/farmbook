@@ -154,14 +154,14 @@ export default function SaleForm() {
   async function save() {
     setError("");
     if (!saleCrop) return setError("Choose what you sold.");
-    if (qty <= 0) return setError("Enter how much you sold.");
+    if (qty <= 0) return setError("Enter Amount you sold.");
     if (left !== null && qty > left) return setError(`Only ${left} ${unitText(saleUnit)} left in this harvest.`);
     if (total <= 0) return setError("Enter the amount.");
     if (editing && total < alreadyPaid) {
       return setError(`The buyer already paid ${formatMoney(alreadyPaid, currency)}. The sale can't be less than that.`);
     }
     if (!editing && paid === "some" && (paidValue <= 0 || paidValue >= total)) {
-      return setError("Enter how much they paid. It must be less than the total.");
+      return setError("Enter Amount they paid. It must be less than the total.");
     }
     setBusy(true);
     try {
@@ -217,7 +217,7 @@ export default function SaleForm() {
   const showBatches = !editing ? batches.length > 0 : false;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={editing ? "Change the sale" : WORDS.sell.text}
         subtitle="Tap the pictures and the numbers."
@@ -274,8 +274,8 @@ export default function SaleForm() {
         </Section>
       )}
 
-      <Section title={{ text: "How much you sold?", say: "How much you sold?" }}>
-        <QuantityStepper value={quantity} onChange={setQuantity} label="How much sold" />
+      <Section title={{ text: "Amount you sold?", say: "Amount you sold?" }}>
+        <QuantityStepper value={quantity} onChange={setQuantity} label="Amount sold" />
         {left !== null ? (
           <p className="mt-2 text-sm text-ink-soft">
             {left} {unitText(saleUnit)} left in this harvest
@@ -382,7 +382,7 @@ export default function SaleForm() {
           </div>
           {paid === "some" && (
             <div className="mt-3">
-              <p className="label">How much did they pay?</p>
+              <p className="label">Amount did they pay?</p>
               <MoneyPad value={paidAmount} onChange={setPaidAmount} currency={currency} />
             </div>
           )}

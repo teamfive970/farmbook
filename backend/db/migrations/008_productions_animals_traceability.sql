@@ -1,4 +1,4 @@
--- 008: production records, following the Minders Farm Production Record
+-- 008: production records, following the FarmBok Farm Production Record
 -- Management Guide: one farmer → many farms → each farm's crop plantings and
 -- animal groups → every record linked to its farm (and planting or group).
 

@@ -134,15 +134,16 @@ export default function SyncStatus() {
   const attention = entries.filter((entry) => entry.record?.syncStatus === "failed");
 
   return (
-    <div>
+    <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-4">
       <PageHeader
+        className="lg:col-span-12"
         title="My saved records"
         subtitle="Where your farms and records are kept."
         backTo="/app/profile"
       />
 
       <div
-        className={`rounded-2xl border px-4 py-4 ${
+        className={`rounded-2xl border px-4 py-4 lg:col-span-12 ${
           needsOnlineSignIn || !online
             ? "border-warning/30 bg-warning/10"
             : "border-success/25 bg-success/5"
@@ -171,7 +172,9 @@ export default function SyncStatus() {
               }`}
             >
               {needsOnlineSignIn
-                ? "Saved on this phone"
+                ? user.pendingRegistration
+                  ? "Account saved on this phone"
+                  : "Saved on this phone"
                 : online
                   ? "Network is on"
                   : "No network"}
@@ -182,7 +185,9 @@ export default function SyncStatus() {
               }`}
             >
               {needsOnlineSignIn
-                ? "Your records are safe here. Enter your PIN once when there is network to send them."
+                ? user.pendingRegistration
+                  ? "Your account is not on the internet yet. Enter your PIN once when there is network and everything here will be sent."
+                  : "Your records are safe here. Enter your PIN once when there is network to send them."
                 : online
                   ? pendingCount > 0
                     ? `${pendingCount} ${pendingCount === 1 ? "item is" : "items are"} on this phone. They are being sent on their own.`
@@ -193,7 +198,7 @@ export default function SyncStatus() {
         </div>
         {needsOnlineSignIn ? (
           <Button className="mt-4 w-full" onClick={() => navigate("/login")}>
-            <LogIn size={16} /> Enter PIN to send
+            <LogIn size={16} /> {user.pendingRegistration ? "Send my account" : "Enter PIN to send"}
           </Button>
         ) : (
           <Button
@@ -207,13 +212,13 @@ export default function SyncStatus() {
         )}
       </div>
 
-      <section className="mt-4 rounded-2xl bg-white p-4 shadow-card">
+      <section className="mt-4 rounded-2xl bg-white p-4 shadow-card lg:col-span-4 lg:mt-0">
         <h2 className="mb-3 text-sm font-bold text-ink">What the pictures mean</h2>
         <SyncPictureKey />
       </section>
 
       {attention.length > 0 && (
-        <section className="mt-6">
+        <section className="mt-6 lg:col-span-8 lg:mt-0">
           <h2 className="mb-3 text-base font-bold text-ink">Needs help</h2>
           <div className="space-y-3">
             {attention.map((entry) => (
@@ -229,7 +234,7 @@ export default function SyncStatus() {
         </section>
       )}
 
-      <section className="mt-6">
+      <section className="mt-6 lg:col-span-8 lg:mt-0">
         <h2 className="mb-3 text-base font-bold text-ink">On this phone, waiting to send</h2>
         {waiting.length === 0 ? (
           <EmptyState
@@ -238,7 +243,7 @@ export default function SyncStatus() {
             description="Records you save with no network will show here until they are sent."
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
             {waiting.map((entry) => (
               <SyncEntry key={entry.key} entry={entry} />
             ))}
@@ -264,7 +269,7 @@ export default function SyncStatus() {
         onCancel={() => setDeleting(null)}
       />
 
-      <section className="mt-6 rounded-2xl bg-white p-5 shadow-card">
+      <section className="mt-6 rounded-2xl bg-white p-5 shadow-card lg:col-span-4 lg:mt-0">
         <h2 className="text-sm font-bold text-ink">How saving works</h2>
         <ol className="mt-3 space-y-2 text-xs leading-relaxed text-ink-soft">
           <li className="flex gap-2">
@@ -273,7 +278,7 @@ export default function SyncStatus() {
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-primary">2.</span>
-            When you have internet, Minders sends it to your account.
+            When you have internet, FarmBok sends it to your account.
           </li>
           <li className="flex gap-2">
             <span className="font-bold text-primary">3.</span>

@@ -80,7 +80,7 @@ export default function InstallPrompt() {
   return (
     <div
       role="region"
-      aria-label="Install Minders"
+      aria-label="Install FarmBok"
       className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-sm rounded-2xl border border-line bg-white p-4 shadow-float md:bottom-6"
     >
       <div className="flex items-start gap-3">
@@ -89,7 +89,7 @@ export default function InstallPrompt() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-bold text-ink">Install Minders</p>
+            <p className="text-sm font-bold text-ink">Install FarmBok</p>
             <button
               type="button"
               onClick={dismiss}
@@ -103,11 +103,11 @@ export default function InstallPrompt() {
             <p className="mt-1 text-xs leading-relaxed text-ink-soft">
               Tap <Share size={12} className="inline align-baseline" aria-hidden="true" /> Share,
               then <span className="font-semibold text-ink">Add to Home Screen</span> to use
-              Minders like an app, even without internet.
+              FarmBok like an app, even without internet.
             </p>
           ) : (
             <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              Add Minders to your home screen so it opens in one tap and keeps working offline.
+              Add FarmBok to your home screen so it opens in one tap and keeps working offline.
             </p>
           )}
           <div className="mt-3 flex gap-2">

@@ -16,3 +16,15 @@ export function formatPhone(value) {
   const match = /^\+231(\d{3})(\d{3})(\d{3})$/.exec(value);
   return match ? `+231 ${match[1]} ${match[2]} ${match[3]}` : value;
 }
+
+// What an administrator sees by default. The last three digits are enough to
+// check a number with the farmer on the phone, and not enough to contact them
+// or copy the registry. The full number needs a reason, the admin PIN and an
+// audit entry (see adminService.revealFarmerPhone).
+export function maskPhone(value) {
+  if (!value) return "";
+  const digits = String(value).replace(/\D/g, "");
+  if (digits.length < 4) return "••• ••• •••";
+  const last = digits.slice(-3);
+  return `+231 ••• ••• ${last}`;
+}

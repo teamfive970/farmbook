@@ -50,7 +50,7 @@ export default function Farms() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 xl:grid-cols-3">
           {farms.map((farm) => (
             <FarmCard
               key={farm.id}

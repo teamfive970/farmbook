@@ -67,10 +67,10 @@ export function Card({ className = "", as: Tag = "div", children, ...props }) {
 
 // `say`: a phrase (from words.js) read aloud when the page opens with "Talk to
 // me" on, and whenever the speaker button is tapped.
-export function PageHeader({ title, subtitle, backTo, action, say }) {
+export function PageHeader({ title, subtitle, backTo, action, say, className = "" }) {
   useSpeakOnOpen(say);
   return (
-    <div className="mb-5 flex items-start justify-between gap-3">
+    <div className={`mb-5 flex items-start justify-between gap-3 ${className}`}>
       <div className="flex items-start gap-2">
         {backTo && (
           <Link
@@ -135,12 +135,12 @@ export function Textarea({ className = "", ...props }) {
   return <textarea className={`input min-h-24 resize-y ${className}`} {...props} />;
 }
 
-export function ErrorBanner({ message }) {
+export function ErrorBanner({ message, className = "" }) {
   if (!message) return null;
   return (
     <div
       role="alert"
-      className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger/5 px-4 py-3 text-sm text-danger"
+      className={`flex items-start gap-2 rounded-xl border border-danger/25 bg-danger/5 px-4 py-3 text-sm text-danger ${className}`}
     >
       <AlertTriangle size={18} className="mt-0.5 shrink-0" />
       <span>{message}</span>
@@ -161,9 +161,9 @@ export function PageLoading({ label = "Loading…" }) {
   );
 }
 
-export function EmptyState({ icon: Icon = Inbox, title, description, action }) {
+export function EmptyState({ icon: Icon = Inbox, title, description, action, className = "" }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line bg-white/70 px-6 py-10 text-center">
+    <div className={`flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line bg-white/70 px-6 py-10 text-center ${className}`}>
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
         <Icon size={24} />
       </div>

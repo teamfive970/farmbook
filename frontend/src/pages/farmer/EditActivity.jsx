@@ -75,7 +75,7 @@ export default function EditActivity() {
   }
 
   return (
-    <div>
+    <div className="lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title="Change the work"
         subtitle="Change what you need, then save."

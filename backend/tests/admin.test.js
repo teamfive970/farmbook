@@ -100,8 +100,8 @@ test("admin dashboard reports live platform metrics", async () => {
       farmersThisMonth: 2
     }
   );
-  assert.equal(dashboard.body.recentFarmers.length, 2);
-  assert.equal(dashboard.body.recentFarmers[0].phoneNumber, "+231773330002");
+  assert.equal(dashboard.body.recentFarmers, undefined, "the overview must not list farmers");
+  assert.ok(!JSON.stringify(dashboard.body).includes("Grace Tarr"));
 });
 
 test("admin farmer list supports search, county, status and pagination", async () => {
@@ -116,6 +116,9 @@ test("admin farmer list supports search, county, status and pagination", async (
   const byName = await api(server.baseUrl, "/api/admin/farmers?search=grace", { token: adminToken });
   assert.equal(byName.body.items.length, 1);
   assert.equal(byName.body.items[0].fullName, "Grace Tarr");
+  assert.equal(byName.body.items[0].phoneNumber, "+231 ••• ••• 001");
+  assert.equal(byName.body.items[0].district, undefined, "the list stays location-light");
+  assert.ok(!JSON.stringify(byName.body).includes("773330001"));
 
   const byPhone = await api(server.baseUrl, "/api/admin/farmers?search=3330003", {
     token: adminToken
@@ -168,13 +171,37 @@ test("admin can view, edit and deactivate a farmer with audit logging", async ()
     }
   });
 
-  const detail = await api(server.baseUrl, `/api/admin/farmers/${farmerId}`, { token: adminToken });
+  const noReason = await api(server.baseUrl, `/api/admin/farmers/${farmerId}`, { token: adminToken });
+  assert.equal(noReason.status, 400);
+  assert.equal(noReason.body.error.details.field, "reason");
+
+  const detail = await api(
+    server.baseUrl,
+    `/api/admin/farmers/${farmerId}?reason=${encodeURIComponent("Farmer asked about their record")}`,
+    { token: adminToken }
+  );
   assert.equal(detail.status, 200);
   assert.equal(detail.body.farmer.fullName, "Grace Tarr");
   assert.equal(detail.body.farmer.farmCount, 1);
   assert.equal(detail.body.farmer.activityCount, 1);
+  assert.equal(detail.body.farmer.phoneNumber, "+231 ••• ••• 001");
   assert.equal(detail.body.farms.length, 1);
-  assert.equal(detail.body.recentActivities.length, 1);
+  assert.equal(detail.body.farms[0].activityCount, 1);
+  assert.equal(detail.body.farms[0].description, undefined);
+  assert.equal(detail.body.farms[0].size, undefined);
+  assert.equal(detail.body.farms[0].community, undefined);
+  assert.equal(detail.body.recentActivities, undefined, "daily notes stay private");
+  assert.equal(detail.body.activity.total, 1);
+  assert.deepEqual(detail.body.activity.byType, [{ type: "weeding", count: 1 }]);
+  assert.ok(!JSON.stringify(detail.body).includes("Weeded the cassava"));
+
+  const { rows: viewAudit } = await query(
+    "SELECT reason, ip_address, user_agent FROM audit_logs WHERE action = 'farmer.detail_viewed'"
+  );
+  assert.equal(viewAudit.length, 1);
+  assert.equal(viewAudit[0].reason, "Farmer asked about their record");
+  assert.ok(viewAudit[0].ip_address);
+  assert.ok(viewAudit[0].user_agent);
 
   const updated = await api(server.baseUrl, `/api/admin/farmers/${farmerId}`, {
     method: "PATCH",
@@ -186,12 +213,21 @@ test("admin can view, edit and deactivate a farmer with audit logging", async ()
   assert.equal(updated.body.farmer.fullName, "Grace Tarr-Kollie");
 
   const { rows: updateAudit } = await query(
-    "SELECT action, admin_user_id FROM audit_logs WHERE target_id = $1 ORDER BY created_at",
+    "SELECT action, admin_user_id, metadata FROM audit_logs WHERE target_id = $1 AND action = 'farmer.updated'",
     [farmerId]
   );
   assert.equal(updateAudit.length, 1);
   assert.equal(updateAudit[0].action, "farmer.updated");
   assert.equal(updateAudit[0].admin_user_id, adminId);
+  assert.deepEqual(updateAudit[0].metadata.changes.full_name, {
+    from: "Grace Tarr",
+    to: "Grace Tarr-Kollie"
+  });
+  assert.deepEqual(updateAudit[0].metadata.changes.community, {
+    from: "Careysburg",
+    to: "Harrisburg"
+  });
+  assert.equal(updateAudit[0].metadata.changes.county, undefined, "unchanged fields are not logged");
 
   const deactivate = await api(server.baseUrl, `/api/admin/farmers/${farmerId}/deactivate`, {
     method: "POST",
@@ -221,7 +257,12 @@ test("admin can view, edit and deactivate a farmer with audit logging", async ()
   );
   assert.deepEqual(
     statusAudit.map((row) => row.action),
-    ["farmer.updated", "farmer.deactivated", "farmer.reactivated"]
+    [
+      "farmer.detail_viewed",
+      "farmer.updated",
+      "farmer.deactivated",
+      "farmer.reactivated"
+    ]
   );
 });
 
@@ -292,7 +333,7 @@ test("admin endpoints validate ids and payloads", async () => {
 
   const missing = await api(
     server.baseUrl,
-    "/api/admin/farmers/00000000-0000-4000-8000-000000000000",
+    "/api/admin/farmers/00000000-0000-4000-8000-000000000000?reason=Checking%20a%20missing%20record",
     { token: adminToken }
   );
   assert.equal(missing.status, 404);

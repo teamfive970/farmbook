@@ -32,6 +32,10 @@ export default function Passport() {
         <ICONS.search size={40} className="mx-auto text-ink-soft" aria-hidden="true" />
         <h1 className="text-xl font-bold text-ink">Passport not available</h1>
         <p className="max-w-sm text-sm text-ink-soft">{error}</p>
+        <p className="max-w-sm text-xs text-ink-soft">
+          If you just got this link, the farmer may need to turn on "Buyers can see it" and connect to the internet
+          once. Then open the link again.
+        </p>
       </div>
     );
   }

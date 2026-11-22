@@ -3,6 +3,7 @@ import { query, withTransaction } from "../config/database.js";
 import { COUNTIES } from "../lib/constants.js";
 import { ApiError, badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { normalizePhone } from "../lib/phone.js";
+import { writeAudit } from "../lib/audit.js";
 import {
   optionalString,
   requireEnum,
@@ -13,8 +14,9 @@ import { moneyAndHarvestTotals } from "./reportService.js";
 
 // Cooperatives (farmer groups). Admins create groups and manage members; a
 // farmer can also join with the group's join code. A member marked "leader"
-// sees each member's totals; other members see the group totals and their own.
-// Members' detailed records (individual sales, notes) are never shared.
+// sees each member's totals only after that member agreed to share them.
+// Members' detailed records (individual sales, notes) are never shared, and
+// admins only ever see the group total, never a member's own figures.
 
 function joinCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -38,14 +40,6 @@ function serializeCooperative(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
-}
-
-async function audit(client, adminId, action, targetId, metadata = {}) {
-  await client.query(
-    `INSERT INTO audit_logs (admin_user_id, action, target_type, target_id, metadata)
-     VALUES ($1, $2, 'cooperative', $3, $4)`,
-    [adminId, action, targetId, JSON.stringify(metadata)]
-  );
 }
 
 function coopFields(body, { partial }) {
@@ -77,12 +71,19 @@ const SELECT_COOP = `
 
 // ---------- Admin ----------
 
-export async function adminListCooperatives() {
+export async function adminListCooperatives(adminAuth, req) {
   const { rows } = await query(`${SELECT_COOP} ORDER BY c.name`);
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "cooperative.list_viewed",
+    targetType: "cooperative",
+    metadata: { resultCount: rows.length },
+    req
+  });
   return { items: rows.map(serializeCooperative) };
 }
 
-export async function adminCreateCooperative(adminAuth, body = {}) {
+export async function adminCreateCooperative(adminAuth, req, body = {}) {
   const fields = coopFields(body, { partial: false });
   return withTransaction(async (client) => {
     let row;
@@ -96,17 +97,25 @@ export async function adminCreateCooperative(adminAuth, body = {}) {
       row = result.rows[0];
     }
     if (!row) throw new ApiError(500, "INTERNAL_ERROR", "Could not create a join code. Try again.");
-    await audit(client, adminAuth.userId, "cooperative.created", row.id, { name: row.name });
+    await writeAudit({
+      client,
+      adminUserId: adminAuth.userId,
+      action: "cooperative.created",
+      targetType: "cooperative",
+      targetId: row.id,
+      metadata: { name: row.name },
+      req
+    });
     return { cooperative: serializeCooperative({ ...row, member_count: 0 }) };
   });
 }
 
-export async function adminUpdateCooperative(adminAuth, id, body = {}) {
+export async function adminUpdateCooperative(adminAuth, req, id, body = {}) {
   requireUuid(id, "id", "group");
   const fields = coopFields(body, { partial: true });
   const entries = Object.entries(fields);
   if (entries.length === 0) throw badRequest("Provide at least one field to update.");
-  return withTransaction(async (client) => {
+  await withTransaction(async (client) => {
     const { rows } = await client.query(
       `UPDATE cooperatives SET ${entries.map(([column], index) => `${column} = $${index + 1}`).join(", ")},
          updated_at = now()
@@ -114,24 +123,26 @@ export async function adminUpdateCooperative(adminAuth, id, body = {}) {
       [...entries.map(([, value]) => value), id]
     );
     if (!rows[0]) throw notFound("Group not found.");
-    await audit(client, adminAuth.userId, "cooperative.updated", id, { fields: Object.keys(fields) });
-    return adminGetCooperative(id);
+    await writeAudit({
+      client,
+      adminUserId: adminAuth.userId,
+      action: "cooperative.updated",
+      targetType: "cooperative",
+      targetId: id,
+      metadata: { fields: Object.keys(fields) },
+      req
+    });
   });
+  return adminGetCooperative(adminAuth, req, id);
 }
 
 async function memberRows(cooperativeId) {
   const { rows } = await query(
-    `SELECT f.id, f.full_name, f.phone_number, f.county, f.district, f.community, f.status AS farmer_status,
-            m.role, m.joined_at,
-            (SELECT count(*) FROM farms x WHERE x.farmer_id = f.id)::int AS farm_count,
-            (SELECT count(*) FROM harvests h WHERE h.farmer_id = f.id AND h.deleted_at IS NULL)::int AS harvest_count,
+    `SELECT f.id, f.full_name, f.county, f.community, m.role, m.joined_at, m.consent_at,
             (SELECT COALESCE(sum(total_amount), 0) FROM sales s
               WHERE s.farmer_id = f.id AND s.deleted_at IS NULL AND s.currency = 'LRD') AS sold_lrd,
             (SELECT COALESCE(sum(total_amount), 0) FROM sales s
-              WHERE s.farmer_id = f.id AND s.deleted_at IS NULL AND s.currency = 'USD') AS sold_usd,
-            (SELECT count(*) FROM farm_activities a
-              WHERE a.farmer_id = f.id AND a.deleted_at IS NULL
-                AND a.activity_date >= current_date - 30)::int AS work_last_30_days
+              WHERE s.farmer_id = f.id AND s.deleted_at IS NULL AND s.currency = 'USD') AS sold_usd
      FROM cooperative_members m JOIN farmers f ON f.id = m.farmer_id
      WHERE m.cooperative_id = $1 AND m.status = 'active'
      ORDER BY m.role DESC, f.full_name`,
@@ -140,24 +151,30 @@ async function memberRows(cooperativeId) {
   return rows;
 }
 
-function serializeMember(row, { withPhone }) {
+// Admins see who is in the group, never a member's own sales or phone number.
+function serializeAdminMember(row) {
   return {
     farmerId: row.id,
     fullName: row.full_name,
-    ...(withPhone ? { phoneNumber: row.phone_number } : {}),
-    county: row.county,
-    district: row.district,
-    community: row.community,
     role: row.role,
     joinedAt: row.joined_at,
-    farmCount: row.farm_count,
-    harvestCount: row.harvest_count,
-    sold: { LRD: Number(row.sold_lrd), USD: Number(row.sold_usd) },
-    workLast30Days: row.work_last_30_days
+    sharesTotals: Boolean(row.consent_at)
   };
 }
 
-export async function adminGetCooperative(id, params = {}) {
+// Leaders only see totals for members who agreed at join time.
+function serializeLeaderMember(row) {
+  const member = serializeAdminMember(row);
+  if (!row.consent_at) return member;
+  return {
+    ...member,
+    county: row.county,
+    community: row.community,
+    sold: { LRD: Number(row.sold_lrd), USD: Number(row.sold_usd) }
+  };
+}
+
+export async function adminGetCooperative(adminAuth, req, id, params = {}) {
   requireUuid(id, "id", "group");
   const { rows } = await query(`${SELECT_COOP} WHERE c.id = $1`, [id]);
   if (!rows[0]) throw notFound("Group not found.");
@@ -166,14 +183,24 @@ export async function adminGetCooperative(id, params = {}) {
     members.map((member) => member.id),
     params
   );
+
+  await writeAudit({
+    adminUserId: adminAuth.userId,
+    action: "cooperative.viewed",
+    targetType: "cooperative",
+    targetId: id,
+    metadata: { memberCount: members.length },
+    req
+  });
+
   return {
     cooperative: serializeCooperative(rows[0]),
-    members: members.map((member) => serializeMember(member, { withPhone: true })),
+    members: members.map(serializeAdminMember),
     totals
   };
 }
 
-export async function adminAddMember(adminAuth, cooperativeId, body = {}) {
+export async function adminAddMember(adminAuth, req, cooperativeId, body = {}) {
   requireUuid(cooperativeId, "id", "group");
   let farmerId = body.farmerId;
   if (farmerId) requireUuid(farmerId, "farmerId", "farmer");
@@ -192,6 +219,8 @@ export async function adminAddMember(adminAuth, cooperativeId, body = {}) {
     if (!coop.rows[0]) throw notFound("Group not found.");
     const farmer = await client.query("SELECT id FROM farmers WHERE id = $1", [farmerId]);
     if (!farmer.rows[0]) throw notFound("Farmer not found.");
+    // An admin-added member has not agreed to share totals yet; their own
+    // figures stay hidden until they agree in the app.
     await client.query(
       `INSERT INTO cooperative_members (cooperative_id, farmer_id, role)
        VALUES ($1, $2, $3)
@@ -199,12 +228,20 @@ export async function adminAddMember(adminAuth, cooperativeId, body = {}) {
        DO UPDATE SET status = 'active', role = EXCLUDED.role, updated_at = now()`,
       [cooperativeId, farmerId, role]
     );
-    await audit(client, adminAuth.userId, "cooperative.member_added", cooperativeId, { farmerId, role });
+    await writeAudit({
+      client,
+      adminUserId: adminAuth.userId,
+      action: "cooperative.member_added",
+      targetType: "cooperative",
+      targetId: cooperativeId,
+      metadata: { farmerId, role },
+      req
+    });
     return { message: "Farmer added to the group." };
   });
 }
 
-export async function adminSetMemberRole(adminAuth, cooperativeId, farmerId, body = {}) {
+export async function adminSetMemberRole(adminAuth, req, cooperativeId, farmerId, body = {}) {
   requireUuid(cooperativeId, "id", "group");
   requireUuid(farmerId, "farmerId", "farmer");
   const role = requireEnum(body.role, ["member", "leader"], "role", "role");
@@ -215,12 +252,20 @@ export async function adminSetMemberRole(adminAuth, cooperativeId, farmerId, bod
       [role, cooperativeId, farmerId]
     );
     if (!rows[0]) throw notFound("This farmer is not in the group.");
-    await audit(client, adminAuth.userId, "cooperative.member_role", cooperativeId, { farmerId, role });
+    await writeAudit({
+      client,
+      adminUserId: adminAuth.userId,
+      action: "cooperative.member_role",
+      targetType: "cooperative",
+      targetId: cooperativeId,
+      metadata: { farmerId, role },
+      req
+    });
     return { message: role === "leader" ? "Farmer is now a group leader." : "Farmer is now a member." };
   });
 }
 
-export async function adminRemoveMember(adminAuth, cooperativeId, farmerId) {
+export async function adminRemoveMember(adminAuth, req, cooperativeId, farmerId) {
   requireUuid(cooperativeId, "id", "group");
   requireUuid(farmerId, "farmerId", "farmer");
   return withTransaction(async (client) => {
@@ -230,7 +275,15 @@ export async function adminRemoveMember(adminAuth, cooperativeId, farmerId) {
       [cooperativeId, farmerId]
     );
     if (!rows[0]) throw notFound("This farmer is not in the group.");
-    await audit(client, adminAuth.userId, "cooperative.member_removed", cooperativeId, { farmerId });
+    await writeAudit({
+      client,
+      adminUserId: adminAuth.userId,
+      action: "cooperative.member_removed",
+      targetType: "cooperative",
+      targetId: cooperativeId,
+      metadata: { farmerId },
+      req
+    });
     return { message: "Farmer removed from the group." };
   });
 }
@@ -239,7 +292,7 @@ export async function adminRemoveMember(adminAuth, cooperativeId, farmerId) {
 
 export async function myCooperatives(farmerId) {
   const { rows } = await query(
-    `SELECT c.*, m.role,
+    `SELECT c.*, m.role, m.consent_at,
        (SELECT count(*) FROM cooperative_members x
          WHERE x.cooperative_id = c.id AND x.status = 'active') AS member_count
      FROM cooperative_members m JOIN cooperatives c ON c.id = m.cooperative_id
@@ -252,7 +305,7 @@ export async function myCooperatives(farmerId) {
       const coop = serializeCooperative(row);
       // Only leaders need the join code to invite people.
       if (row.role !== "leader") delete coop.joinCode;
-      return { ...coop, myRole: row.role };
+      return { ...coop, myRole: row.role, myConsent: Boolean(row.consent_at) };
     })
   };
 }
@@ -261,6 +314,12 @@ export async function joinCooperative(farmerId, body = {}) {
   const code = requireString(body.joinCode, "joinCode", { max: 20, label: "Group code" })
     .toUpperCase()
     .replace(/\s+/g, "");
+  if (body.consent !== true) {
+    throw badRequest(
+      "Agree to share your sales totals with the group before joining.",
+      { field: "consent" }
+    );
+  }
   const normalized = code.startsWith("GRP-") ? code : `GRP-${code}`;
   const { rows } = await query("SELECT * FROM cooperatives WHERE join_code = $1 AND status = 'active'", [
     normalized
@@ -272,20 +331,45 @@ export async function joinCooperative(farmerId, body = {}) {
   );
   if (existing.rows[0]?.status === "active") throw conflict("You are already in this group.");
   await query(
-    `INSERT INTO cooperative_members (cooperative_id, farmer_id, role)
-     VALUES ($1, $2, 'member')
-     ON CONFLICT (cooperative_id, farmer_id) DO UPDATE SET status = 'active', role = 'member', updated_at = now()`,
+    `INSERT INTO cooperative_members (cooperative_id, farmer_id, role, consent_at)
+     VALUES ($1, $2, 'member', now())
+     ON CONFLICT (cooperative_id, farmer_id) DO UPDATE
+       SET status = 'active', role = 'member', consent_at = now(), updated_at = now()`,
     [rows[0].id, farmerId]
   );
   const coop = serializeCooperative(rows[0]);
   delete coop.joinCode;
-  return { cooperative: { ...coop, myRole: "member" }, message: `You joined ${rows[0].name}.` };
+  return {
+    cooperative: { ...coop, myRole: "member", myConsent: true },
+    message: `You joined ${rows[0].name}.`
+  };
+}
+
+export async function setConsent(farmerId, cooperativeId, consent) {
+  requireUuid(cooperativeId, "id", "group");
+  if (typeof consent !== "boolean") {
+    throw badRequest("Choose whether to share your totals.", { field: "consent" });
+  }
+  const { rows } = await query(
+    `UPDATE cooperative_members
+     SET consent_at = CASE WHEN $1 THEN now() ELSE NULL END, updated_at = now()
+     WHERE cooperative_id = $2 AND farmer_id = $3 AND status = 'active'
+     RETURNING consent_at`,
+    [consent, cooperativeId, farmerId]
+  );
+  if (!rows[0]) throw notFound("You are not in this group.");
+  return {
+    myConsent: Boolean(rows[0].consent_at),
+    message: consent
+      ? "Your totals are now shared with group leaders."
+      : "Your totals are private again."
+  };
 }
 
 export async function leaveCooperative(farmerId, cooperativeId) {
   requireUuid(cooperativeId, "id", "group");
   const { rows } = await query(
-    `UPDATE cooperative_members SET status = 'left', role = 'member', updated_at = now()
+    `UPDATE cooperative_members SET status = 'left', role = 'member', consent_at = NULL, updated_at = now()
      WHERE cooperative_id = $1 AND farmer_id = $2 AND status = 'active' RETURNING farmer_id`,
     [cooperativeId, farmerId]
   );
@@ -296,7 +380,7 @@ export async function leaveCooperative(farmerId, cooperativeId) {
 export async function cooperativeDashboard(farmerId, cooperativeId, params = {}) {
   requireUuid(cooperativeId, "id", "group");
   const membership = await query(
-    `SELECT m.role FROM cooperative_members m JOIN cooperatives c ON c.id = m.cooperative_id
+    `SELECT m.role, m.consent_at FROM cooperative_members m JOIN cooperatives c ON c.id = m.cooperative_id
      WHERE m.cooperative_id = $1 AND m.farmer_id = $2 AND m.status = 'active' AND c.status = 'active'`,
     [cooperativeId, farmerId]
   );
@@ -311,6 +395,7 @@ export async function cooperativeDashboard(farmerId, cooperativeId, params = {})
   return {
     cooperative: coop,
     myRole: membership.rows[0].role,
+    myConsent: Boolean(membership.rows[0].consent_at),
     leaders: members
       .filter((member) => member.role === "leader")
       .map((member) => ({ fullName: member.full_name, community: member.community })),
@@ -319,7 +404,8 @@ export async function cooperativeDashboard(farmerId, cooperativeId, params = {})
       params
     ),
     myTotals: await moneyAndHarvestTotals(farmerId, params),
-    // Leaders see each member's totals (no phone numbers, no detailed records).
-    members: isLeader ? members.map((member) => serializeMember(member, { withPhone: false })) : undefined
+    // Leaders see each member's totals only when that member agreed. Detailed
+    // records and contact details are never shared.
+    members: isLeader ? members.map(serializeLeaderMember) : undefined
   };
 }

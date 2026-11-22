@@ -225,7 +225,7 @@ export async function replaceServerRecords(userId, kind, serverItems) {
   await tx.done;
 }
 
-// Asks the browser to keep Minders' saved records even when the phone is low on
+// Asks the browser to keep FarmBok's saved records even when the phone is low on
 // space. Without this, Android may clear an unused site's storage. Safe to call
 // repeatedly; returns whether storage is persistent.
 export async function requestPersistentStorage() {
@@ -249,6 +249,53 @@ export async function hasUnsentWork(userId) {
     if (items.some((item) => item.syncStatus && item.syncStatus !== "synced")) return true;
   }
   return false;
+}
+
+// Moves the work of an account made offline onto the real account once the
+// server accepts it. Both databases use the same stores, so each record and
+// each queued operation is copied as it is; the old database is removed only
+// after the copy finishes.
+export async function moveLocalData(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+  const stores = ["activities", "queue", "farms", "meta", "records"];
+  const source = await openDB(`minders-${fromId}`);
+  const target = await dbFor(toId);
+  try {
+    for (const store of stores) {
+      if (!source.objectStoreNames.contains(store)) continue;
+      if (store === "meta") {
+        const [keys, values] = await Promise.all([
+          source.getAllKeys("meta"),
+          source.getAll("meta")
+        ]);
+        if (!keys.length) continue;
+        const tx = target.transaction("meta", "readwrite");
+        for (let index = 0; index < keys.length; index += 1) {
+          await tx.store.put(values[index], keys[index]);
+        }
+        await tx.done;
+        continue;
+      }
+      const items = await source.getAll(store);
+      if (!items.length) continue;
+      const tx = target.transaction(store, "readwrite");
+      for (const item of items) await tx.store.put(item);
+      await tx.done;
+    }
+  } finally {
+    source.close();
+    const cached = connections.get(fromId);
+    if (cached) {
+      (await cached).close();
+      connections.delete(fromId);
+    }
+  }
+  // Another tab may still hold the old database open. The copy is already
+  // safe, so do not keep the farmer waiting on a blocked delete.
+  await Promise.race([
+    deleteDB(`minders-${fromId}`).catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, 3000))
+  ]);
 }
 
 // Removes a person's records from this phone (their account and the copy on

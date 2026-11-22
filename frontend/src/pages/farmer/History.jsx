@@ -207,7 +207,7 @@ export default function History() {
               <h2 className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
                 {group.label}
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
                 {group.items.map((activity) => (
                   <ActivityItem key={activity.clientId} activity={activity} />
                 ))}

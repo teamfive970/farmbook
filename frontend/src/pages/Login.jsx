@@ -134,9 +134,9 @@ export default function Login({ standalone = false }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas px-5 py-8">
-      <div className="mx-auto w-full max-w-md">
-        <div className="flex items-center justify-between gap-2">
+    <div className="flex min-h-dvh flex-col bg-canvas px-5 py-8 lg:items-center lg:justify-center">
+      <div className="mx-auto w-full max-w-md lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-x-16">
+        <div className="flex items-center justify-between gap-2 lg:col-start-1 lg:row-start-1">
           <Brand to="/" />
           {!standalone && <VoiceToggle compact />}
           {(standalone || knownFarmer) && (
@@ -149,16 +149,18 @@ export default function Login({ standalone = false }) {
           )}
         </div>
 
-        <div className="mt-10">
+        <div className="mt-10 lg:col-start-1 lg:row-start-2 lg:mt-12">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold text-ink">
+            <h1 className="text-2xl font-bold text-ink lg:text-3xl">
               {standalone ? "Welcome back" : showIdentity ? WORDS.pin.text : "Enter"}
             </h1>
             {!standalone && <SpeakButton phrase={showIdentity ? WORDS.enterPinToSend : WORDS.phoneNumber} />}
           </div>
           <p className="mt-2 text-sm text-ink-soft">
             {knownFarmer
-              ? "Your work is safe on this phone. Enter your PIN once so it can be sent."
+              ? user?.pendingRegistration
+                ? "Your account and work are saved on this phone. Enter your PIN once so they can be sent."
+                : "Your work is safe on this phone. Enter your PIN once so it can be sent."
               : standalone
                 ? "Sign in with your access code and PIN."
                 : "Enter your phone number, then your PIN."}
@@ -166,7 +168,7 @@ export default function Login({ standalone = false }) {
         </div>
 
         {!standalone && !online && (
-          <div className="mt-4 flex gap-3 rounded-xl border border-line bg-white px-4 py-3">
+          <div className="mt-4 flex gap-3 rounded-xl border border-line bg-white px-4 py-3 lg:col-start-1 lg:row-start-3">
             <WifiOff size={18} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden="true" />
             <p className="text-sm leading-relaxed text-ink-soft">
               Network not there. You can still enter the PIN you used on this phone before.
@@ -174,7 +176,7 @@ export default function Login({ standalone = false }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4 lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:mt-0" noValidate>
           {waiting ? (
             <div
               role="alert"
@@ -350,7 +352,7 @@ export default function Login({ standalone = false }) {
         </form>
 
         {!standalone && !knownFarmer && profiles.length > 0 && (
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center lg:col-start-2 lg:row-start-5 lg:mt-4">
             <Link
               to="/who"
               data-say={WORDS.whoIsUsing.say}
@@ -362,7 +364,7 @@ export default function Login({ standalone = false }) {
         )}
 
         {!standalone && !knownFarmer && (
-          <p className="mt-6 text-center text-sm text-ink-soft">
+          <p className="mt-6 text-center text-sm text-ink-soft lg:col-start-2 lg:row-start-6 lg:mt-2">
             <Link
               to="/register"
               data-say={WORDS.newAccount.say}

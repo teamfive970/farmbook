@@ -61,6 +61,7 @@ export const EXPENSE_CATEGORIES = [
   "transport",
   "feed",
   "medicine",
+  "veterinary",
   "land",
   "other"
 ];
@@ -74,3 +75,9 @@ export const ANIMAL_ADD_EVENTS = ["born", "bought", "given_in"];
 export const ANIMAL_REMOVE_EVENTS = ["died", "sold", "eaten", "given_out"];
 export const ANIMAL_EVENT_TYPES = [...ANIMAL_ADD_EVENTS, ...ANIMAL_REMOVE_EVENTS];
 export const DEATH_CAUSES = ["sickness", "accident", "predator", "weather", "unknown", "other"];
+
+// What a crop check, a feeding record, an animal health record and a breeding
+// record can say (migration 009).
+export const GROWTH_STAGES = ["seedling", "growing", "flowering", "fruiting", "ready"];
+export const FEED_SCHEDULES = ["once_a_day", "twice_a_day", "three_times_a_day", "all_day", "other"];
+export const PREGNANCY_STATES = ["not_sure", "pregnant", "not_pregnant"];

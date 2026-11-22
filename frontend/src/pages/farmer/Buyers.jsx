@@ -65,7 +65,7 @@ export default function Buyers() {
           description="When you sell, choose who bought it. They will show here."
         />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0 xl:grid-cols-3">
           {rows.map(({ buyer, count, sold }) => {
             const type = typeOf(buyer);
             return (
@@ -152,7 +152,7 @@ export function BuyerForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mx-auto lg:max-w-2xl">
       <PageHeader title={editing ? "Change buyer" : "Add buyer"} backTo="/app/money/buyers" say={{ say: "Who is the buyer?" }} />
       <ErrorBanner message={error} />
 

@@ -14,7 +14,7 @@ import { ProductionChips } from "../../components/ActivityForm.jsx";
 import { productionsForFarm } from "../../lib/production.js";
 import { CURRENCIES, EXPENSE_CATEGORIES, WORDS, unitText } from "../../lib/words.js";
 
-// "I spend money": what for (pictures), how much (number keys), which farm.
+// "I spend money": what for (pictures), Amount (number keys), which farm.
 // Also used to change or delete a spending (/app/money/spend/:clientId).
 export default function ExpenseForm() {
   const { clientId } = useParams();
@@ -127,7 +127,7 @@ export default function ExpenseForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mx-auto lg:max-w-4xl">
       <PageHeader title={WORDS.spend.text} subtitle="Tap the pictures and the numbers." backTo={backTo} say={WORDS.spend} />
       <ErrorBanner message={error} />
 

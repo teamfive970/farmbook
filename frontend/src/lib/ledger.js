@@ -60,7 +60,7 @@ export function latestInspection(harvest, inspections) {
     )[0];
 }
 
-// A harvest batch: how much was sold from it, how much is left, its grade.
+// A harvest batch: Amount was sold from it, Amount is left, its grade.
 export function batchStatus(harvest, sales, inspections = []) {
   const linked = sales.filter((sale) => sale.harvestClientId === harvest.clientId);
   const sameUnit = linked.filter((sale) => sale.unit === harvest.unit);

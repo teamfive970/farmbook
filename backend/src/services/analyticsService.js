@@ -1,7 +1,8 @@
 import { query } from "../config/database.js";
 import { COUNTIES } from "../lib/constants.js";
 import { badRequest } from "../lib/errors.js";
-import { requireDateString, requireEnum } from "../lib/validation.js";
+import { maskPhone } from "../lib/phone.js";
+import { requireDateString, requireEnum, requireReason } from "../lib/validation.js";
 import { moneyAndHarvestTotals } from "./reportService.js";
 
 // Ministry-level analytics for admins.
@@ -314,15 +315,33 @@ export function toCsv(columns, rows) {
 
 export const EXPORT_DATASETS = ["farmers", "counties", "cooperatives", "monthly"];
 
+// A single download is capped so one export cannot pull the whole register.
+function limitRows(rows) {
+  const configured = Number(process.env.MAX_EXPORT_ROWS);
+  const maxRows = Number.isFinite(configured) && configured > 0 ? configured : 5000;
+  const truncated = rows.length > maxRows;
+  return {
+    rows: truncated ? rows.slice(0, maxRows) : rows,
+    rowCount: truncated ? maxRows : rows.length,
+    truncated
+  };
+}
+
 export async function exportDataset(dataset, params = {}) {
   if (!EXPORT_DATASETS.includes(dataset)) throw badRequest("Unknown export.", { field: "dataset" });
+  const purpose = requireReason(params.purpose, "purpose", "Purpose");
   const { from, to, county } = parseAnalyticsScope(params);
   const suffix = `${county ? county.replace(/\s+/g, "-").toLowerCase() + "-" : ""}${from}_to_${to}`;
+  const scope = { from, to, county, purpose };
 
   if (dataset === "counties") {
-    const rows = await countyBreakdown({ from, to });
+    const limited = limitRows(await countyBreakdown({ from, to }));
+    const rows = limited.rows;
     return {
-      filename: `minders-counties-${from}_to_${to}.csv`,
+      filename: `farmbok-counties-${from}_to_${to}.csv`,
+      rowCount: limited.rowCount,
+      truncated: limited.truncated,
+      scope,
       csv: toCsv(
         [
           { label: "County", value: (r) => r.county },
@@ -343,9 +362,13 @@ export async function exportDataset(dataset, params = {}) {
   }
 
   if (dataset === "cooperatives") {
-    const rows = await cooperativeBreakdown({ from, to, county });
+    const limited = limitRows(await cooperativeBreakdown({ from, to, county }));
+    const rows = limited.rows;
     return {
-      filename: `minders-cooperatives-${suffix}.csv`,
+      filename: `farmbok-cooperatives-${suffix}.csv`,
+      rowCount: limited.rowCount,
+      truncated: limited.truncated,
+      scope,
       csv: toCsv(
         [
           { label: "Cooperative", value: (r) => r.name },
@@ -366,8 +389,12 @@ export async function exportDataset(dataset, params = {}) {
 
   if (dataset === "monthly") {
     const analytics = await getAnalytics({ from, to, county });
+    const limited = limitRows(analytics.monthly);
     return {
-      filename: `minders-monthly-${suffix}.csv`,
+      filename: `farmbok-monthly-${suffix}.csv`,
+      rowCount: limited.rowCount,
+      truncated: limited.truncated,
+      scope,
       csv: toCsv(
         [
           { label: "Month", value: (r) => r.month },
@@ -377,13 +404,14 @@ export async function exportDataset(dataset, params = {}) {
           { label: "Sales (LRD)", value: (r) => r.soldLRD },
           { label: "Sales (USD)", value: (r) => r.soldUSD }
         ],
-        analytics.monthly
+        limited.rows
       )
     };
   }
 
-  // farmers: one row per farmer, no PIN or recovery data.
-  const { rows } = await query(
+  // farmers: one row per farmer, no PIN or recovery data. Phone numbers are
+  // masked so the file cannot be turned into a contact list.
+  const farmerResult = await query(
     `SELECT f.full_name, f.phone_number, f.county, f.district, f.community, f.status, f.created_at,
        (SELECT count(*)::int FROM farms fm WHERE fm.farmer_id = f.id) AS farms,
        (SELECT COALESCE(sum(${HECTARES_SQL}), 0) FROM farms fm WHERE fm.farmer_id = f.id) AS area_hectares,
@@ -399,12 +427,16 @@ export async function exportDataset(dataset, params = {}) {
      ORDER BY f.county, f.full_name`,
     [county, from, to]
   );
+  const limited = limitRows(farmerResult.rows);
   return {
-    filename: `minders-farmers-${suffix}.csv`,
+    filename: `farmbok-farmers-${suffix}.csv`,
+    rowCount: limited.rowCount,
+    truncated: limited.truncated,
+    scope,
     csv: toCsv(
       [
         { label: "Full name", value: (r) => r.full_name },
-        { label: "Phone", value: (r) => r.phone_number },
+        { label: "Phone", value: (r) => maskPhone(r.phone_number) },
         { label: "County", value: (r) => r.county },
         { label: "District", value: (r) => r.district },
         { label: "Community", value: (r) => r.community },
@@ -416,7 +448,7 @@ export async function exportDataset(dataset, params = {}) {
         { label: "Harvest batches in period", value: (r) => r.harvests },
         { label: "Cooperatives", value: (r) => r.cooperatives }
       ],
-      rows
+      limited.rows
     )
   };
 }

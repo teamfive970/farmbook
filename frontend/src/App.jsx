@@ -5,6 +5,7 @@ import FarmerLayout from "./components/FarmerLayout.jsx";
 import InstallPrompt from "./components/InstallPrompt.jsx";
 import RequireRole, { PublicOnly } from "./components/RequireRole.jsx";
 import { buttonClass } from "./components/ui.jsx";
+import AdminAudit from "./pages/admin/AdminAudit.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminFarmerDetail from "./pages/admin/AdminFarmerDetail.jsx";
 import AdminFarmers from "./pages/admin/AdminFarmers.jsx";
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="settings" element={<AdminSettings />} />
             <Route path="cooperatives" element={<AdminCooperatives />} />
             <Route path="cooperatives/:cooperativeId" element={<AdminCooperativeDetail />} />
+            <Route path="audit" element={<AdminAudit />} />
           </Route>
         </Route>
 

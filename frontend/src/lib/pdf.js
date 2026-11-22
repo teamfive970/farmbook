@@ -223,7 +223,7 @@ export class PdfDoc {
     const pad = (value) => String(value).padStart(2, "0");
     const stamp = `D:${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const info = add(
-      `<< /Title (${escapePdf(this.title)}) /Author (${escapePdf(this.author)}) /Creator (Minders) /CreationDate (${stamp}) >>`
+      `<< /Title (${escapePdf(this.title)}) /Author (${escapePdf(this.author)}) /Creator (FarmBok) /CreationDate (${stamp}) >>`
     );
 
     // Everything above is plain ASCII, so string length = byte length.

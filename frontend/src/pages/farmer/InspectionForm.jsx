@@ -114,7 +114,7 @@ export default function InspectionForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={editing ? "Change the check" : WORDS.checkQuality.text}
         subtitle={`${harvest.crop} · ${harvest.quantity} ${unitText(harvest.unit)}`}

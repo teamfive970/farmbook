@@ -1,4 +1,4 @@
-import { ChevronRight, FileText, Image as ImageIcon, LayoutGrid, Pencil, Share2, Trash2 } from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, Image as ImageIcon, LayoutGrid, Pencil, Share2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CropIcon, GradeBadge, QrCode, Section } from "../../components/Choices.jsx";
@@ -16,15 +16,15 @@ import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { formatDate } from "../../lib/format.js";
+import { linkReach, passportUrl } from "../../lib/passportLink.js";
 import { harvestTagPdf, qrPng, tagData, tagFileName } from "../../lib/harvestTag.js";
 import { batchMoney, batchStatus, formatMoney, latestInspection, sayMoney } from "../../lib/ledger.js";
 import { ICONS } from "../../lib/icons.js";
 import { GRADES, QUALITY_CHECKS, WORDS, unitText } from "../../lib/words.js";
 import { BATCH_STATE_WORDS } from "./Harvests.jsx";
 
-export function passportUrl(code) {
-  return `${window.location.origin}/p/${code}`;
-}
+// Kept here too, because other pages import it from this file.
+export { passportUrl };
 
 function saveFile(data, name, type) {
   const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type }));
@@ -116,7 +116,7 @@ export default function HarvestDetail() {
     const url = passportUrl(harvest.passportCode);
     if (navigator.share) {
       try {
-        await navigator.share({ title: `${harvest.crop} – Harvest Passport`, url });
+        await navigator.share({ title: `${harvest.crop} – Harvest Passport`, text: `Harvest Passport for ${harvest.crop}:`, url });
         return;
       } catch (error) {
         // The farmer closed the share window; there is nothing else to do.
@@ -170,8 +170,9 @@ export default function HarvestDetail() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 desk-flow lg:grid lg:grid-cols-12 lg:items-start lg:gap-4 lg:space-y-0">
       <PageHeader
+        className="lg:col-span-12 desk-span"
         title={`${harvest.crop} harvest`}
         subtitle={`${farm?.farmName || "Farm"} · ${formatDate(harvest.harvestDate)}`}
         backTo="/app/harvests"
@@ -183,7 +184,7 @@ export default function HarvestDetail() {
         }
       />
 
-      <Section>
+      <Section className="lg:col-span-5">
         <div className="flex items-center gap-4">
           <CropIcon name={harvest.crop} size={36} />
           <div className="flex-1">
@@ -212,7 +213,7 @@ export default function HarvestDetail() {
         {harvest.notes && <p className="mt-2 text-sm text-ink-soft">{harvest.notes}</p>}
       </Section>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 lg:col-span-7">
         <Link
           to={`/app/harvests/${clientId}/check`}
           data-say={WORDS.checkQuality.say}
@@ -230,7 +231,7 @@ export default function HarvestDetail() {
       </div>
 
       {/* Quality */}
-      <Section title={WORDS.grade}>
+      <Section title={WORDS.grade} className="lg:col-span-6">
         {latest ? (
           <div data-say={`${GRADES[latest.grade]?.say} Checked ${formatDate(latest.inspectionDate)}.`}>
             <div className="flex items-center gap-2">
@@ -274,7 +275,7 @@ export default function HarvestDetail() {
       </Section>
 
       {/* Money from this batch: sales, income, its own costs and profit */}
-      <Section title={{ text: "Money from this harvest", say: "The money from this harvest." }}>
+      <Section title={{ text: "Money from this harvest", say: "The money from this harvest." }} className="lg:col-span-6">
         {money.length === 0 ? (
           <p className="text-sm text-ink-soft">No sales or costs for this harvest yet.</p>
         ) : (
@@ -320,7 +321,7 @@ export default function HarvestDetail() {
       </Section>
 
       {/* Harvest Passport */}
-      <Section title={WORDS.passport}>
+      <Section title={WORDS.passport} className="lg:col-span-6">
         <p className="text-sm text-ink-soft">
           Buyers scan the code to see where this crop came from, the farm work and the grade. Your
           phone number and full name are never shown.
@@ -352,6 +353,15 @@ export default function HarvestDetail() {
                 <Button variant="secondary" onClick={share} data-say="Send the link to the buyer.">
                   <Share2 size={16} /> Send link
                 </Button>
+                <a
+                  href={passportUrl(harvest.passportCode)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClass("secondary")}
+                  data-say="Open the passport page, to see what the buyer sees."
+                >
+                  <ExternalLink size={16} aria-hidden="true" /> Open
+                </a>
                 <SpeakButton phrase={{ say: `Your code is ${harvest.passportCode.split("").join(" ")}.` }} />
               </div>
               <div className="w-full space-y-2 border-t border-line pt-3">
@@ -383,6 +393,17 @@ export default function HarvestDetail() {
                   </Button>
                 </div>
               </div>
+              {linkReach(passportUrl(harvest.passportCode)) !== "anyone" && (
+                <p
+                  className="w-full rounded-xl bg-warning/10 px-3 py-2 text-center text-xs text-amber-800"
+                  data-say="This link only works on this computer or this Wi-Fi. Buyers on other phones cannot open it yet."
+                >
+                  {linkReach(passportUrl(harvest.passportCode)) === "this-device"
+                    ? "This link only works on this computer, so buyers can't open it yet."
+                    : "This link only works on this Wi-Fi network, so buyers elsewhere can't open it yet."}{" "}
+                  Set the app's public web address (VITE_PUBLIC_URL) before sharing or printing tags.
+                </p>
+              )}
               {(harvest.syncStatus && harvest.syncStatus !== "synced") && (
                 <p className="text-center text-xs text-amber-700">
                   Buyers can see it after this change goes on the internet.
@@ -436,7 +457,7 @@ export default function HarvestDetail() {
 
       {/* Sales from this batch */}
       {hasSales && (
-        <Section title={{ text: "Sold from this harvest", say: "What you sold from this harvest." }}>
+        <Section title={{ text: "Sold from this harvest", say: "What you sold from this harvest." }} className="lg:col-span-6">
           <div className="space-y-2">
             {status.sales.map((sale) => (
               <Link
@@ -454,7 +475,7 @@ export default function HarvestDetail() {
         </Section>
       )}
 
-      <Button variant="secondary" className="w-full text-danger" onClick={() => setConfirmDelete(true)}>
+      <Button variant="secondary" className="w-full text-danger lg:col-span-12 desk-span" onClick={() => setConfirmDelete(true)}>
         <Trash2 size={16} /> Delete this harvest
       </Button>
       <ConfirmDialog

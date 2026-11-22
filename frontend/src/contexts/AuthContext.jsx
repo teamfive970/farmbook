@@ -2,12 +2,23 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, ApiError } from "../lib/api.js";
 import {
   forgetOfflineLogin,
+  normalizeIdentifier,
+  offlineSignInAvailable,
   refreshOfflineProfile,
   rememberOfflineLogin,
   signInOffline
 } from "../lib/offlineAuth.js";
 import { clearGroupCaches } from "../lib/groupCache.js";
-import { deleteLocalData, hasUnsentWork } from "../lib/localStore.js";
+import { deleteLocalData, hasUnsentWork, moveLocalData } from "../lib/localStore.js";
+import {
+  createPendingRegistration,
+  dropPendingRegistration,
+  findPendingByPhone,
+  getPendingRegistration,
+  pendingUserFrom,
+  registrationPayload,
+  savePendingRegistration
+} from "../lib/pendingRegistration.js";
 import {
   clearUnlocked,
   dropProfile,
@@ -66,6 +77,17 @@ export function isServerUnavailable(error) {
     error instanceof ApiError &&
     (error.isNetworkError || error.status === 408 || error.status === 429 || error.status >= 500)
   );
+}
+
+// A number that already lives on this phone must not get a second local
+// account; the farmer should sign in to the saved one instead.
+function phoneSavedOnDevice(phoneNumber) {
+  const key = normalizeIdentifier(phoneNumber);
+  if (!key) return false;
+  const saved = Object.values(readProfiles()).some(
+    (profile) => normalizeIdentifier(profile.user?.phoneNumber) === key
+  );
+  return saved || Boolean(findPendingByPhone(phoneNumber));
 }
 
 export function AuthProvider({ children }) {
@@ -130,6 +152,154 @@ export function AuthProvider({ children }) {
     clearSession();
   }, [clearSession]);
 
+  // ---------- Accounts made with no network ----------
+  // The account lives only on this phone until the farmer sends it with the
+  // PIN. No PIN and no recovery answer are stored; the offline verifier is
+  // enough to check the PIN when the account is sent.
+
+  const startPendingRegistration = useCallback(
+    async (payload) => {
+      if (!/^\d{4,6}$/.test(String(payload?.pin || ""))) {
+        throw new ApiError(400, "INVALID_PIN", "Choose a PIN of 4 to 6 numbers.", {
+          field: "pin"
+        });
+      }
+      if (!offlineSignInAvailable()) {
+        throw new ApiError(
+          0,
+          "OFFLINE_REGISTRATION_UNAVAILABLE",
+          "This phone cannot save an account without a connection. Connect to the internet to make your account."
+        );
+      }
+      if (phoneSavedOnDevice(payload.phoneNumber)) {
+        throw new ApiError(
+          409,
+          "PHONE_SAVED_ON_PHONE",
+          "This phone number is already saved on this phone. Sign in with it instead.",
+          { field: "phoneNumber" }
+        );
+      }
+      const record = createPendingRegistration({
+        fullName: payload.fullName,
+        phoneNumber: payload.phoneNumber,
+        county: payload.county,
+        district: payload.district,
+        community: payload.community
+      });
+      const pendingUser = pendingUserFrom(record);
+      try {
+        savePendingRegistration(record);
+        await rememberOfflineLogin(record.phoneNumber, payload.pin, pendingUser);
+      } catch {
+        dropPendingRegistration(record.id);
+        throw new ApiError(
+          0,
+          "OFFLINE_REGISTRATION_UNAVAILABLE",
+          "This phone cannot save an account without a connection. Connect to the internet to make your account."
+        );
+      }
+      applySession(null, pendingUser, true);
+      return pendingUser;
+    },
+    [applySession]
+  );
+
+  const finishPendingRegistration = useCallback(
+    async (record, pin, nextToken, serverUser) => {
+      try {
+        await moveLocalData(record.id, serverUser.id);
+      } catch {
+        throw new ApiError(
+          0,
+          "LOCAL_MOVE_FAILED",
+          "Your account was made, but the work on this phone could not be moved yet. Try sending it again."
+        );
+      }
+      dropPendingRegistration(record.id);
+      dropProfile(record.id);
+      await rememberOfflineLogin(record.phoneNumber, pin, serverUser).catch(() => {});
+      applySession(nextToken, serverUser);
+      return serverUser;
+    },
+    [applySession]
+  );
+
+  // Used when the number already has an account and the farmer enters that
+  // account's PIN. The server has the final say, so a PIN that opens the real
+  // account is never blocked by the account made on this phone.
+  const adoptPendingWithPin = useCallback(
+    async (record, pin) => {
+      const result = await api.post("/api/auth/login", {
+        identifier: record.phoneNumber,
+        pin
+      });
+      return finishPendingRegistration(record, pin, result.token, result.user);
+    },
+    [finishPendingRegistration]
+  );
+
+  // Sends a pending account. The PIN is checked against this phone's verifier
+  // first, so another person holding the phone cannot send it with a new PIN.
+  // If the number already has an account, it is adopted only when the same PIN
+  // opens it; otherwise nothing is uploaded.
+  const sendPendingRegistration = useCallback(
+    async (pin, userId) => {
+      const targetId = userId || userRef.current?.id;
+      let record = targetId ? getPendingRegistration(targetId) : null;
+      if (!record && userRef.current?.phoneNumber) {
+        record = findPendingByPhone(userRef.current.phoneNumber);
+      }
+      if (!record) {
+        throw new ApiError(
+          404,
+          "PENDING_NOT_FOUND",
+          "This account is not saved on this phone any more."
+        );
+      }
+
+      let pinMatchesPhone = true;
+      try {
+        await signInOffline(record.phoneNumber, pin);
+      } catch (error) {
+        // The PIN does not match the account made on this phone. It may be the
+        // PIN of the account that already has this number; the server decides.
+        if (!navigator.onLine || error.code !== "INVALID_CREDENTIALS") throw error;
+        pinMatchesPhone = false;
+      }
+      if (!pinMatchesPhone) return adoptPendingWithPin(record, pin);
+
+      let result;
+      try {
+        result = await api.post("/api/auth/register", registrationPayload(record, pin));
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 409) throw error;
+        let adopted;
+        try {
+          adopted = await api.post("/api/auth/login", {
+            identifier: record.phoneNumber,
+            pin
+          });
+        } catch (loginError) {
+          if (
+            loginError instanceof ApiError &&
+            (loginError.status === 401 || loginError.code === "INVALID_CREDENTIALS")
+          ) {
+            throw new ApiError(
+              409,
+              "PHONE_TAKEN_DIFFERENT_PIN",
+              "This phone number already has an account with a different PIN. Sign in with that account, or make your account with another number.",
+              { field: "phoneNumber" }
+            );
+          }
+          throw loginError;
+        }
+        return finishPendingRegistration(record, pin, adopted.token, adopted.user);
+      }
+      return finishPendingRegistration(record, pin, result.token, result.user);
+    },
+    [adoptPendingWithPin, finishPendingRegistration]
+  );
+
   const setUser = useCallback(
     (nextUser) => {
       setUserState(nextUser);
@@ -177,6 +347,23 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(
     async (identifier, pin) => {
+      // Entering the PIN for an account that was made offline is how that
+      // account is sent, once the phone has network again.
+      const pending = findPendingByPhone(identifier);
+      if (pending) {
+        if (navigator.onLine) {
+          try {
+            return await sendPendingRegistration(pin, pending.id);
+          } catch (error) {
+            // The phone thinks it has network but the send could not go
+            // through. The farmer still gets in and keeps working offline.
+            if (!isServerUnavailable(error)) throw error;
+          }
+        }
+        const localUser = await signInOffline(identifier, pin);
+        applySession(null, localUser, true);
+        return localUser;
+      }
       let result;
       try {
         result = await api.post("/api/auth/login", { identifier, pin });
@@ -206,17 +393,25 @@ export function AuthProvider({ children }) {
       applySession(result.token, result.user);
       return result.user;
     },
-    [applySession]
+    [applySession, sendPendingRegistration]
   );
 
   const register = useCallback(
     async (payload) => {
-      const result = await api.post("/api/auth/register", payload);
+      let result;
+      try {
+        result = await api.post("/api/auth/register", payload);
+      } catch (error) {
+        // Only a phone with no connection falls back to a local account. A
+        // server error must be shown, not turned into a second account.
+        if (!(error instanceof ApiError) || !error.isNetworkError) throw error;
+        return startPendingRegistration(payload);
+      }
       await rememberOfflineLogin(payload.phoneNumber, payload.pin, result.user).catch(() => {});
       applySession(result.token, result.user);
       return result.user;
     },
-    [applySession]
+    [applySession, startPendingRegistration]
   );
 
   const logout = useCallback(async () => {
@@ -248,6 +443,18 @@ export function AuthProvider({ children }) {
       const profile = readProfiles()[userId];
       if (!profile) throw new ApiError(404, "PROFILE_NOT_FOUND", "This person is not saved on this phone.");
       const phone = profile.user.phoneNumber;
+      if (profile.user.pendingRegistration) {
+        if (navigator.onLine) {
+          try {
+            return await sendPendingRegistration(pin, userId);
+          } catch (error) {
+            if (!isServerUnavailable(error)) throw error;
+          }
+        }
+        const localUser = await signInOffline(phone, pin);
+        applySession(null, localUser, true);
+        return localUser;
+      }
       let localUser = null;
       try {
         localUser = await signInOffline(phone, pin);
@@ -275,7 +482,7 @@ export function AuthProvider({ children }) {
       applySession(nextToken || null, nextUser, !nextToken);
       return nextUser;
     },
-    [applySession, login]
+    [applySession, login, sendPendingRegistration]
   );
 
   // Take a person off this phone. Refused while they still have work that
@@ -298,6 +505,7 @@ export function AuthProvider({ children }) {
       await forgetOfflineLogin(profile.user.phoneNumber).catch(() => {});
       await deleteLocalData(userId).catch(() => {});
       clearGroupCaches(userId);
+      dropPendingRegistration(userId);
       dropProfile(userId);
       if (userRef.current?.id === userId) {
         clearUnlocked();

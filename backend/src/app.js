@@ -57,7 +57,7 @@ export function createApp() {
   app.get("/api/health", (req, res) => {
     res.json({
       status: "ok",
-      service: "minders-api",
+      service: "farmbok-api",
       // Lets you check that the running server has the latest code.
       features: ["offline-sessions", "harvests", "sales", "cooperatives", "passport", "admin-analytics"],
       startedAt: STARTED_AT,

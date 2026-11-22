@@ -419,14 +419,28 @@ test("cooperatives: admins manage groups, farmers join by code, leaders see memb
   });
   assert.equal(unknown.status, 404);
 
+  const noConsent = await post("/api/cooperatives/join", member.token, {
+    joinCode: coop.joinCode
+  });
+  assert.equal(noConsent.status, 400);
+  assert.equal(noConsent.body.error.details.field, "consent");
+
   const joined = await post("/api/cooperatives/join", member.token, {
-    joinCode: coop.joinCode.replace("GRP-", "").toLowerCase()
+    joinCode: coop.joinCode.replace("GRP-", "").toLowerCase(),
+    consent: true
   });
   assert.equal(joined.status, 200);
   assert.equal(joined.body.cooperative.joinCode, undefined);
-  const again = await post("/api/cooperatives/join", member.token, { joinCode: coop.joinCode });
+  assert.equal(joined.body.cooperative.myConsent, true);
+  const again = await post("/api/cooperatives/join", member.token, {
+    joinCode: coop.joinCode,
+    consent: true
+  });
   assert.equal(again.status, 409);
-  const wrong = await post("/api/cooperatives/join", member.token, { joinCode: "GRP-ZZZZZZ" });
+  const wrong = await post("/api/cooperatives/join", member.token, {
+    joinCode: "GRP-ZZZZZZ",
+    consent: true
+  });
   assert.equal(wrong.status, 404);
 
   // The member sells something; the group totals include it.
@@ -445,6 +459,7 @@ test("cooperatives: admins manage groups, farmers join by code, leaders see memb
   });
   assert.equal(memberView.status, 200);
   assert.equal(memberView.body.myRole, "member");
+  assert.equal(memberView.body.myConsent, true);
   assert.equal(memberView.body.members, undefined);
   assert.equal(memberView.body.cooperative.joinCode, undefined);
   assert.equal(memberView.body.groupTotals.money.sold.LRD, 6000);
@@ -455,10 +470,29 @@ test("cooperatives: admins manage groups, farmers join by code, leaders see memb
     token: leader.token
   });
   assert.equal(leaderView.body.myRole, "leader");
+  assert.equal(leaderView.body.myConsent, false, "an admin-added leader did not agree to share");
   assert.equal(leaderView.body.members.length, 2);
-  assert.equal(leaderView.body.members.find((m) => m.fullName === "Member Farmer").sold.LRD, 6000);
+  const sharedMember = leaderView.body.members.find((m) => m.fullName === "Member Farmer");
+  assert.equal(sharedMember.sharesTotals, true);
+  assert.equal(sharedMember.sold.LRD, 6000);
+  const unsharedLeader = leaderView.body.members.find((m) => m.fullName === "Leader Farmer");
+  assert.equal(unsharedLeader.sharesTotals, false);
+  assert.equal(unsharedLeader.sold, undefined);
   assert.ok(leaderView.body.members.every((m) => m.phoneNumber === undefined));
+  assert.ok(leaderView.body.members.every((m) => m.farmCount === undefined));
   assert.ok(leaderView.body.cooperative.joinCode);
+
+  const optOut = await post(`/api/cooperatives/${coop.id}/consent`, member.token, { consent: false });
+  assert.equal(optOut.status, 200);
+  assert.equal(optOut.body.myConsent, false);
+  const leaderAfterOptOut = await api(server.baseUrl, `/api/cooperatives/${coop.id}/dashboard`, {
+    token: leader.token
+  });
+  const hiddenMember = leaderAfterOptOut.body.members.find((m) => m.fullName === "Member Farmer");
+  assert.equal(hiddenMember.sharesTotals, false);
+  assert.equal(hiddenMember.sold, undefined);
+  assert.equal(leaderAfterOptOut.body.groupTotals.money.sold.LRD, 6000, "group totals still include everyone");
+  await post(`/api/cooperatives/${coop.id}/consent`, member.token, { consent: true });
 
   const outsiderView = await api(server.baseUrl, `/api/cooperatives/${coop.id}/dashboard`, {
     token: outsider.token
@@ -471,6 +505,16 @@ test("cooperatives: admins manage groups, farmers join by code, leaders see memb
   assert.equal(adminView.body.members.length, 2);
   assert.equal(adminView.body.cooperative.memberCount, 2);
   assert.equal(adminView.body.totals.money.sold.LRD, 6000);
+  assert.ok(
+    adminView.body.members.every(
+      (m) => m.phoneNumber === undefined && m.sold === undefined && m.farmCount === undefined
+    ),
+    "admins see who is in the group, not an individual's business"
+  );
+  assert.equal(
+    adminView.body.members.find((m) => m.fullName === "Member Farmer").sharesTotals,
+    true
+  );
 
   const promoted = await api(server.baseUrl, `/api/admin/cooperatives/${coop.id}/members/${member.user.id}`, {
     method: "PATCH",
@@ -498,6 +542,7 @@ test("cooperatives: admins manage groups, farmers join by code, leaders see memb
     [
       "cooperative.created",
       "cooperative.member_added",
+      "cooperative.viewed",
       "cooperative.member_role",
       "cooperative.member_removed"
     ]

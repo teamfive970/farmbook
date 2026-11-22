@@ -13,10 +13,13 @@ import {
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
+import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { formatFullDate, formatDateTime } from "../../lib/format.js";
 import { activityMeta, activitySummary } from "../../lib/labels.js";
 import { getActivity } from "../../lib/localStore.js";
+import { productionTitle } from "../../lib/production.js";
 import { refreshActivities } from "../../lib/syncEngine.js";
+import { FEED_SCHEDULES, GROWTH_STAGES, PREGNANCY_OPTIONS, optionFor } from "../../lib/words.js";
 
 function DetailRow({ label, children }) {
   return (
@@ -31,6 +34,7 @@ export default function ActivityDetail() {
   const { clientId } = useParams();
   const { user, token } = useAuth();
   const { online, version, retryActivity, deleteActivity, syncing } = useSync();
+  const { records } = useFarmerData();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -109,12 +113,30 @@ export default function ActivityDetail() {
     record.quantity !== null && record.quantity !== undefined
       ? `${record.quantity}${record.unit ? ` ${record.unit}` : ""}`
       : null;
+  const productionName = (id) => {
+    const item = records.productions.find((production) => production.clientId === id);
+    return item ? productionTitle(item) : null;
+  };
+  const sourceName = productionName(record.sourceProductionClientId);
+  const sourceLabel =
+    record.activityType === "feeding" ? "Leftovers came from" : "Manure came from";
+  const detailRows = [
+    ["Crop stage", optionFor(GROWTH_STAGES, record.growthStage)?.text],
+    ["Pests seen", record.pests],
+    ["Sickness on crop", record.diseases],
+    ["Feeding times", optionFor(FEED_SCHEDULES, record.feedSchedule)?.text],
+    ["Sickness", record.animalDisease],
+    ["Signs seen", record.symptoms],
+    ["Treatment given", record.treatment],
+    ["Vet visit", record.vetVisit],
+    ["Pregnancy", optionFor(PREGNANCY_OPTIONS, record.pregnancy)?.text]
+  ].filter(([, value]) => value);
 
   return (
-    <div>
-      <PageHeader title="The work" backTo="/app/history" say={{ say: `${activitySummary(record)}.` }} />
+    <div className="desk-flow lg:grid lg:grid-cols-12 lg:items-start lg:gap-4">
+      <PageHeader className="lg:col-span-12 desk-span" title="The work" backTo="/app/history" say={{ say: `${activitySummary(record)}.` }} />
 
-      <div className="rounded-2xl bg-white p-5 shadow-card">
+      <div className="rounded-2xl bg-white p-5 shadow-card lg:col-span-7">
         <div className="flex items-start gap-3">
           <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${meta.tone}`}>
             <meta.Icon size={22} />
@@ -153,6 +175,12 @@ export default function ActivityDetail() {
           <DetailRow label="What happened">{activitySummary(record)}</DetailRow>
           {record.inputUsed && <DetailRow label="Input or material">{record.inputUsed}</DetailRow>}
           {quantityText && <DetailRow label="Quantity">{quantityText}</DetailRow>}
+          {sourceName && <DetailRow label={sourceLabel}>{sourceName}</DetailRow>}
+          {detailRows.map(([label, value]) => (
+            <DetailRow key={label} label={label}>
+              {value}
+            </DetailRow>
+          ))}
           {record.notes && <DetailRow label="Notes">{record.notes}</DetailRow>}
           {record.createdAt && (
             <DetailRow label="Recorded">Saved {formatDateTime(record.createdAt)}</DetailRow>
@@ -160,7 +188,7 @@ export default function ActivityDetail() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:col-span-5 lg:mt-0">
         <Link
           to={`/app/activities/${record.clientId}/edit`}
           className={buttonClass("secondary", "md", "w-full")}

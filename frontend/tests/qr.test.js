@@ -185,10 +185,10 @@ test("QR codes decode back to the exact text (passport links, short, long, non-A
   const samples = [
     "A",
     "LR-ABCDEFGH23",
-    "https://minders.example.org/p/LR-7KQ2MXP9ZA",
+    "https://farmbok.example.org/p/LR-7KQ2MXP9ZA",
     "Gbarnga – Kpelleh Town · ŋɔ́ · 50%",
     "x".repeat(100),
-    "https://minders.example.org/p/LR-ZZZZZZZZZZ?ref=" + "q".repeat(150)
+    "https://farmbok.example.org/p/LR-ZZZZZZZZZZ?ref=" + "q".repeat(150)
   ];
   const versions = new Set();
   for (const text of samples) {
@@ -203,7 +203,7 @@ test("QR codes decode back to the exact text (passport links, short, long, non-A
 test("every mask pattern the encoder picks still decodes", () => {
   const masks = new Set();
   for (let i = 0; i < 60; i += 1) {
-    const text = `https://minders.example.org/p/LR-${i.toString(36).toUpperCase().padStart(10, "Q")}`;
+    const text = `https://farmbok.example.org/p/LR-${i.toString(36).toUpperCase().padStart(10, "Q")}`;
     const { mask, text: decoded } = decodeQr(qrMatrix(text));
     assert.equal(decoded, text);
     masks.add(mask);
@@ -229,7 +229,7 @@ test("the SVG path has one square per dark module and a 4-module quiet zone", ()
 });
 
 test("the reader is strict: one wrong module is caught", () => {
-  const matrix = qrMatrix("https://minders.example.org/p/LR-ABCDEFGH23").map((row) => [...row]);
+  const matrix = qrMatrix("https://farmbok.example.org/p/LR-ABCDEFGH23").map((row) => [...row]);
   const size = matrix.length;
   // A data module in the bottom-right corner (never a fixed pattern).
   matrix[size - 1][size - 1] = !matrix[size - 1][size - 1];

@@ -71,9 +71,29 @@ export async function authenticate(req, res, next) {
     if (!user) throw unauthenticated();
     if (user.status !== "active") throw inactive();
 
-    // Sliding expiry: every use (at most once an hour) pushes the end date out
-    // again, so a farmer who keeps using the app stays signed in indefinitely.
-    if (!session.last_used_at || Date.now() - new Date(session.last_used_at).getTime() > 3600_000) {
+    if (session.role === "admin") {
+      // Admin consoles close themselves after a short idle period. The session
+      // is revoked rather than silently extended, so a shared laptop cannot be
+      // picked up later in the day.
+      const idleMinutes = Number(process.env.ADMIN_IDLE_MINUTES || 30);
+      const lastUsed = session.last_used_at ? new Date(session.last_used_at).getTime() : NaN;
+      if (Number.isFinite(lastUsed) && Date.now() - lastUsed > idleMinutes * 60_000) {
+        await query("UPDATE sessions SET revoked_at = now() WHERE id = $1", [session.id]);
+        throw unauthenticated("Admin session locked after inactivity. Sign in again.");
+      }
+      await query(
+        `UPDATE sessions
+         SET last_used_at = now(),
+             expires_at = GREATEST(expires_at, now() + make_interval(days => $2))
+         WHERE id = $1`,
+        [session.id, sessionDays(session.role)]
+      );
+    } else if (
+      !session.last_used_at ||
+      Date.now() - new Date(session.last_used_at).getTime() > 3600_000
+    ) {
+      // Farmers: every use (at most once an hour) pushes the end date out again,
+      // so a farmer who keeps using the app stays signed in indefinitely.
       await query(
         `UPDATE sessions
          SET last_used_at = now(),

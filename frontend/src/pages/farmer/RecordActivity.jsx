@@ -100,7 +100,7 @@ export default function RecordActivity() {
   }
 
   return (
-    <div>
+    <div className="lg:mx-auto lg:max-w-4xl">
       <PageHeader
         title={presetMeta ? presetMeta.label : WORDS.recordTitle.text}
         subtitle="Tap the pictures. No typing needed."

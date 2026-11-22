@@ -70,8 +70,9 @@ export default function FarmDetail() {
   const syncStatus = farm.syncStatus || "synced";
 
   return (
-    <div>
+    <div className="desk-flow lg:grid lg:grid-cols-12 lg:items-start lg:gap-4">
       <PageHeader
+        className="lg:col-span-12 desk-span"
         title={farm.farmName}
         subtitle={`${meta.label} · ${farmActivities.length} ${
           farmActivities.length === 1 ? "record" : "records"
@@ -86,7 +87,7 @@ export default function FarmDetail() {
 
       {syncStatus !== "synced" && (
         <div
-          className={`mb-4 flex items-start gap-3 rounded-xl border px-4 py-3 ${
+          className={`mb-4 flex items-start gap-3 rounded-xl border px-4 py-3 lg:col-span-12 desk-span ${
             syncStatus === "failed"
               ? "border-danger/25 bg-danger/5"
               : "border-warning/30 bg-warning/10"
@@ -128,7 +129,7 @@ export default function FarmDetail() {
         </div>
       )}
 
-      <div className="rounded-2xl bg-white p-5 shadow-card">
+      <div className="rounded-2xl bg-white p-5 shadow-card lg:col-span-5">
         <div className="flex items-start gap-3">
           <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${meta.tone}`}>
             <meta.Icon size={22} />
@@ -206,6 +207,7 @@ export default function FarmDetail() {
           addWords={WORDS.startCrop}
           AddIcon={ICONS.planting}
           empty="Put each crop you plant, so its work, harvest and money stay together."
+          className="lg:col-span-7 lg:mt-0"
         />
       )}
       {farmSupportsAnimals(farm.farmType) && (
@@ -217,19 +219,20 @@ export default function FarmDetail() {
           addWords={WORDS.addAnimals}
           AddIcon={ICONS.animals}
           empty="Put each group of animals, so you can count them and see their money."
+          className="lg:col-span-7 lg:mt-0"
         />
       )}
       {category !== "mixed" && (
         <Link
           to={`/app/farms/${farm.id}/productions/new?kind=${category === "crop" ? "animal" : "crop"}`}
-          className="mt-3 block rounded-xl border border-dashed border-line px-4 py-3 text-center text-sm font-semibold text-ink-soft"
+          className="mt-3 block rounded-xl border border-dashed border-line px-4 py-3 text-center text-sm font-semibold text-ink-soft lg:col-span-5 lg:mt-0"
           data-say={category === "crop" ? "You keep animals here too? Make it a mixed farm." : "You plant crops here too? Make it a mixed farm."}
         >
           {category === "crop" ? "Keep animals here too?" : "Plant crops here too?"} Make it a mixed farm
         </Link>
       )}
       {Array.isArray(farm.typeChanges) && farm.typeChanges.length > 0 && (
-        <p className="mt-2 text-center text-[11px] text-ink-soft">
+        <p className="mt-2 text-center text-[11px] text-ink-soft lg:col-span-5 lg:mt-0 lg:text-left">
           {farm.typeChanges
             .map((change) => `Changed from ${typeLabel(change.fromType)} to ${typeLabel(change.toType)} on ${formatDate(String(change.changedAt).slice(0, 10))}`)
             .join(" · ")}
@@ -238,7 +241,7 @@ export default function FarmDetail() {
       )}
 
       {money.length > 0 && (
-        <section className="mt-4 rounded-2xl bg-white p-5 shadow-card">
+        <section className="mt-4 rounded-2xl bg-white p-5 shadow-card lg:col-span-7 lg:mt-0">
           <h2 className="text-sm font-bold text-ink" data-say="This farm's money this year.">
             This farm's money this year
           </h2>
@@ -277,7 +280,7 @@ export default function FarmDetail() {
         </section>
       )}
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:col-span-12 lg:mt-0">
         <Link to={`/app/record?farmId=${farm.id}`} className={buttonClass("primary", "md", "w-full")}>
           <Plus size={16} /> Record activity
         </Link>
@@ -286,7 +289,7 @@ export default function FarmDetail() {
         </Link>
       </div>
 
-      <section className="mt-6">
+      <section className="mt-6 lg:col-span-12 desk-span lg:mt-0">
         <h2 className="mb-3 text-base font-bold text-ink">Recent work on this farm</h2>
         {farmActivities.length === 0 ? (
           <EmptyState
@@ -300,7 +303,7 @@ export default function FarmDetail() {
             }
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
             {farmActivities.slice(0, 10).map((activity) => (
               <ActivityItem key={activity.clientId} activity={activity} />
             ))}
@@ -312,7 +315,7 @@ export default function FarmDetail() {
 }
 
 // Crops on this farm / Animals on this farm. Finished ones fold away.
-function ProductionList({ title, items, events, addTo, addWords, AddIcon, empty }) {
+function ProductionList({ title, items, events, addTo, addWords, AddIcon, empty, className = "" }) {
   const active = items.filter((item) => item.status !== "finished");
   const finished = items.filter((item) => item.status === "finished");
   const row = (item) => (
@@ -340,7 +343,7 @@ function ProductionList({ title, items, events, addTo, addWords, AddIcon, empty 
     </li>
   );
   return (
-    <section className="mt-4 rounded-2xl bg-white p-4 shadow-card">
+    <section className={`mt-4 rounded-2xl bg-white p-4 shadow-card ${className}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
         <h2 className="text-sm font-bold text-ink" data-say={title.say}>
           {title.text}

@@ -80,10 +80,10 @@ export default function Report() {
   const nothing = c.sales + c.expenses + c.harvests + c.work + c.crops + c.animalGroups === 0;
 
   return (
-    <div className="space-y-4">
-      <PageHeader title={WORDS.reportTitle.text} subtitle="Your summary, to keep, print or send." backTo="/app/money" say={WORDS.reportTitle} />
+    <div className="space-y-4 desk-flow lg:grid lg:grid-cols-12 lg:items-start lg:gap-4 lg:space-y-0">
+      <PageHeader className="lg:col-span-12 desk-span" title={WORDS.reportTitle.text} subtitle="Your summary, to keep, print or send." backTo="/app/money" say={WORDS.reportTitle} />
 
-      <Section title={WORDS.reportWhen}>
+      <Section title={WORDS.reportWhen} className="lg:col-span-6">
         <div className="grid grid-cols-3 gap-2">
           {REPORT_PERIODS.map((item) => (
             <ChoiceButton key={item.value} words={item} selected={choice === item.value} onClick={() => setChoice(item.value)} className="text-xs">
@@ -119,7 +119,7 @@ export default function Report() {
       </Section>
 
       {farms.length > 1 && (
-        <Section title={WORDS.reportFarms}>
+        <Section title={WORDS.reportFarms} className="lg:col-span-6">
           <div className="grid grid-cols-2 gap-2">
             <ChoiceButton words={{ say: "All my farms." }} selected={!farmClientId} onClick={() => setFarmClientId("")}>
               <ICONS.farm size={16} aria-hidden="true" /> All my farms
@@ -157,7 +157,7 @@ export default function Report() {
           }
         ];
         return (
-          <Section key={currency}>
+          <Section key={currency} className="lg:col-span-6">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-soft">{CURRENCY_NAME[currency]}</p>
             <div className="grid grid-cols-2 gap-2">
               {tiles.map(({ Icon, words, amount, tone, box }) => (
@@ -174,7 +174,7 @@ export default function Report() {
         );
       })}
 
-      <Section title={{ text: "In this time", say: "What you did in this time." }}>
+      <Section title={{ text: "In this time", say: "What you did in this time." }} className="lg:col-span-6">
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
             { Icon: ICONS.sale, label: "Sales", value: c.sales },
@@ -193,7 +193,7 @@ export default function Report() {
         </div>
       </Section>
 
-      <section className="space-y-2 rounded-2xl bg-white p-4 shadow-card">
+      <section className="space-y-2 rounded-2xl bg-white p-4 shadow-card lg:col-span-6">
         {nothing && (
           <p className="text-sm text-ink-soft" data-say="No records for this time yet. Choose another time.">
             No records for this time yet. You can still save the report, or choose another time.
@@ -218,7 +218,7 @@ export default function Report() {
       </section>
 
       {report.byProduction.length > 0 && (
-        <Section title={{ text: "Each crop and animal group", say: "How each crop and animal group did." }}>
+        <Section title={{ text: "Each crop and animal group", say: "How each crop and animal group did." }} className="lg:col-span-6">
           <ul className="divide-y divide-line">
             {report.byProduction.slice(0, 8).map((row) => (
               <li key={`${row.productionClientId}-${row.currency}`} className="flex items-center gap-3 py-2.5">
@@ -240,7 +240,7 @@ export default function Report() {
       )}
 
       {report.harvests.length > 0 && (
-        <Section title={{ text: "Harvest", say: "What you harvested, sold, and what is still in store." }}>
+        <Section title={{ text: "Harvest", say: "What you harvested, sold, and what is still in store." }} className="lg:col-span-6">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[11px] font-semibold text-ink-soft">
@@ -260,7 +260,7 @@ export default function Report() {
       )}
 
       {report.animals.length > 0 && (
-        <Section title={{ text: "Animals", say: "Your animals: born, died, sold, and how many now." }}>
+        <Section title={{ text: "Animals", say: "Your animals: born, died, sold, and how many now." }} className="lg:col-span-6">
           <ul className="divide-y divide-line">
             {report.animals.map((row) => (
               <li key={row.name + row.farm} className="flex items-center gap-3 py-2.5">
@@ -275,6 +275,22 @@ export default function Report() {
                   <span className="block text-lg font-bold text-ink">{row.now}</span>
                   <span className="block text-[10px] text-ink-soft">{WORDS.countNow.text}</span>
                 </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {report.resourceMovements?.length > 0 && (
+        <Section title={{ text: "From one part of the farm to another", say: "Things you moved from one production to another." }} className="lg:col-span-6">
+          <ul className="divide-y divide-line">
+            {report.resourceMovements.map((row, index) => (
+              <li key={`${row.date}-${index}`} className="py-2.5" data-say={`${row.what}: from ${row.from} to ${row.to}.`}>
+                <p className="text-sm font-bold text-ink">{row.what}</p>
+                <p className="text-xs text-ink-soft">
+                  {row.from} → {row.to}
+                  {row.quantity ? ` · ${row.quantity}` : ""} · {longDate(row.date)}
+                </p>
               </li>
             ))}
           </ul>

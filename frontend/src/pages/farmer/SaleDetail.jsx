@@ -93,8 +93,9 @@ export default function SaleDetail() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 desk-flow lg:grid lg:grid-cols-12 lg:items-start lg:gap-4 lg:space-y-0">
       <PageHeader
+        className="lg:col-span-12 desk-span"
         title={`${sale.crop} sale`}
         subtitle={formatDate(sale.saleDate)}
         backTo="/app/money"
@@ -105,9 +106,9 @@ export default function SaleDetail() {
           </Link>
         }
       />
-      <ErrorBanner message={error} />
+      <ErrorBanner message={error} className="lg:col-span-12 desk-span" />
 
-      <Section>
+      <Section className="lg:col-span-5">
         <div className="flex items-center gap-4">
           <CropIcon name={sale.crop} size={36} />
           <div className="flex-1">
@@ -150,7 +151,7 @@ export default function SaleDetail() {
       </Section>
 
       {payments.length > 0 && (
-        <Section title={{ text: "Money they pay", say: "The money they pay you. Touch the bin to take one off." }}>
+        <Section title={{ text: "Money they pay", say: "The money they pay you. Touch the bin to take one off." }} className="lg:col-span-7">
           <div className="space-y-2">
             {payments.map((payment) => {
               const way = optionFor(PAYMENT_METHODS, payment.method) || PAYMENT_METHODS[0];
@@ -181,7 +182,7 @@ export default function SaleDetail() {
 
       {status.owed > 0 &&
         (adding ? (
-          <Section title={WORDS.addPayment}>
+          <Section title={WORDS.addPayment} className="lg:col-span-5">
             <MoneyPad value={amount} onChange={setAmount} currency={sale.currency} />
             <div className="mt-3">
               <PictureGrid items={PAYMENT_METHODS} value={method} onChange={(value) => setMethod(value || "cash")} columns={4} />
@@ -199,12 +200,12 @@ export default function SaleDetail() {
             </div>
           </Section>
         ) : (
-          <Button size="lg" className="w-full text-lg" onClick={() => setAdding(true)} data-say={WORDS.addPayment.say}>
+          <Button size="lg" className="w-full text-lg lg:col-span-5" onClick={() => setAdding(true)} data-say={WORDS.addPayment.say}>
             <ICONS.income size={20} aria-hidden="true" /> {WORDS.addPayment.text}
           </Button>
         ))}
 
-      <Button variant="secondary" className="w-full text-danger" onClick={() => setConfirmDelete(true)}>
+      <Button variant="secondary" className="w-full text-danger lg:col-span-12 desk-span" onClick={() => setConfirmDelete(true)}>
         <Trash2 size={16} /> Delete this sale
       </Button>
       <ConfirmDialog

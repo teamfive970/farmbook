@@ -36,7 +36,7 @@ await prepareDatabase();
 const app = createApp();
 
 const server = app.listen(port, host, () => {
-  console.log(`Minders API listening on http://${host}:${port}`);
+  console.log(`FarmBok API listening on http://${host}:${port}`);
 });
 
 let shuttingDown = false;

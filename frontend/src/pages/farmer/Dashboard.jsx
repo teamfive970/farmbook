@@ -6,6 +6,7 @@ import {
   CloudUpload,
   Plus
 } from "lucide-react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import ActivityItem from "../../components/ActivityItem.jsx";
 import { EmptyState, PageLoading } from "../../components/ui.jsx";
@@ -13,6 +14,9 @@ import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { firstName } from "../../lib/format.js";
+import { farmMeta } from "../../lib/labels.js";
+import { farmMoney, formatMoney } from "../../lib/ledger.js";
+import { animalCount } from "../../lib/production.js";
 import { WORDS } from "../../lib/words.js";
 import { SpeakButton, useSpeakOnOpen } from "../../components/Voice.jsx";
 import { ICONS } from "../../lib/icons.js";
@@ -21,11 +25,26 @@ import { farmSupportsAnimals } from "../../lib/farmTypes.js";
 export default function Dashboard() {
   const { user, needsOnlineSignIn } = useAuth();
   const { online, pendingCount, syncing, syncNow } = useSync();
-  const { activities, farms, loading } = useFarmerData();
+  const { activities, farms, records, loading } = useFarmerData();
   // Animal farms record what the animals give (eggs, milk) as production.
   const canProduce = farms.some((farm) => farmSupportsAnimals(farm.farmType));
   const hello = WORDS.hello(firstName(user.fullName));
   useSpeakOnOpen(hello);
+
+  // One line per farm for the overall picture: what it has and what money
+  // it made. Each farm's own page has the full story.
+  const farmCards = useMemo(() => {
+    const moneyByFarm = farmMoney(records);
+    return farms.map((farm) => {
+      const plantings = records.productions.filter((item) => item.farmClientId === farm.clientId);
+      const crops = plantings.filter((item) => item.productionKind !== "animal");
+      const animals = plantings
+        .filter((item) => item.productionKind === "animal")
+        .reduce((sum, group) => sum + animalCount(group, records.animalEvents), 0);
+      const money = moneyByFarm.filter((row) => row.farmClientId === farm.clientId);
+      return { farm, crops: crops.length, animals, money };
+    });
+  }, [farms, records]);
 
   if (loading && activities.length === 0 && farms.length === 0) {
     return <PageLoading label="Opening your farm records…" />;
@@ -37,8 +56,8 @@ export default function Dashboard() {
     farms.filter((farm) => farm.syncStatus && farm.syncStatus !== "synced").length;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
+    <div className="space-y-5 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5 lg:space-y-0">
+      <div className="flex items-start justify-between gap-3 lg:col-span-12">
         <div data-say={hello.say}>
           <h1 className="text-2xl font-bold text-ink">{hello.text}</h1>
           <p className="mt-1 text-sm text-ink-soft">
@@ -49,19 +68,21 @@ export default function Dashboard() {
       </div>
 
       {needsOnlineSignIn ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 lg:col-span-12">
           <CloudUpload size={18} className="mt-0.5 shrink-0 text-amber-700" />
           <p className="text-sm leading-snug text-amber-800" data-say={WORDS.enterPinToSend.say}>
-            Your work is safe on this phone.{" "}
+            {user.pendingRegistration
+              ? "Your account and work are safe on this phone. "
+              : "Your work is safe on this phone. "}
             <Link to="/login" className="font-semibold underline">
               Enter your PIN
             </Link>{" "}
-            when you are online, so it can be sent.
+            when you are online, so {user.pendingRegistration ? "they" : "it"} can be sent.
           </p>
         </div>
       ) : !online ? (
         <div
-          className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3"
+          className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 lg:col-span-12"
           data-say={WORDS.noNetwork.say}
         >
           <CloudOff size={18} className="mt-0.5 shrink-0 text-amber-700" />
@@ -73,7 +94,7 @@ export default function Dashboard() {
           </div>
         </div>
       ) : pendingCount > 0 ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 lg:col-span-12">
           <div className="flex items-start gap-3">
             <CloudUpload size={18} className="mt-0.5 shrink-0 text-amber-700" />
             <p className="text-sm font-medium text-amber-800" data-say={WORDS.onPhoneCount(pendingCount).say}>
@@ -91,14 +112,14 @@ export default function Dashboard() {
         </div>
       ) : (
         <div
-          className="rounded-2xl border border-success/20 bg-success/5 px-4 py-3 text-sm font-medium text-success"
+          className="rounded-2xl border border-success/20 bg-success/5 px-4 py-3 text-sm font-medium text-success lg:col-span-12"
           data-say={WORDS.allSent.say}
         >
           All your work gone on the internet. It safe.
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-dark p-5 text-white shadow-float">
+      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary-dark p-5 text-white shadow-float lg:col-span-12 xl:col-span-8 lg:flex lg:flex-col lg:justify-center lg:self-stretch">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/80">
           <ClipboardPlus size={16} /> Today
         </div>
@@ -113,7 +134,7 @@ export default function Dashboard() {
         </Link>
       </section>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 lg:col-span-12 xl:col-span-4 lg:grid-cols-3">
         <Link to="/app/farms" data-say={WORDS.farmsCount(farms.length).say} className="rounded-2xl bg-white p-4 shadow-card transition hover:-translate-y-0.5">
           <p className="text-xs font-medium text-ink-soft">Farms</p>
           <p className="mt-1 text-2xl font-bold text-ink">{farms.length}</p>
@@ -133,7 +154,55 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <section className={`grid gap-3 ${canProduce ? "grid-cols-2" : "grid-cols-3"}`}>
+      {farmCards.length > 0 && (
+        <section className="lg:col-span-12 xl:col-span-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-bold text-ink">Your farms</h2>
+            <Link to="/app/farms" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+              See all <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="space-y-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0">
+            {farmCards.map(({ farm, crops, animals, money }) => {
+              const meta = farmMeta(farm.farmType);
+              return (
+                <Link
+                  key={farm.id}
+                  to={`/app/farms/${farm.id}`}
+                  data-say={`${farm.farmName}. ${crops} crop${crops === 1 ? "" : "s"}, ${animals} animal${animals === 1 ? "" : "s"}.`}
+                  className="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-card transition hover:border-primary/30"
+                >
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${meta.tone}`}>
+                    <meta.Icon size={20} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-ink">{farm.farmName}</span>
+                    <span className="block text-xs text-ink-soft">
+                      {crops} crop{crops === 1 ? "" : "s"} · {animals} animal{animals === 1 ? "" : "s"}
+                    </span>
+                    {money.length > 0 ? (
+                      money.map((row) => (
+                        <span key={row.currency} className="mt-1 block text-xs text-ink-soft">
+                          Income {formatMoney(row.income, row.currency)} ·{" "}
+                          <span className={row.profit >= 0 ? "font-semibold text-success" : "font-semibold text-danger"}>
+                            Profit {row.profit < 0 ? "−" : ""}
+                            {formatMoney(Math.abs(row.profit), row.currency)}
+                          </span>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="mt-1 block text-xs text-ink-soft">No money recorded yet</span>
+                    )}
+                  </span>
+                  <ArrowRight size={18} className="mt-1 shrink-0 text-ink-soft" aria-hidden="true" />
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className={`grid gap-3 lg:col-span-12 xl:col-span-4 lg:grid-cols-4 xl:grid-cols-2 lg:self-stretch ${canProduce ? "grid-cols-2" : "grid-cols-3"}`}>
         <Link
           to="/app/harvests"
           data-say={WORDS.harvestTitle.say}
@@ -170,7 +239,7 @@ export default function Dashboard() {
         </Link>
       </section>
 
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid grid-cols-2 gap-3 lg:col-span-12 xl:col-span-8">
         <Link
           to="/app/farms/new"
           data-say={WORDS.addFarm.say}
@@ -196,7 +265,7 @@ export default function Dashboard() {
       <Link
         to="/app/report"
         data-say={WORDS.reportOpen.say}
-        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card transition hover:border-primary/30"
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card transition hover:border-primary/30 lg:col-span-12 xl:col-span-4"
       >
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
           <ICONS.report size={20} aria-hidden="true" />
@@ -208,9 +277,9 @@ export default function Dashboard() {
         <ArrowRight size={18} className="text-ink-soft" aria-hidden="true" />
       </Link>
 
-      <section>
+      <section className="lg:col-span-12">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-bold text-ink" data-say={WORDS.recentWork.say}>{WORDS.recentWork.text}</h2>
+          <h2 className="text-base font-bold text-ink">{WORDS.recentWork.text}</h2>
           {activities.length > 0 && (
             <Link
               to="/app/history"
@@ -236,7 +305,7 @@ export default function Dashboard() {
             }
           />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 xl:grid-cols-3">
             {recent.map((activity) => (
               <ActivityItem key={activity.clientId} activity={activity} />
             ))}

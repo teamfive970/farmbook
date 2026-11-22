@@ -1,4 +1,4 @@
--- Minders core MVP schema
+-- FarmBok core MVP schema
 -- Roles: farmer (self-registered) and admin (provisioned only, never public).
 
 CREATE TABLE farmers (

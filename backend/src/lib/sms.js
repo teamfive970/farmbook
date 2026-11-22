@@ -87,6 +87,6 @@ export async function sendSms(phone, message) {
 export async function sendPasswordResetOtp(phone, code) {
   await sendSms(
     phone,
-    `Minders: your PIN reset code is ${code}. It expires in 10 minutes. If you did not ask for this, ignore this message.`
+    `FarmBok: your PIN reset code is ${code}. It expires in 10 minutes. If you did not ask for this, ignore this message.`
   );
 }
