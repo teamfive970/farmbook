@@ -10,6 +10,7 @@ import activityRoutes from "./routes/activityRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import farmRoutes from "./routes/farmRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import cooperativeRoutes from "./routes/cooperativeRoutes.js";
 import passportRoutes from "./routes/passportRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -94,6 +95,7 @@ export function createApp() {
   app.use("/api/reports", reportRoutes);
   app.use("/api/cooperatives", cooperativeRoutes);
   app.use("/api/passport", passportRoutes);
+  app.use("/api/notifications", notificationRoutes);
   app.use("/api/admin", adminRoutes);
 
   app.use("/api", notFoundHandler);

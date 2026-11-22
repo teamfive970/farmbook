@@ -28,6 +28,11 @@ import {
   adminUpdateCooperative
 } from "../services/cooperativeService.js";
 import { exportDataset, getAnalytics } from "../services/analyticsService.js";
+import {
+  listAnnouncements,
+  previewAudience,
+  sendAnnouncement
+} from "../services/notificationService.js";
 
 const router = Router();
 
@@ -147,6 +152,20 @@ router.patch("/cooperatives/:id/members/:farmerId", async (req, res) => {
 
 router.delete("/cooperatives/:id/members/:farmerId", async (req, res) => {
   res.json(await adminRemoveMember(req.auth, req, req.params.id, req.params.farmerId));
+});
+
+// Announcements: a message to every farmer, one county or one group, shown in
+// their app inbox and, if chosen, sent by SMS to farmers who allow it.
+router.get("/announcements", adminReadLimiter, async (req, res) => {
+  res.json(await listAnnouncements());
+});
+
+router.get("/announcements/audience", adminReadLimiter, async (req, res) => {
+  res.json(await previewAudience({ type: req.query.type, value: req.query.value }));
+});
+
+router.post("/announcements", async (req, res) => {
+  res.status(201).json(await sendAnnouncement(req.auth, req, req.body));
 });
 
 export default router;

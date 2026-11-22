@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChartColumn, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChoiceButton, CropIcon, Section } from "../../components/Choices.jsx";
@@ -197,6 +197,19 @@ export default function Money() {
         <span className="flex-1">
           <span className="block text-sm font-bold text-ink">{WORDS.reportOpen.text}</span>
           <span className="block text-xs text-ink-soft">Save as PDF or for Excel</span>
+        </span>
+        <ChevronRight size={18} className="text-ink-soft" />
+      </Link>
+
+      <Link
+        to="/app/compare"
+        data-say={WORDS.compareOpen.say}
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card lg:col-span-6"
+      >
+        <ChartColumn size={22} className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block text-sm font-bold text-ink">{WORDS.compareOpen.text}</span>
+          <span className="block text-xs text-ink-soft">This season next to the one before</span>
         </span>
         <ChevronRight size={18} className="text-ink-soft" />
       </Link>

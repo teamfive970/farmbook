@@ -799,3 +799,23 @@ Object.assign(WORDS, {
   reportFrom: w("report.from", "First day", "The first day."),
   reportTo: w("report.to", "Last day", "The last day.")
 });
+
+// ---------- Messages and Compare seasons ----------
+
+Object.assign(WORDS, {
+  messagesTitle: w(null, "Messages", "Your messages. News from the Ministry and your group, and small reminders about your farm."),
+  messagesNone: w(null, "No messages yet", "No message yet. When the Ministry or your group send news, it will show here."),
+  messagesNew: w(null, "New", "These ones are new."),
+  messagesEarlier: w(null, "Earlier", "These ones you saw before."),
+  messagesAllRead: w(null, "Mark all as read", "Mark all the messages as read."),
+  messagesOffline: w(null, "No network. These are the messages you last opened.", "Network not there. These the messages you saw last time."),
+  messagesSms: w(null, "Also send important messages by SMS", "Send big news to my phone by text message too."),
+  compareTitle: w(null, "Compare seasons", "See this season next to the season before. Did you harvest more? Did you keep more money?"),
+  compareOpen: w(null, "Compare seasons", "See this season next to the one before."),
+  compareNothingBefore: w(
+    null,
+    "Nothing recorded in the time before yet. Keep recording, and next season you will see the difference.",
+    "Nothing in the time before yet. Keep putting your work, and next season you will see the difference."
+  ),
+  compareNothing: w(null, "No records in these two periods yet", "Nothing to compare yet. Put your harvests, sales and costs first.")
+});

@@ -1,6 +1,8 @@
-import { ClipboardList, Fence, House, KeyRound, Loader2, MapPin, Plus, Smartphone, UserRound, Users, Wallet } from "lucide-react";
+import { Bell, ChartColumn, ClipboardList, Fence, House, KeyRound, Loader2, MapPin, Plus, Smartphone, UserRound, Users, Wallet } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
+import { NotificationProvider, useNotifications } from "../contexts/NotificationContext.jsx";
+import { CountBadge, MessagesBell } from "./MessagesBell.jsx";
 import { useSync } from "../contexts/SyncContext.jsx";
 import Brand from "./Brand.jsx";
 import { CloudSentIcon } from "./ui.jsx";
@@ -18,6 +20,7 @@ const NAV = [
 
 // Extra shortcuts shown only in the desktop side menu (there is room there).
 const DESK_MORE = [
+  { to: "/app/compare", words: WORDS.compareOpen, Icon: ChartColumn },
   { to: "/app/harvests", words: { text: "Harvests", say: "See your harvests." }, Icon: ICONS.harvest },
   { to: "/app/report", words: WORDS.reportOpen, Icon: ICONS.report },
   { to: "/app/money/buyers", words: { text: "My buyers", say: "See your buyers." }, Icon: Users }
@@ -35,7 +38,7 @@ function initials(name) {
     .join("");
 }
 
-function DeskLink({ to, words, Icon, end }) {
+function DeskLink({ to, words, Icon, end, badge = 0 }) {
   return (
     <NavLink
       to={to}
@@ -48,12 +51,27 @@ function DeskLink({ to, words, Icon, end }) {
       }
     >
       <Icon size={20} aria-hidden="true" />
-      <span className="truncate">{words.text}</span>
+      <span className="min-w-0 flex-1 truncate">{words.text}</span>
+      {badge > 0 && <CountBadge count={badge} />}
     </NavLink>
   );
 }
 
+function MessagesDeskLink() {
+  const { unread } = useNotifications();
+  return <DeskLink to="/app/messages" words={WORDS.messagesTitle} Icon={Bell} badge={unread} />;
+}
+
 export default function FarmerLayout() {
+  return (
+    <NotificationProvider>
+      <FarmerShell />
+    </NotificationProvider>
+  );
+}
+
+function FarmerShell() {
+  const { unread } = useNotifications();
   const { syncing, online, pendingCount } = useSync();
   const { user, needsOnlineSignIn, lock } = useAuth();
   const pendingAccount = Boolean(user?.pendingRegistration);
@@ -115,6 +133,7 @@ export default function FarmerLayout() {
           {NAV.map((item) => (
             <DeskLink key={item.to} {...item} />
           ))}
+          <MessagesDeskLink />
           <p className="px-3.5 pb-1 pt-5 text-[11px] font-bold uppercase tracking-wider text-ink-soft/70">More</p>
           {DESK_MORE.map((item) => (
             <DeskLink key={item.to} {...item} />
@@ -161,6 +180,7 @@ export default function FarmerLayout() {
               </button>
             </div>
             <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
+              <MessagesBell className="h-10 w-10" />
               <VoiceToggle compact />
               <button
                 type="button"
@@ -235,16 +255,21 @@ export default function FarmerLayout() {
               key={to}
               to={to}
               end={end}
-              data-say={words.say}
+              data-say={to === "/app" && unread > 0 ? `${words.say} You get new messages.` : words.say}
               className={({ isActive }) =>
-                `flex min-h-16 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-bold transition ${
+                `relative flex min-h-16 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-bold transition ${
                   isActive ? "text-primary" : "text-ink-soft hover:text-primary"
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={24} strokeWidth={isActive ? 2.4 : 1.9} aria-hidden="true" />
+                  <span className="relative">
+                    <Icon size={24} strokeWidth={isActive ? 2.4 : 1.9} aria-hidden="true" />
+                    {to === "/app" && unread > 0 && (
+                      <span className="absolute -right-1.5 -top-1 h-3 w-3 rounded-full border-2 border-white bg-danger" aria-label="New messages" />
+                    )}
+                  </span>
                   {words.text}
                 </>
               )}

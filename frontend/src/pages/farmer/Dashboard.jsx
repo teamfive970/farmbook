@@ -3,7 +3,9 @@ import {
   ClipboardList,
   ClipboardPlus,
   CloudOff,
+  ChevronRight,
   CloudUpload,
+  Megaphone,
   Plus
 } from "lucide-react";
 import { useMemo } from "react";
@@ -12,6 +14,8 @@ import ActivityItem from "../../components/ActivityItem.jsx";
 import { EmptyState, PageLoading } from "../../components/ui.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
+import { useNotifications } from "../../contexts/NotificationContext.jsx";
+import { MessagesBell } from "../../components/MessagesBell.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { firstName } from "../../lib/format.js";
 import { farmMeta } from "../../lib/labels.js";
@@ -28,6 +32,7 @@ export default function Dashboard() {
   const { activities, farms, records, loading } = useFarmerData();
   // Animal farms record what the animals give (eggs, milk) as production.
   const canProduce = farms.some((farm) => farmSupportsAnimals(farm.farmType));
+  const { unread } = useNotifications();
   const hello = WORDS.hello(firstName(user.fullName));
   useSpeakOnOpen(hello);
 
@@ -64,8 +69,25 @@ export default function Dashboard() {
             {user.county} · {user.district}
           </p>
         </div>
-        <SpeakButton phrase={hello} />
+        <div className="flex shrink-0 items-center gap-2">
+          <SpeakButton phrase={hello} />
+          <MessagesBell className="md:hidden" />
+        </div>
       </div>
+
+      {unread > 0 && (
+        <Link
+          to="/app/messages"
+          data-say={`You get ${unread} new ${unread === 1 ? "message" : "messages"}. Touch to read.`}
+          className="flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 lg:col-span-12"
+        >
+          <Megaphone size={20} className="shrink-0 text-sky-700" aria-hidden="true" />
+          <span className="flex-1 text-sm font-bold text-sky-900">
+            {unread} new {unread === 1 ? "message" : "messages"}
+          </span>
+          <ChevronRight size={18} className="text-sky-700" aria-hidden="true" />
+        </Link>
+      )}
 
       {needsOnlineSignIn ? (
         <div className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 lg:col-span-12">

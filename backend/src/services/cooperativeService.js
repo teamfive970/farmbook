@@ -11,6 +11,7 @@ import {
   requireUuid
 } from "../lib/validation.js";
 import { moneyAndHarvestTotals } from "./reportService.js";
+import { addNotification } from "./notificationService.js";
 
 // Cooperatives (farmer groups). Admins create groups and manage members; a
 // farmer can also join with the group's join code. A member marked "leader"
@@ -337,6 +338,14 @@ export async function joinCooperative(farmerId, body = {}) {
        SET status = 'active', role = 'member', consent_at = now(), updated_at = now()`,
     [rows[0].id, farmerId]
   );
+  await addNotification(farmerId, {
+    kind: "system",
+    topic: "group_joined",
+    key: `joined:${rows[0].id}`,
+    title: `You joined ${rows[0].name}`,
+    body: "Messages from your group will show here. You can see the group's totals under My group.",
+    link: `/app/group/${rows[0].id}`
+  }).catch(() => {});
   const coop = serializeCooperative(rows[0]);
   delete coop.joinCode;
   return {

@@ -9,6 +9,7 @@ import {
   signInOffline
 } from "../lib/offlineAuth.js";
 import { clearGroupCaches } from "../lib/groupCache.js";
+import { clearInbox } from "../lib/notificationCache.js";
 import { deleteLocalData, hasUnsentWork, moveLocalData } from "../lib/localStore.js";
 import {
   createPendingRegistration,
@@ -505,6 +506,7 @@ export function AuthProvider({ children }) {
       await forgetOfflineLogin(profile.user.phoneNumber).catch(() => {});
       await deleteLocalData(userId).catch(() => {});
       clearGroupCaches(userId);
+      clearInbox(userId);
       dropPendingRegistration(userId);
       dropProfile(userId);
       if (userRef.current?.id === userId) {

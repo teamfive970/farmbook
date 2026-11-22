@@ -10,6 +10,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import AdminFarmerDetail from "./pages/admin/AdminFarmerDetail.jsx";
 import AdminFarmers from "./pages/admin/AdminFarmers.jsx";
 import AdminSettings from "./pages/admin/AdminSettings.jsx";
+import AdminAnnouncements from "./pages/admin/AdminAnnouncements.jsx";
 import Dashboard from "./pages/farmer/Dashboard.jsx";
 import ActivityDetail from "./pages/farmer/ActivityDetail.jsx";
 import EditActivity from "./pages/farmer/EditActivity.jsx";
@@ -38,6 +39,8 @@ import Welcome from "./pages/Welcome.jsx";
 import WhoIsUsing from "./pages/WhoIsUsing.jsx";
 import Buyers, { BuyerForm } from "./pages/farmer/Buyers.jsx";
 import Report from "./pages/farmer/Report.jsx";
+import Notifications from "./pages/farmer/Notifications.jsx";
+import SeasonCompare from "./pages/farmer/SeasonCompare.jsx";
 import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
 function ScrollToTop() {
@@ -110,6 +113,8 @@ export default function App() {
             <Route path="money/sales/:clientId" element={<SaleDetail />} />
             <Route path="money/sales/:clientId/edit" element={<SaleForm />} />
             <Route path="report" element={<Report />} />
+            <Route path="messages" element={<Notifications />} />
+            <Route path="compare" element={<SeasonCompare />} />
             <Route path="money/buyers" element={<Buyers />} />
             <Route path="money/buyers/new" element={<BuyerForm />} />
             <Route path="money/buyers/:clientId" element={<BuyerForm />} />
@@ -128,6 +133,7 @@ export default function App() {
             <Route path="settings" element={<AdminSettings />} />
             <Route path="cooperatives" element={<AdminCooperatives />} />
             <Route path="cooperatives/:cooperativeId" element={<AdminCooperativeDetail />} />
+            <Route path="announcements" element={<AdminAnnouncements />} />
             <Route path="audit" element={<AdminAudit />} />
           </Route>
         </Route>

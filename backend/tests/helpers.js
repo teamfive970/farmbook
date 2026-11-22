@@ -31,7 +31,7 @@ export async function resetDatabase() {
     throw new Error(`Refusing to reset database "${name}": its name must contain "test".`);
   }
   await query(
-    `TRUNCATE TABLE farm_type_changes, animal_events, productions, audit_logs, recovery_otps, payments, sales, buyers, quality_inspections, harvests,
+    `TRUNCATE TABLE notifications, announcements, farm_type_changes, animal_events, productions, audit_logs, recovery_otps, payments, sales, buyers, quality_inspections, harvests,
        expenses, cooperative_members, cooperatives, farm_activities, farms, sessions, admin_users,
        farmers CASCADE`
   );

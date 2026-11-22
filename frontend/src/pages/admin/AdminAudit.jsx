@@ -16,6 +16,7 @@ const ACTIONS = [
   { value: "farmer.reactivated", label: "Farmer reactivated" },
   { value: "farmer.pin_reset", label: "Farmer PIN reset" },
   { value: "data_exported", label: "CSV downloaded" },
+  { value: "announcement_sent", label: "Announcement sent" },
   { value: "cooperative.viewed", label: "Cooperative opened" },
   { value: "cooperative.list_viewed", label: "Cooperative list opened" },
   { value: "audit.viewed", label: "Audit log opened" }
