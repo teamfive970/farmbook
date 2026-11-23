@@ -1,4 +1,4 @@
-import { ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Handshake, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PictureGrid, Section } from "../../components/Choices.jsx";
@@ -21,6 +21,7 @@ import { formatDate, newClientId } from "../../lib/format.js";
 import { ICONS } from "../../lib/icons.js";
 import { formatMoney } from "../../lib/ledger.js";
 import { BUYER_TYPES, optionFor } from "../../lib/words.js";
+import { WORDS } from "../../lib/words.js";
 
 function typeOf(buyer) {
   return optionFor(BUYER_TYPES, buyer?.buyerType) || BUYER_TYPES[BUYER_TYPES.length - 1];
@@ -58,6 +59,18 @@ export default function Buyers() {
           </Link>
         }
       />
+      <Link
+        to="/app/requests"
+        data-say={WORDS.requestsOpen.say}
+        className="mb-4 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
+      >
+        <Handshake size={22} className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block text-sm font-bold text-ink">{WORDS.requestsOpen.text}</span>
+          <span className="block text-xs text-ink-soft">Buyers who scanned your Harvest Passport</span>
+        </span>
+        <ChevronRight size={18} className="text-ink-soft" aria-hidden="true" />
+      </Link>
       {rows.length === 0 ? (
         <EmptyState
           icon={ICONS.buyer}

@@ -20,6 +20,8 @@ const options = {
 export const loginLimiter = rateLimit({ ...options, limit: 20 });
 export const registerLimiter = rateLimit({ ...options, limit: 30 });
 export const smsLimiter = rateLimit({ ...options, limit: 5 });
+// Buyers contacting farmers from a passport page: plenty for a person, not for a bot.
+export const contactLimiter = rateLimit({ ...options, limit: 10 });
 // Signed-in actions that confirm the current PIN (change PIN, reveal access code…).
 export const pinCheckLimiter = rateLimit({ ...options, limit: 20 });
 // Admin browsing is slower than farmer traffic on purpose: a single console

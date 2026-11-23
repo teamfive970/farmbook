@@ -22,7 +22,10 @@ FarmBok puts one simple record book on the phone the farmer already has:
 > **Farmers record once. Everyone who needs to know, knows.**
 > The farmer sees their profit, the buyer gets a Harvest Passport, and cooperatives and the Ministry get live totals.
 
-## Features
+
+
+## Current Features
+
 
 ### For farmers
 - **Record work in a few taps:** pick the farm, the work and the day from pictures. No typing.
@@ -34,6 +37,10 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Farm report:** one tap to save as **PDF** (to print or share) or **CSV** (Excel).
 - **Harvest Passport:** a QR code and printable product tag for each harvest. Buyers scan it to see where and how the crop was grown, and its grade. The farmer decides whether to share it, and the farmer's phone number and full name are never shown.
 - **Shared phones:** several farmers can use one phone, each with a private profile and PIN.
+- **Buyer requests ("Contact this farmer"):** a buyer who scans a Harvest Passport can leave their name, number, quantity and a message.
+  - The farmer is told in Messages, and by SMS if they allow it.
+  - From **Buyer requests** the farmer can call, text, share their own number (sent to the buyer by SMS) or say "not now".
+  - The farmer's number is never shown on the passport.
 - **PIN recovery** by a security question, or by SMS when configured.
 - **Messages:** one inbox with a bell and unread count. It holds news from the Ministry and the farmer's group, plus smart reminders worked out from the farmer's own records:
   - no work recorded for 3 days

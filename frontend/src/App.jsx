@@ -41,6 +41,7 @@ import Buyers, { BuyerForm } from "./pages/farmer/Buyers.jsx";
 import Report from "./pages/farmer/Report.jsx";
 import Notifications from "./pages/farmer/Notifications.jsx";
 import SeasonCompare from "./pages/farmer/SeasonCompare.jsx";
+import BuyerRequests from "./pages/farmer/BuyerRequests.jsx";
 import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
 function ScrollToTop() {
@@ -115,6 +116,7 @@ export default function App() {
             <Route path="report" element={<Report />} />
             <Route path="messages" element={<Notifications />} />
             <Route path="compare" element={<SeasonCompare />} />
+            <Route path="requests" element={<BuyerRequests />} />
             <Route path="money/buyers" element={<Buyers />} />
             <Route path="money/buyers/new" element={<BuyerForm />} />
             <Route path="money/buyers/:clientId" element={<BuyerForm />} />

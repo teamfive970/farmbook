@@ -90,7 +90,9 @@ export async function getPassport(code) {
         unit: row.unit
       })),
       notice:
-        "Recorded by the farmer in the FarmBok app. This is not an official certification."
+        "Recorded by the farmer in the FarmBok app. This is not an official certification.",
+      // Buyers can leave their number for the farmer (POST …/contact).
+      canContact: true
     }
   };
 }

@@ -3,6 +3,7 @@ import {
   CheckCheck,
   ChevronRight,
   ClipboardList,
+  Handshake,
   Megaphone,
   MessageSquareText,
   QrCode,
@@ -31,6 +32,7 @@ const LOOK = {
   money_owed: { Icon: Wallet, tone: "bg-rose-100 text-rose-700", label: "Money" },
   passport: { Icon: QrCode, tone: "bg-primary-soft text-primary-dark", label: "Harvest Passport" },
   group_joined: { Icon: Users, tone: "bg-violet-100 text-violet-700", label: "My group" },
+  buyer_request: { Icon: Handshake, tone: "bg-emerald-100 text-emerald-800", label: "Buyer" },
   welcome: { Icon: Sprout, tone: "bg-primary-soft text-primary-dark", label: "FarmBok" }
 };
 

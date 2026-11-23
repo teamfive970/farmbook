@@ -819,3 +819,14 @@ Object.assign(WORDS, {
   ),
   compareNothing: w(null, "No records in these two periods yet", "Nothing to compare yet. Put your harvests, sales and costs first.")
 });
+
+// ---------- Buyer requests ("Contact this farmer") ----------
+
+Object.assign(WORDS, {
+  requestsTitle: w(null, "Buyer requests", "Buyer requests. People who scanned your Harvest Passport and want to buy."),
+  requestsOpen: w(null, "Buyer requests", "See the buyers who want your crops."),
+  requestsNone: w(null, "No buyer requests yet", "No buyer asked yet. Turn on the Harvest Passport for your harvest, so buyers can scan it."),
+  requestCall: w(null, "Call", "Call this buyer."),
+  requestShare: w(null, "Share my number", "Send my phone number to this buyer by text message."),
+  requestDecline: w(null, "Not now", "Say no to this buyer. They will not be told.")
+});
