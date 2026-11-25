@@ -830,3 +830,11 @@ Object.assign(WORDS, {
   requestShare: w(null, "Share my number", "Send my phone number to this buyer by text message."),
   requestDecline: w(null, "Not now", "Say no to this buyer. They will not be told.")
 });
+
+// ---------- Market ----------
+
+Object.assign(WORDS, {
+  pricesTitle: w(null, "Market prices", "Market prices. What other farmers sold their crops for lately. It help you to set a fair price."),
+  pricesOpen: w(null, "Market prices", "See what crops are selling for."),
+  marketOpen: w(null, "Harvests for sale", "See harvests for sale from farmers.")
+});

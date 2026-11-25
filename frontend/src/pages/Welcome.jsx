@@ -1,4 +1,4 @@
-import { ArrowRight, CloudOff, NotebookPen, ShieldCheck, Volume2 } from "lucide-react";
+import { ArrowRight, CloudOff, NotebookPen, ShieldCheck, Store, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
 import DemoAccessCard from "../components/DemoAccessCard.jsx";
@@ -95,7 +95,14 @@ export default function Welcome() {
           >
             {WORDS.haveAccount.text}
           </Link>
-          <div className="pt-3">
+          <Link
+            to="/market"
+            className="flex items-center justify-center gap-2 py-2 text-sm font-bold text-primary"
+            data-say="See harvests for sale and market prices."
+          >
+            <Store size={18} aria-hidden="true" /> Harvests for sale & market prices
+          </Link>
+          <div className="pt-1">
             <DemoAccessCard />
           </div>
           <p className="pt-2 text-center text-xs text-ink-soft">FarmBok · Farm records for every season</p>

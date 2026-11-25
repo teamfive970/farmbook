@@ -30,16 +30,16 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Online sign-up/sign-in (already implemented)**
 - **Dilect Translation (per farmer preference)**
 - **USSD Voice**
-- **Buyers getting in direct contact with farmers**
+- **Buyers getting in direct contact with farmers (implemented: "Contact this farmer")**
 - **Buyer getting direct mapping on the farmer scan harvest passport**
 - **Weather update (in-app, sms, USSD)**
 - **Linking Farmers to e-advisory platforms**
 - **AI analysis of farmer records**
-- **Connecting farmers to market places**
-- **Farmers getting market price in realtime (in-app, sms, USSD)**
+- **Connecting farmers to market places (implemented: FarmBok market)**
+- **Farmers getting market price in realtime (in-app, sms, USSD)** (in-app implemented: Market prices)
 - **Make a way that farmers without smartphone can also use the app through USSD & SMS**
 - **Make a way that a specific farm or coorperative can benefit from micro-finance/load organization**
-- **Make a way that buyers can connect with farmers even without having to scan the Harvest passport.**
+- **Make a way that buyers can connect with farmers even without having to scan the Harvest passport.** (implemented: Harvests for sale)
 
 ## Current Features
 
@@ -54,6 +54,13 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Farm report:** one tap to save as **PDF** (to print or share) or **CSV** (Excel).
 - **Harvest Passport:** a QR code and printable product tag for each harvest. Buyers scan it to see where and how the crop was grown, and its grade. The farmer decides whether to share it, and the farmer's phone number and full name are never shown.
 - **Shared phones:** several farmers can use one phone, each with a private profile and PIN.
+- **Buyer requests ("Contact this farmer"):** a buyer who scans a Harvest Passport can leave their name, number, quantity and a message.
+  - The farmer is told in Messages, and by SMS if they allow it.
+  - From **Buyer requests** the farmer can call, text, share their own number (sent to the buyer by SMS) or say "not now".
+  - The farmer's number is never shown on the passport.
+- **FarmBok market** (`/market`, public, also linked from the home page and every passport):
+  - **Harvests for sale:** every harvest whose passport is on and that still has some left, with crop, grade, county and first name. Buyers filter by crop, county and grade, then tap **Contact**. No phone numbers are shown. Harvests that failed their quality check are left out.
+  - **Market prices:** typical price per unit and the usual range from sales FarmBok farmers recorded in the last 60 days, by county, with the change against the 60 days before. A price only shows when at least 3 different farmers sold that crop, so no single farmer's price can be worked out. Farmers find it under Money → Market prices.
 - **PIN recovery** by a security question, or by SMS when configured.
 - **Messages:** one inbox with a bell and unread count. It holds news from the Ministry and the farmer's group, plus smart reminders worked out from the farmer's own records:
   - no work recorded for 3 days
@@ -192,6 +199,7 @@ The dev server forwards `/api` to the API on port 8000, so no extra settings are
 | `BCRYPT_COST`                                                 | PIN hashing cost (default 10)                                                                                                                                                 |
 | `SMS_PROVIDER`                                                | `disabled`, `console`, `twilio` or `africastalking`, for PIN reset and announcements by SMS                                                                                   |
 | `ANNOUNCEMENT_SMS_LIMIT`                                      | Most SMS one announcement may send (default 1000)                                                                                                                             |
+| `MARKET_MIN_FARMERS`, `MARKET_MIN_SALES` | How many different farmers and sales a market price needs before it is shown (default 3 and 3) |
 | `DEMO_ADMIN_ACCESS_CODE`, `DEMO_ADMIN_PIN`                    | Shared tester login shown on the home page. The server keeps this admin working; it cannot change its code or PIN or send SMS. Delete both and the next start switches it off |
 | `ADMIN_NAME`, `ADMIN_ACCESS_CODE`, `ADMIN_PIN`, `ADMIN_PHONE` | Creates the first admin at start-up while none exists                                                                                                                         |
 

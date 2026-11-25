@@ -173,6 +173,9 @@ export default function WelcomeDesktop() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-8 py-4">
           <Brand to="/" size="lg" />
           <nav className="flex items-center gap-1 text-sm font-semibold text-ink-soft" aria-label="Page sections">
+            <Link to="/market" className="rounded-lg px-3 py-2 hover:bg-primary-soft hover:text-primary-dark">
+              Market
+            </Link>
             <a href="#features" className="rounded-lg px-3 py-2 hover:bg-primary-soft hover:text-primary-dark">
               What it does
             </a>

@@ -42,6 +42,8 @@ import Report from "./pages/farmer/Report.jsx";
 import Notifications from "./pages/farmer/Notifications.jsx";
 import SeasonCompare from "./pages/farmer/SeasonCompare.jsx";
 import BuyerRequests from "./pages/farmer/BuyerRequests.jsx";
+import Prices from "./pages/farmer/Prices.jsx";
+import Market from "./pages/Market.jsx";
 import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
 function ScrollToTop() {
@@ -84,6 +86,7 @@ export default function App() {
         <Route path="/who" element={<WhoIsUsing />} />
         {/* Public: buyers scan a harvest batch's QR code. */}
         <Route path="/p/:code" element={<Passport />} />
+        <Route path="/market" element={<Market />} />
 
         <Route element={<RequireRole role="farmer" />}>
           <Route path="/app" element={<FarmerLayout />}>
@@ -117,6 +120,7 @@ export default function App() {
             <Route path="messages" element={<Notifications />} />
             <Route path="compare" element={<SeasonCompare />} />
             <Route path="requests" element={<BuyerRequests />} />
+            <Route path="prices" element={<Prices />} />
             <Route path="money/buyers" element={<Buyers />} />
             <Route path="money/buyers/new" element={<BuyerForm />} />
             <Route path="money/buyers/:clientId" element={<BuyerForm />} />
