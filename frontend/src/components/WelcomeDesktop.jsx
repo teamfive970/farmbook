@@ -1,20 +1,19 @@
 import {
   ArrowRight,
+  Bell,
   CircleCheck,
   CloudOff,
   FileText,
   LogIn,
-  NotebookPen,
-  Package,
   PawPrint,
   QrCode as QrIcon,
   ShieldCheck,
   Smartphone,
+  Store,
   Sprout,
   TrendingUp,
   Users,
-  Volume2,
-  Wallet
+  Volume2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Brand, { BrandMark } from "./Brand.jsx";
@@ -23,46 +22,40 @@ import { SpeakButton, VoiceToggle } from "./Voice.jsx";
 import { buttonClass } from "./ui.jsx";
 import { WORDS } from "../lib/words.js";
 import DemoAccessCard from "./DemoAccessCard.jsx";
+import { Photo, PhotoCredits } from "./Photo.jsx";
+import { PHOTOS } from "../lib/homePhotos.js";
 
 // The welcome page on a computer screen (1024px and wider). The phone keeps
 // its own simple welcome page; this one has room to show what the app does.
 
 const FEATURES = [
+  { Icon: Sprout, title: "Crops and animals", text: "Each planting and animal group has its own records, start to harvest." },
+  { Icon: FileText, title: "Reports to share", text: "A clear farm report as PDF or for Excel, for your group, buyer or bank." },
+  { Icon: TrendingUp, title: "Compare seasons", text: "See if this season did better than the last one, in plain words." },
+  { Icon: Bell, title: "Messages and reminders", text: "Reminders for farm work and news from your group or the ministry." },
+  { Icon: Volume2, title: "Talks to you", text: "Every page can be read out loud for farmers who cannot read." },
+  { Icon: QrIcon, title: "Checked by staff", text: "Agriculture staff check harvests so buyers can trust the grade." }
+];
+
+// The three main things, each told with a real photo.
+const STORIES = [
   {
-    Icon: NotebookPen,
+    photo: PHOTOS.farmer,
+    label: "Record",
     title: "Farm work, day by day",
-    text: "Planting, weeding, spraying, feeding. Tap the pictures; no typing needed.",
-    tone: "bg-emerald-50 text-emerald-700"
+    text: "Planting, weeding, spraying, feeding. Tap the pictures; no typing needed. It saves on the phone first."
   },
   {
-    Icon: Sprout,
-    title: "Crops and animals",
-    text: "Each planting and animal group has its own records, from the start to the harvest.",
-    tone: "bg-lime-50 text-lime-700"
+    photo: PHOTOS.plantain,
+    label: "Track",
+    title: "Harvests, money and profit",
+    text: "See what you harvested, sold and still have in store. L$ and US$ are kept apart, and profit is worked out for you."
   },
   {
-    Icon: Package,
-    title: "Harvests and stock",
-    text: "See what you harvested, what you sold and what is still in store.",
-    tone: "bg-amber-50 text-amber-700"
-  },
-  {
-    Icon: Wallet,
-    title: "Money and profit",
-    text: "Sales, income and expenses in L$ and US$, kept apart. Profit is worked out for you.",
-    tone: "bg-sky-50 text-sky-700"
-  },
-  {
-    Icon: QrIcon,
-    title: "Harvest Passport",
-    text: "A QR code and printed tag that show buyers where your crop came from.",
-    tone: "bg-violet-50 text-violet-700"
-  },
-  {
-    Icon: FileText,
-    title: "Reports to share",
-    text: "Save a clear farm report as PDF or for Excel, for your group, buyer or bank.",
-    tone: "bg-rose-50 text-rose-700"
+    photo: PHOTOS.transport,
+    label: "Sell",
+    title: "Harvest Passport for buyers",
+    text: "A QR code and printed tag show buyers where your crop came from and that it was checked."
   }
 ];
 
@@ -200,28 +193,24 @@ export default function WelcomeDesktop() {
 
       <DemoAccessCard variant="strip" />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
+      {/* Hero: a real photo of a Liberian rice farm */}
+      <Photo photo={PHOTOS.rice} eager sizes="100vw" className="min-h-[640px]">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full bg-primary-soft blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-48 -left-40 h-[420px] w-[420px] rounded-full bg-amber-50 blur-3xl"
+          className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/55 to-black/10"
         />
         <div className="relative mx-auto grid max-w-7xl grid-cols-[1.15fr_1fr] items-center gap-16 px-8 pb-24 pt-16 xl:gap-24 xl:pt-20">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-1.5 text-xs font-bold text-primary-dark shadow-card">
+          <div className="text-white">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold backdrop-blur-sm">
               <Sprout size={14} aria-hidden="true" /> Made for smallholder farmers in Liberia
             </span>
             <h1
-              className="mt-6 text-5xl font-extrabold leading-[1.05] tracking-tight text-ink xl:text-6xl"
+              className="mt-6 text-5xl font-extrabold leading-[1.05] tracking-tight xl:text-6xl"
               data-say={WORDS.welcomeTitle.say}
             >
-              Keep your farm records <span className="text-primary">on your phone.</span>
+              Keep your farm records <span className="text-emerald-300">on your phone.</span>
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-soft">
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/85">
               FarmBok helps you record your farm work, harvests, sales and costs, and see your profit. It works even
               when there is no network, and it can read the words out loud.
             </p>
@@ -229,15 +218,19 @@ export default function WelcomeDesktop() {
               <Link to="/register" data-say={WORDS.newAccount.say} className={buttonClass("primary", "lg", "px-7 text-lg")}>
                 {WORDS.newAccount.text} <ArrowRight size={20} aria-hidden="true" />
               </Link>
-              <Link to="/login" data-say={WORDS.haveAccount.say} className={buttonClass("secondary", "lg", "px-7 text-lg")}>
+              <Link
+                to="/login"
+                data-say={WORDS.haveAccount.say}
+                className="inline-flex min-h-14 items-center rounded-xl border-2 border-white/60 px-7 text-lg font-bold text-white transition hover:bg-white/10"
+              >
                 {WORDS.haveAccount.text}
               </Link>
-              <SpeakButton phrase={WORDS.welcomeTitle} />
+              <SpeakButton phrase={WORDS.welcomeTitle} className="bg-white/90" />
             </div>
             <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3">
               {TRUST.map(({ Icon, text }) => (
-                <li key={text} className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary shadow-card">
+                <li key={text} className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
                     <Icon size={16} aria-hidden="true" />
                   </span>
                   {text}
@@ -247,10 +240,10 @@ export default function WelcomeDesktop() {
           </div>
           <PhonePreview />
         </div>
-      </section>
+      </Photo>
 
-      {/* Features */}
-      <section id="features" className="scroll-mt-24 border-y border-line bg-white">
+      {/* Features: three photo stories, then the rest in a short list */}
+      <section id="features" className="scroll-mt-24 bg-white">
         <div className="mx-auto max-w-7xl px-8 py-20">
           <div className="max-w-2xl">
             <p className="text-sm font-bold uppercase tracking-wider text-primary">What it does</p>
@@ -259,19 +252,56 @@ export default function WelcomeDesktop() {
               Simple pictures and big buttons on the phone. Clear pages and reports on a computer.
             </p>
           </div>
-          <div className="mt-12 grid grid-cols-3 gap-5">
-            {FEATURES.map(({ Icon, title, text, tone }) => (
-              <article
-                key={title}
-                className="rounded-2xl border border-line bg-canvas/60 p-6 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-float"
-              >
-                <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${tone}`}>
-                  <Icon size={24} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-lg font-bold text-ink">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-soft">{text}</p>
+          <div className="mt-12 grid grid-cols-3 gap-6">
+            {STORIES.map(({ photo, label, title, text }) => (
+              <article key={title} className="group overflow-hidden rounded-3xl border border-line bg-white shadow-card transition hover:-translate-y-1 hover:shadow-float">
+                <Photo photo={photo} sizes="(min-width: 1280px) 400px, 33vw" className="aspect-[4/3]">
+                  <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-primary-dark shadow-card">
+                    {label}
+                  </span>
+                </Photo>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-ink">{title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-soft">{text}</p>
+                </div>
               </article>
             ))}
+          </div>
+          <ul className="mt-10 grid grid-cols-3 gap-x-8 gap-y-5 border-t border-line pt-10">
+            {FEATURES.map(({ Icon, title, text }) => (
+              <li key={title} className="flex gap-3">
+                <Icon size={20} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                <span>
+                  <span className="block text-sm font-bold text-ink">{title}</span>
+                  <span className="mt-0.5 block text-sm leading-relaxed text-ink-soft">{text}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Market band */}
+      <section className="border-y border-line bg-canvas">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 items-stretch gap-0 px-8 py-20">
+          <Photo photo={PHOTOS.market} sizes="(min-width: 1280px) 620px, 50vw" className="min-h-[360px] rounded-l-3xl" />
+          <div className="flex flex-col justify-center rounded-r-3xl bg-white p-12 shadow-card">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-primary">
+              <Store size={16} aria-hidden="true" /> FarmBok market
+            </p>
+            <h2 className="mt-2 text-3xl font-bold leading-tight text-ink">Harvests for sale and fair market prices</h2>
+            <p className="mt-3 text-base leading-relaxed text-ink-soft">
+              Buyers can see checked harvests from farmers across Liberia and send a request, without seeing the
+              farmer's phone number. Farmers can see what crops sell for in their county before they sell.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link to="/market" className={buttonClass("primary", "md")}>
+                See harvests for sale <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+              <Link to="/market?tab=prices" className={buttonClass("secondary", "md")}>
+                Market prices
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -304,7 +334,9 @@ export default function WelcomeDesktop() {
 
       {/* Farmer groups + call to action */}
       <section id="groups" className="mx-auto max-w-7xl scroll-mt-24 px-8 pb-20">
-        <div className="grid grid-cols-[1.2fr_1fr] items-center gap-12 overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-primary-dark p-12 text-white shadow-float">
+        <Photo photo={PHOTOS.rubber} sizes="(min-width: 1280px) 1216px, 100vw" className="rounded-3xl shadow-float">
+        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-r from-primary-dark/95 via-primary-dark/85 to-primary-dark/60" />
+        <div className="relative grid grid-cols-[1.2fr_1fr] items-center gap-12 p-12 text-white">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
               <Users size={14} aria-hidden="true" /> For farmer groups and cooperatives
@@ -345,6 +377,7 @@ export default function WelcomeDesktop() {
             ))}
           </ul>
         </div>
+        </Photo>
       </section>
 
       <footer className="border-t border-line bg-white">
@@ -367,6 +400,9 @@ export default function WelcomeDesktop() {
             </Link>
             <span>© {year}</span>
           </div>
+        </div>
+        <div className="mx-auto max-w-7xl px-8 pb-8">
+          <PhotoCredits />
         </div>
       </footer>
     </div>

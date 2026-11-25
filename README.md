@@ -267,6 +267,10 @@ FarmBok runs on Railway as three services: Backend (`/backend`), Frontend (`/fro
 | King S. Gedegar       | Design Lead      |
 | Michael T. Butler     | Pitch Lead       |
 
+## Photo credits
+
+The welcome page uses real photos of farming in Liberia from [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Agriculture_in_Liberia), all under free licences (CC BY / CC BY-SA). Each photo links to its Commons page, which names the photographer and licence, and the credits are shown in the page footer. The list lives in `frontend/src/lib/homePhotos.js`; to use your own photos, put them in `frontend/public/photos/` and change `src` there.
+
 ## License
 
 [MIT](LICENSE) © 2026 teamfive970
