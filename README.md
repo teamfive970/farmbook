@@ -7,7 +7,7 @@ Pictures and voice instead of typing. Works without network. Shows the farmer th
 
 [Live app](https://farmbok.up.railway.app) · [Deploying](DEPLOY.md) · [License](LICENSE)
 
-*Team 5 (Minders) · RETRAP AgTech Hackathon · Challenge 2: Digital Farm Records & Quality Management*
+_Team 5 (Minders) · RETRAP AgTech Hackathon · Challenge 2: Digital Farm Records & Quality Management_
 
 </div>
 
@@ -22,12 +22,29 @@ FarmBok puts one simple record book on the phone the farmer already has:
 > **Farmers record once. Everyone who needs to know, knows.**
 > The farmer sees their profit, the buyer gets a Harvest Passport, and cooperatives and the Ministry get live totals.
 
+## Future Features
 
+## Two sign-in method:
+
+- **USSD sign-up/sign-in**
+- **Online sign-up/sign-in (already implemented)**
+- **Dilect Translation (per farmer preference)**
+- **USSD Voice**
+- **Buyers getting in direct contact with farmers**
+- **Buyer getting direct mapping on the farmer scan harvest passport**
+- **Weather update (in-app, sms, USSD)**
+- **Linking Farmers to e-advisory platforms**
+- **AI analysis of farmer records**
+- **Connecting farmers to market places**
+- **Farmers getting market price in realtime (in-app, sms, USSD)**
+- **Make a way that farmers without smartphone can also use the app through USSD & SMS**
+- **Make a way that a specific farm or coorperative can benefit from micro-finance/load organization**
+- **Make a way that buyers can connect with farmers even without having to scan the Harvest passport.**
 
 ## Current Features
 
-
 ### For farmers
+
 - **Record work in a few taps:** pick the farm, the work and the day from pictures. No typing.
 - **Works offline:** every record saves on the phone first and syncs when network returns. Sign-in also works offline after the first online sign-in.
 - **Voice read-aloud:** every screen can be read out loud in simple Liberian English. On-screen text uses simple standard English.
@@ -37,10 +54,6 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Farm report:** one tap to save as **PDF** (to print or share) or **CSV** (Excel).
 - **Harvest Passport:** a QR code and printable product tag for each harvest. Buyers scan it to see where and how the crop was grown, and its grade. The farmer decides whether to share it, and the farmer's phone number and full name are never shown.
 - **Shared phones:** several farmers can use one phone, each with a private profile and PIN.
-- **Buyer requests ("Contact this farmer"):** a buyer who scans a Harvest Passport can leave their name, number, quantity and a message.
-  - The farmer is told in Messages, and by SMS if they allow it.
-  - From **Buyer requests** the farmer can call, text, share their own number (sent to the buyer by SMS) or say "not now".
-  - The farmer's number is never shown on the passport.
 - **PIN recovery** by a security question, or by SMS when configured.
 - **Messages:** one inbox with a bell and unread count. It holds news from the Ministry and the farmer's group, plus smart reminders worked out from the farmer's own records:
   - no work recorded for 3 days
@@ -48,12 +61,14 @@ FarmBok puts one simple record book on the phone the farmer already has:
   - a grade A or B harvest whose Harvest Passport is still off
 
   Reminders disappear by themselves once the job is done. The last inbox is kept on the phone, so it opens offline. Farmers choose whether important news may also come by SMS.
+
 - **Compare seasons:** this season next to the one before (or this year against the same time last year), crop by crop and animal group by animal group.
   - Shows harvest, money in, costs, profit, share of grade A and animals lost, with up and down arrows.
   - Up to three plain sentences about what changed, which the phone can read aloud.
   - Worked out on the phone, so it works offline.
 
 ### For cooperatives and the Ministry of Agriculture
+
 - **Admin dashboard** with live charts by county, crop and month, in L$ or US$.
 - **Farmer management:** search, filter, view, edit and reactivate farmers.
 - **Cooperatives:** groups with join codes, members and group totals.
@@ -83,12 +98,12 @@ FarmBok puts one simple record book on the phone the farmer already has:
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Web app | React 18, Vite 6, Tailwind CSS 4, React Router, `idb` (IndexedDB), lucide icons, installable PWA |
-| API | Node.js ≥ 20, Express 5, `pg`, bcrypt PIN hashing, Helmet, rate limiting |
-| Database | PostgreSQL, with versioned SQL migrations |
-| Hosting | Railway: Backend, Frontend and Postgres services |
+| Layer    | Technology                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| Web app  | React 18, Vite 6, Tailwind CSS 4, React Router, `idb` (IndexedDB), lucide icons, installable PWA |
+| API      | Node.js ≥ 20, Express 5, `pg`, bcrypt PIN hashing, Helmet, rate limiting                         |
+| Database | PostgreSQL, with versioned SQL migrations                                                        |
+| Hosting  | Railway: Backend, Frontend and Postgres services                                                 |
 
 ## Project structure
 
@@ -118,13 +133,16 @@ farmbook/
 **You need:** Node.js 20 or newer, and PostgreSQL 13 or newer.
 
 ### 1. Database
+
 Create a database and a user, for example:
+
 ```sql
 CREATE USER minders WITH PASSWORD 'change-me';
 CREATE DATABASE minders OWNER minders;
 ```
 
 ### 2. API
+
 ```bash
 cd backend
 cp .env.example .env          # set DATABASE_URL; the other defaults suit local work
@@ -136,21 +154,24 @@ npm run dev                   # http://127.0.0.1:8000
 ```
 
 ### 3. Web app
+
 In a second terminal:
+
 ```bash
 cd frontend
 npm install
 npm run dev                   # http://localhost:5101
 ```
+
 The dev server forwards `/api` to the API on port 8000, so no extra settings are needed. Phones on the same Wi-Fi can open the app using your computer's network address.
 
 ### Demo accounts (after `seed:demo`)
 
-| Who | Sign in with | PIN |
-|---|---|---|
-| Farmer (James Kollie, Bong) | phone `0770000001` | `123456` |
-| 40 more farmers | phones `0770000010` – `0770000049` | `123456` |
-| Admin | access code `MND-LOCAL1` at `/admin/login` | `123456` |
+| Who                         | Sign in with                               | PIN      |
+| --------------------------- | ------------------------------------------ | -------- |
+| Farmer (James Kollie, Bong) | phone `0770000001`                         | `123456` |
+| 40 more farmers             | phones `0770000010` – `0770000049`         | `123456` |
+| Admin                       | access code `MND-LOCAL1` at `/admin/login` | `123456` |
 
 > ⚠️ Demo accounts share a published PIN. `seed:demo` refuses to run in production. Use it on local and test databases only.
 
@@ -158,44 +179,44 @@ The dev server forwards `/api` to the API on port 8000, so no extra settings are
 
 ### API (`backend/.env`)
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string (**required**) |
-| `DATABASE_SSL` | `true` if the database needs SSL |
-| `NODE_ENV` | `development` or `production` |
-| `HOST`, `PORT` | Listen address. In production it defaults to `0.0.0.0`, locally to `127.0.0.1:8000` |
-| `FRONTEND_ORIGIN` | Comma-separated web app addresses allowed by CORS |
-| `AUTO_MIGRATE` | `true` applies pending migrations at start-up (on by default in development) |
-| `CREDENTIAL_KEY` | 32-byte base64 key, so admins can reveal their access code later |
-| `SESSION_DAYS`, `FARMER_SESSION_DAYS` | Session lifetimes (farmers: long, because they work offline) |
-| `BCRYPT_COST` | PIN hashing cost (default 10) |
-| `SMS_PROVIDER` | `disabled`, `console`, `twilio` or `africastalking`, for PIN reset and announcements by SMS |
-| `ANNOUNCEMENT_SMS_LIMIT` | Most SMS one announcement may send (default 1000) |
-| `DEMO_ADMIN_ACCESS_CODE`, `DEMO_ADMIN_PIN` | Shared tester login shown on the home page. The server keeps this admin working; it cannot change its code or PIN or send SMS. Delete both and the next start switches it off |
-| `ADMIN_NAME`, `ADMIN_ACCESS_CODE`, `ADMIN_PIN`, `ADMIN_PHONE` | Creates the first admin at start-up while none exists |
+| Variable                                                      | Purpose                                                                                                                                                                       |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                | PostgreSQL connection string (**required**)                                                                                                                                   |
+| `DATABASE_SSL`                                                | `true` if the database needs SSL                                                                                                                                              |
+| `NODE_ENV`                                                    | `development` or `production`                                                                                                                                                 |
+| `HOST`, `PORT`                                                | Listen address. In production it defaults to `0.0.0.0`, locally to `127.0.0.1:8000`                                                                                           |
+| `FRONTEND_ORIGIN`                                             | Comma-separated web app addresses allowed by CORS                                                                                                                             |
+| `AUTO_MIGRATE`                                                | `true` applies pending migrations at start-up (on by default in development)                                                                                                  |
+| `CREDENTIAL_KEY`                                              | 32-byte base64 key, so admins can reveal their access code later                                                                                                              |
+| `SESSION_DAYS`, `FARMER_SESSION_DAYS`                         | Session lifetimes (farmers: long, because they work offline)                                                                                                                  |
+| `BCRYPT_COST`                                                 | PIN hashing cost (default 10)                                                                                                                                                 |
+| `SMS_PROVIDER`                                                | `disabled`, `console`, `twilio` or `africastalking`, for PIN reset and announcements by SMS                                                                                   |
+| `ANNOUNCEMENT_SMS_LIMIT`                                      | Most SMS one announcement may send (default 1000)                                                                                                                             |
+| `DEMO_ADMIN_ACCESS_CODE`, `DEMO_ADMIN_PIN`                    | Shared tester login shown on the home page. The server keeps this admin working; it cannot change its code or PIN or send SMS. Delete both and the next start switches it off |
+| `ADMIN_NAME`, `ADMIN_ACCESS_CODE`, `ADMIN_PIN`, `ADMIN_PHONE` | Creates the first admin at start-up while none exists                                                                                                                         |
 
 ### Web app (`frontend/.env`)
 
-| Variable | Purpose |
-|---|---|
-| `VITE_API_URL` | The API's address, only when the API is hosted at a different address. No `/api`, no trailing slash |
-| `VITE_PUBLIC_URL` | Public address used in Harvest Passport links, QR codes and printed tags |
+| Variable          | Purpose                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `VITE_API_URL`    | The API's address, only when the API is hosted at a different address. No `/api`, no trailing slash |
+| `VITE_PUBLIC_URL` | Public address used in Harvest Passport links, QR codes and printed tags                            |
 
 Vite builds these into the app, so rebuild after changing them.
 
 ## Scripts
 
-| Where | Command | What it does |
-|---|---|---|
-| `backend/` | `npm run dev` | API with auto-reload |
-| `backend/` | `npm start` | API for production |
-| `backend/` | `npm run migrate` | Apply database migrations |
-| `backend/` | `npm run admin:create -- --name "…"` | Create an admin (prints the access code and PIN once) |
-| `backend/` | `npm run seed:demo` | Load demo farmers, harvests, sales and cooperatives |
-| `backend/` | `npm test` | API tests |
-| `frontend/` | `npm run dev` / `build` / `preview` | Web app |
-| `frontend/` | `npm test` | Web app tests |
-| root | `npm test` | Both test suites |
+| Where       | Command                              | What it does                                          |
+| ----------- | ------------------------------------ | ----------------------------------------------------- |
+| `backend/`  | `npm run dev`                        | API with auto-reload                                  |
+| `backend/`  | `npm start`                          | API for production                                    |
+| `backend/`  | `npm run migrate`                    | Apply database migrations                             |
+| `backend/`  | `npm run admin:create -- --name "…"` | Create an admin (prints the access code and PIN once) |
+| `backend/`  | `npm run seed:demo`                  | Load demo farmers, harvests, sales and cooperatives   |
+| `backend/`  | `npm test`                           | API tests                                             |
+| `frontend/` | `npm run dev` / `build` / `preview`  | Web app                                               |
+| `frontend/` | `npm test`                           | Web app tests                                         |
+| root        | `npm test`                           | Both test suites                                      |
 
 ## Testing
 
@@ -230,13 +251,13 @@ FarmBok runs on Railway as three services: Backend (`/backend`), Frontend (`/fro
 
 **Team 5 (Minders)**: RETRAP AgTech Hackathon
 
-| Name | Role |
-|---|---|
-| Nehemiah Happie Flomo | Team Lead |
-| Christian A. Harris | Tech Lead |
+| Name                  | Role             |
+| --------------------- | ---------------- |
+| Nehemiah Happie Flomo | Team Lead        |
+| Christian A. Harris   | Tech Lead        |
 | Daniella F.K. Makundu | Agriculture Lead |
-| King S. Gedegar | Design Lead |
-| Michael T. Butler | Pitch Lead |
+| King S. Gedegar       | Design Lead      |
+| Michael T. Butler     | Pitch Lead       |
 
 ## License
 
