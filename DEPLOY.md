@@ -64,6 +64,15 @@ Anyone who opens the site can use it, so **delete both variables after
 judging**. On the next start the box disappears and the tester login is
 switched off and signed out. Choosing a new code does the same to the old one.
 
+## Weather alerts and USSD (optional)
+
+- **Weather** needs nothing: the Backend asks Open-Meteo. Heavy-rain alerts run
+  on their own every 6 hours; SMS goes out only if an SMS provider is set
+  (`SMS_PROVIDER` and its keys) and the farmer allows SMS.
+- **USSD**: set `USSD_SECRET` on the Backend to a long random text, then in
+  Africa's Talking set the USSD callback URL to
+  `https://farmbook-production-abac5f39.up.railway.app/api/ussd?key=<USSD_SECRET>`.
+
 ## Demo data (test servers only)
 
 `npm run seed:demo` (in `backend/`) adds James Kollie and 40 demo farmers, all

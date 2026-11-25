@@ -14,6 +14,8 @@ import farmRoutes from "./routes/farmRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import buyerRequestRoutes from "./routes/buyerRequestRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
+import weatherRoutes from "./routes/weatherRoutes.js";
+import ussdRoutes from "./routes/ussdRoutes.js";
 import cooperativeRoutes from "./routes/cooperativeRoutes.js";
 import passportRoutes from "./routes/passportRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -107,6 +109,8 @@ export function createApp() {
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/buyer-requests", buyerRequestRoutes);
   app.use("/api/market", marketRoutes);
+  app.use("/api/weather", weatherRoutes);
+  app.use("/api/ussd", ussdRoutes);
   app.use("/api/admin", adminRoutes);
 
   app.use("/api", notFoundHandler);

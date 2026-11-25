@@ -23,6 +23,7 @@ import { farmMoney, formatMoney } from "../../lib/ledger.js";
 import { animalCount } from "../../lib/production.js";
 import { WORDS } from "../../lib/words.js";
 import { SpeakButton, useSpeakOnOpen } from "../../components/Voice.jsx";
+import WeatherCard from "../../components/WeatherCard.jsx";
 import { ICONS } from "../../lib/icons.js";
 import { farmSupportsAnimals } from "../../lib/farmTypes.js";
 
@@ -156,7 +157,8 @@ export default function Dashboard() {
         </Link>
       </section>
 
-      <div className="grid grid-cols-3 gap-3 lg:col-span-12 xl:col-span-4 lg:grid-cols-3">
+      <div className="space-y-5 lg:col-span-12 xl:col-span-4 xl:space-y-3">
+      <div className="grid grid-cols-3 gap-3 lg:grid-cols-3">
         <Link to="/app/farms" data-say={WORDS.farmsCount(farms.length).say} className="rounded-2xl bg-white p-4 shadow-card transition hover:-translate-y-0.5">
           <p className="text-xs font-medium text-ink-soft">Farms</p>
           <p className="mt-1 text-2xl font-bold text-ink">{farms.length}</p>
@@ -174,6 +176,8 @@ export default function Dashboard() {
           </p>
           <CloudUpload size={16} className={`mt-2 ${waiting > 0 ? "text-amber-500" : "text-primary"}`} />
         </Link>
+      </div>
+        <WeatherCard county={farms.find((farm) => farm.county)?.county || user.county} />
       </div>
 
       {farmCards.length > 0 && (

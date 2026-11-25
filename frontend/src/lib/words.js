@@ -836,5 +836,7 @@ Object.assign(WORDS, {
 Object.assign(WORDS, {
   pricesTitle: w(null, "Market prices", "Market prices. What other farmers sold their crops for lately. It help you to set a fair price."),
   pricesOpen: w(null, "Market prices", "See what crops are selling for."),
+  weatherTitle: w(null, "Weather", "Weather. Rain and sun for this week, and what to do on your farm."),
+  weatherOpen: w(null, "Weather", "See the weather and farm advice."),
   marketOpen: w(null, "Harvests for sale", "See harvests for sale from farmers.")
 });

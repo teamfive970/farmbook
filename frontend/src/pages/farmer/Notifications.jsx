@@ -1,6 +1,7 @@
 import {
   Bell,
   CheckCheck,
+  CloudRainWind,
   ChevronRight,
   ClipboardList,
   Handshake,
@@ -33,6 +34,7 @@ const LOOK = {
   passport: { Icon: QrCode, tone: "bg-primary-soft text-primary-dark", label: "Harvest Passport" },
   group_joined: { Icon: Users, tone: "bg-violet-100 text-violet-700", label: "My group" },
   buyer_request: { Icon: Handshake, tone: "bg-emerald-100 text-emerald-800", label: "Buyer" },
+  weather: { Icon: CloudRainWind, tone: "bg-sky-100 text-sky-800", label: "Weather" },
   welcome: { Icon: Sprout, tone: "bg-primary-soft text-primary-dark", label: "FarmBok" }
 };
 

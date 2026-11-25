@@ -43,6 +43,7 @@ import Notifications from "./pages/farmer/Notifications.jsx";
 import SeasonCompare from "./pages/farmer/SeasonCompare.jsx";
 import BuyerRequests from "./pages/farmer/BuyerRequests.jsx";
 import Prices from "./pages/farmer/Prices.jsx";
+import Weather from "./pages/farmer/Weather.jsx";
 import Market from "./pages/Market.jsx";
 import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
@@ -121,6 +122,7 @@ export default function App() {
             <Route path="compare" element={<SeasonCompare />} />
             <Route path="requests" element={<BuyerRequests />} />
             <Route path="prices" element={<Prices />} />
+            <Route path="weather" element={<Weather />} />
             <Route path="money/buyers" element={<Buyers />} />
             <Route path="money/buyers/new" element={<BuyerForm />} />
             <Route path="money/buyers/:clientId" element={<BuyerForm />} />

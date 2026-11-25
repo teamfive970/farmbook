@@ -26,18 +26,18 @@ FarmBok puts one simple record book on the phone the farmer already has:
 
 ## Two sign-in method:
 
-- **USSD sign-up/sign-in**
+- **USSD sign-up/sign-in** (implemented: USSD menu)
 - **Online sign-up/sign-in (already implemented)**
 - **Dilect Translation (per farmer preference)**
 - **USSD Voice**
 - **Buyers getting in direct contact with farmers (implemented: "Contact this farmer")**
 - **Buyer getting direct mapping on the farmer scan harvest passport**
-- **Weather update (in-app, sms, USSD)**
+- **Weather update (in-app, sms, USSD)** (implemented: Weather page, heavy-rain SMS alerts, USSD weather)
 - **Linking Farmers to e-advisory platforms**
 - **AI analysis of farmer records**
 - **Connecting farmers to market places (implemented: FarmBok market)**
-- **Farmers getting market price in realtime (in-app, sms, USSD)** (in-app implemented: Market prices)
-- **Make a way that farmers without smartphone can also use the app through USSD & SMS**
+- **Farmers getting market price in realtime (in-app, sms, USSD)** (in-app and USSD implemented)
+- **Make a way that farmers without smartphone can also use the app through USSD & SMS** (implemented: USSD menu and SMS alerts)
 - **Make a way that a specific farm or coorperative can benefit from micro-finance/load organization**
 - **Make a way that buyers can connect with farmers even without having to scan the Harvest passport.** (implemented: Harvests for sale)
 
@@ -53,6 +53,9 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Money:** sales, payments and costs in **L$ and US$, kept apart**, with profit by farm, crop and animal group. A farmer cannot sell more than was harvested.
 - **Farm report:** one tap to save as **PDF** (to print or share) or **CSV** (Excel).
 - **Harvest Passport:** a QR code and printable product tag for each harvest. Buyers scan it to see where and how the crop was grown, and its grade. The farmer decides whether to share it, and the farmer's phone number and full name are never shown.
+- **Weather and farm advice:** a 7-day forecast for the farmer's county (rain, heat, wind) on the Home screen and a Weather page, with simple advice such as "rain is coming, do not spray now" or "dry days, good time to dry your rice". The last forecast stays on the phone for offline use. Data from Open-Meteo, shared per county and cached on the server.
+- **Heavy-rain alerts:** a few times a day the server checks the forecast for every county with farmers. When heavy rain is coming in the next three days, each farmer there gets one message in the app, and one SMS if they allow SMS. The same rain day never alerts twice.
+- **USSD for any phone:** farmers without a smartphone dial a short code to make an account, sign in with their PIN, record farm work, and see the weather, market prices, their messages and their money. It is the same account as the app. Wrong PINs count toward the same lock.
 - **Shared phones:** several farmers can use one phone, each with a private profile and PIN.
 - **Buyer requests ("Contact this farmer"):** a buyer who scans a Harvest Passport can leave their name, number, quantity and a message.
   - The farmer is told in Messages, and by SMS if they allow it.
@@ -200,6 +203,10 @@ The dev server forwards `/api` to the API on port 8000, so no extra settings are
 | `SMS_PROVIDER`                                                | `disabled`, `console`, `twilio` or `africastalking`, for PIN reset and announcements by SMS                                                                                   |
 | `ANNOUNCEMENT_SMS_LIMIT`                                      | Most SMS one announcement may send (default 1000)                                                                                                                             |
 | `MARKET_MIN_FARMERS`, `MARKET_MIN_SALES` | How many different farmers and sales a market price needs before it is shown (default 3 and 3) |
+| `WEATHER_CACHE_MINUTES` | How long one county's forecast is reused before asking again (default 30) |
+| `WEATHER_API_URL` | Forecast service address (default Open-Meteo). Set `WEATHER_PROVIDER=off` to turn weather off |
+| `WEATHER_ALERTS`, `WEATHER_ALERT_HOURS`, `WEATHER_ALERT_MM` | Heavy-rain alerts: `off` to stop them, how often to check (default 6 hours), and how many mm of rain in a day counts as heavy (default 30) |
+| `USSD_SECRET` | Turns on the USSD menu. The gateway must call `/api/ussd?key=<USSD_SECRET>`; without it the address answers 404 |
 | `DEMO_ADMIN_ACCESS_CODE`, `DEMO_ADMIN_PIN`                    | Shared tester login shown on the home page. The server keeps this admin working; it cannot change its code or PIN or send SMS. Delete both and the next start switches it off |
 | `ADMIN_NAME`, `ADMIN_ACCESS_CODE`, `ADMIN_PIN`, `ADMIN_PHONE` | Creates the first admin at start-up while none exists                                                                                                                         |
 
@@ -239,6 +246,15 @@ The API tests use `DATABASE_URL`, or `postgres://postgres@127.0.0.1:5433/minders
 
 FarmBok runs on Railway as three services: Backend (`/backend`), Frontend (`/frontend`) and Postgres. Each `git push` to `main` redeploys automatically. **[DEPLOY.md](DEPLOY.md)** lists every variable, how to create the first admin, and fixes for CORS and 502 errors.
 
+## USSD setup (Africa's Talking)
+
+1. In Africa's Talking, create a USSD channel (a sandbox code works for testing, for example `*384*1234#`).
+2. On the Backend service, set `USSD_SECRET` to a long random text.
+3. Set the channel's callback URL to `https://<your-backend>/api/ussd?key=<USSD_SECRET>`.
+4. Dial the code. A new number gets "Make my account"; a known number is asked for its PIN, then sees the menu.
+
+The menu keeps no session on the server: each screen is worked out from the answers so far. A retried "save" in the same USSD session saves only once.
+
 ## Security and privacy
 
 - PINs and security answers are stored only as bcrypt hashes. Admin access codes are stored hashed, plus encrypted if `CREDENTIAL_KEY` is set.
@@ -251,7 +267,7 @@ FarmBok runs on Railway as three services: Backend (`/backend`), Frontend (`/fro
 ## Roadmap
 
 - Kpelle and Bassa voice
-- Phone pop-up notifications while the app is closed (web push), and support for basic (non-smartphone) phones through cooperative agents
+- Phone pop-up notifications while the app is closed (web push)
 - GPS farm location on the Harvest Passport, for exporter traceability
 - 4-week pilot with 10–20 farmers and a partner cooperative in Bong County
 
