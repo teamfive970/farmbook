@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
 import { PageLoading } from "../components/ui.jsx";
 import ContactFarmer from "../components/ContactFarmer.jsx";
+import { PassportMap } from "../components/FarmMap.jsx";
 import { api } from "../lib/api.js";
 import { formatDate } from "../lib/format.js";
 import { activityMeta, farmMeta, formatFarmSize } from "../lib/labels.js";
@@ -98,6 +99,7 @@ export default function Passport() {
             Farmer: {passport.farmer.firstName}
             {passport.farmer.groups.length > 0 ? ` · ${passport.farmer.groups.join(", ")}` : ""}
           </p>
+          <PassportMap farm={passport.farm} />
         </div>
 
         <div className="rounded-2xl bg-white p-5 shadow-card">

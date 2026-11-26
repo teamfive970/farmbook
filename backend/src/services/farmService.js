@@ -67,6 +67,16 @@ export function serializeFarm(row) {
     description: row.description,
     size: row.size === null || row.size === undefined ? null : Number(row.size),
     sizeUnit: row.size_unit ?? null,
+    location:
+      row.latitude === null || row.latitude === undefined
+        ? null
+        : {
+            latitude: Number(row.latitude),
+            longitude: Number(row.longitude),
+            accuracy: row.location_accuracy_m ?? null,
+            savedAt: row.location_saved_at ?? null
+          },
+    showOnMap: Boolean(row.show_on_map),
     activityCount: row.activity_count === undefined ? undefined : Number(row.activity_count),
     // When the farm changed from crop to animal or mixed (records are kept).
     typeChanges: Array.isArray(row.type_changes)
@@ -154,6 +164,35 @@ function farmFields(body, { partial = false } = {}) {
     throw badRequest("Choose acres, hectares or lots for the farm size.", { field: "sizeUnit" });
   }
   if (fields.size === null && fields.size_unit) fields.size_unit = null;
+  // GPS point, saved on the farm. null clears it.
+  if (body.location !== undefined) {
+    if (body.location === null) {
+      Object.assign(fields, { latitude: null, longitude: null, location_accuracy_m: null, location_saved_at: null });
+    } else {
+      const { latitude, longitude, accuracy, savedAt } = body.location || {};
+      const lat = Number(latitude);
+      const lon = Number(longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        throw badRequest("The farm location is not valid.", { field: "location" });
+      }
+      // Liberia and a little around it; a point far away is a phone mistake.
+      if (lat < 3.5 || lat > 9.5 || lon < -12.5 || lon > -6.5) {
+        throw badRequest("This location is not in Liberia. Save it while you are on the farm.", { field: "location" });
+      }
+      const acc = Number(accuracy);
+      const when = savedAt ? new Date(savedAt) : new Date();
+      Object.assign(fields, {
+        latitude: Math.round(lat * 1e6) / 1e6,
+        longitude: Math.round(lon * 1e6) / 1e6,
+        location_accuracy_m: Number.isFinite(acc) && acc >= 0 ? Math.min(Math.round(acc), 100000) : null,
+        location_saved_at: Number.isNaN(when.getTime()) ? new Date() : when
+      });
+    }
+  }
+  if (body.showOnMap !== undefined) {
+    if (typeof body.showOnMap !== "boolean") throw badRequest("Choose on or off.", { field: "showOnMap" });
+    fields.show_on_map = body.showOnMap;
+  }
   return fields;
 }
 
@@ -170,8 +209,9 @@ export async function createFarm(farmerId, body = {}) {
   const { rows } = await query(
     `INSERT INTO farms
       (farmer_id, client_id, farm_name, county, district, community, farm_type,
-       main_crop_or_livestock, description, size, size_unit, crops)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       main_crop_or_livestock, description, size, size_unit, crops,
+       latitude, longitude, location_accuracy_m, location_saved_at, show_on_map)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
      ON CONFLICT (farmer_id, client_id) DO NOTHING
      RETURNING *`,
     [
@@ -186,7 +226,12 @@ export async function createFarm(farmerId, body = {}) {
       fields.description,
       fields.size,
       fields.size_unit,
-      fields.crops
+      fields.crops,
+      fields.latitude ?? null,
+      fields.longitude ?? null,
+      fields.location_accuracy_m ?? null,
+      fields.location_saved_at ?? null,
+      fields.show_on_map ?? false
     ]
   );
   if (rows[0]) {

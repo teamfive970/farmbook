@@ -67,11 +67,11 @@ export default function DemoAccessCard({ variant = "card" }) {
       <section aria-label="Test login" className="border-b border-amber-200 bg-amber-50" data-say={say}>
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-8 py-3">
           <p className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-200/70 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-900">
-            <FlaskConical size={13} aria-hidden="true" /> For testers and judges
+            <FlaskConical size={13} aria-hidden="true" /> For testers
           </p>
           <p className="min-w-0 flex-1 truncate text-sm text-ink">
-            <span className="font-bold">Try the admin dashboard (Ministry view).</span>{" "}
-            <span className="text-ink-soft">Shared test login: it cannot change its code or PIN, or send SMS.</span>
+            <span className="font-bold">Try the admin dashboard (Admin view).</span>{" "}
+            <span className="text-ink-soft">Shared test login: </span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <CopyValue label="Access code" value={accessCode} inline />
@@ -92,14 +92,14 @@ export default function DemoAccessCard({ variant = "card" }) {
       data-say={say}
     >
       <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-200/70 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-900">
-        <FlaskConical size={13} aria-hidden="true" /> For testers and judges
+        <FlaskConical size={13} aria-hidden="true" /> For testers
       </p>
       <h2 className="mt-2 flex items-center gap-2 text-base font-bold text-ink">
         <LayoutDashboard size={18} className="shrink-0 text-amber-800" aria-hidden="true" />
-        Try the admin dashboard (Ministry view)
+        Try the admin dashboard (Admin view)
       </h2>
       <p className="mt-1 text-sm text-ink-soft">
-        A shared test login: you can look around and try things, but it cannot change its code or PIN, or send SMS.
+        A shared test login: you can look around and try things.
       </p>
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
         <CopyValue label="Access code" value={accessCode} />

@@ -11,6 +11,7 @@ import {
   Textarea,
   TextInput
 } from "../../components/ui.jsx";
+import FarmLocationPicker from "../../components/FarmLocationPicker.jsx";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
@@ -48,7 +49,9 @@ const EMPTY = {
   crops: [],
   description: "",
   size: "",
-  sizeUnit: "acres"
+  sizeUnit: "acres",
+  location: null,
+  showOnMap: false
 };
 
 
@@ -62,7 +65,9 @@ function toForm(farm) {
     crops: farmCrops(farm),
     description: farm.description || "",
     size: farm.size === null || farm.size === undefined ? "" : String(farm.size),
-    sizeUnit: farm.sizeUnit || "acres"
+    sizeUnit: farm.sizeUnit || "acres",
+    location: farm.location || null,
+    showOnMap: Boolean(farm.showOnMap)
   };
 }
 
@@ -223,7 +228,9 @@ export default function FarmForm() {
       mainCropOrLivestock: form.crops.join(", ").slice(0, 120) || null,
       description: form.description.trim() || null,
       size: form.size === "" ? null : Number(form.size),
-      sizeUnit: form.size === "" ? null : form.sizeUnit
+      sizeUnit: form.size === "" ? null : form.sizeUnit,
+      location: form.location,
+      showOnMap: Boolean(form.location && form.showOnMap)
     };
 
     setBusy(true);
@@ -423,6 +430,12 @@ export default function FarmForm() {
             </ChoiceButton>
           </div>
         </section>
+
+        <FarmLocationPicker
+          location={form.location}
+          showOnMap={form.showOnMap}
+          onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+        />
 
         {/* 3. Name */}
         <section className="rounded-2xl bg-white p-4 shadow-card">

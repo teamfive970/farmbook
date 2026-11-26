@@ -4,7 +4,8 @@ import { firstNameOnly } from "../lib/text.js";
 
 // Harvest Passport: what a buyer sees after scanning a batch's QR code.
 // Shown only when the farmer turned the passport on for that batch. It never
-// includes a phone number, full name or exact location below the community,
+// includes a phone number, full name or exact location (a map point is only
+// shown when the farmer allows it, rounded to about 1 km),
 // and it is clearly marked as farmer-recorded (not a certification).
 export async function getPassport(code) {
   if (typeof code !== "string" || !/^LR-[A-Z0-9]{10}$/.test(code.trim().toUpperCase())) {
@@ -12,7 +13,7 @@ export async function getPassport(code) {
   }
   const { rows } = await query(
     `SELECT h.*, f.farm_name, f.county, f.district, f.community, f.farm_type, f.size, f.size_unit,
-            f.main_crop_or_livestock, fr.full_name, fr.id AS owner_id
+            f.main_crop_or_livestock, f.latitude, f.longitude, f.show_on_map, fr.full_name, fr.id AS owner_id
      FROM harvests h
      JOIN farms f ON f.id = h.farm_id
      JOIN farmers fr ON fr.id = h.farmer_id
@@ -71,7 +72,16 @@ export async function getPassport(code) {
         community: harvest.community,
         farmType: harvest.farm_type,
         size: harvest.size === null ? null : Number(harvest.size),
-        sizeUnit: harvest.size_unit
+        sizeUnit: harvest.size_unit,
+        // Only when the farmer chose to show it, and rounded to about 1 km.
+        location:
+          harvest.show_on_map && harvest.latitude !== null
+            ? {
+                latitude: Math.round(Number(harvest.latitude) * 100) / 100,
+                longitude: Math.round(Number(harvest.longitude) * 100) / 100,
+                approximate: true
+              }
+            : null
       },
       quality: latest
         ? {

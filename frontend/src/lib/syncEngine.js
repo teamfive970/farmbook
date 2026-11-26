@@ -80,7 +80,10 @@ export function farmPayload(record) {
     crops: Array.isArray(record.crops) ? record.crops : undefined,
     description: record.description ?? null,
     size: record.size ?? null,
-    sizeUnit: record.size === null || record.size === undefined ? null : record.sizeUnit ?? null
+    sizeUnit: record.size === null || record.size === undefined ? null : record.sizeUnit ?? null,
+    // Older saved copies have no location field: leave the server's as it is.
+    location: "location" in record ? record.location ?? null : undefined,
+    showOnMap: "showOnMap" in record ? Boolean(record.showOnMap) : undefined
   };
 }
 

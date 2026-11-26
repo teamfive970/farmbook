@@ -3,6 +3,7 @@ import { WORDS, growOption } from "../../lib/words.js";
 import { useEffect, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ActivityItem from "../../components/ActivityItem.jsx";
+import { MapBox } from "../../components/FarmMap.jsx";
 import {
   Button,
   EmptyState,
@@ -148,6 +149,18 @@ export default function FarmDetail() {
             )}
           </div>
         </div>
+        {farm.location ? (
+          <div className="mt-4 space-y-2">
+            <MapBox location={farm.location} className="h-36" />
+            <p className="text-xs text-ink-soft">
+              {farm.showOnMap ? "Buyers see the farm area (about 1 km) on your Harvest Passport." : "Only you see this. Buyers do not see it."}
+            </p>
+          </div>
+        ) : (
+          <Link to={`/app/farms/${farm.id}/edit`} className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-primary" data-say="Save where your farm is.">
+            <MapPin size={16} aria-hidden="true" /> Save the farm location
+          </Link>
+        )}
 
         {farmCrops(farm).length > 0 ? (
           <div className="mt-4" data-say={`This farm has ${farmCrops(farm).join(", ")}.`}>

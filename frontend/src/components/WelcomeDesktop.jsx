@@ -43,7 +43,7 @@ const STORIES = [
     photo: PHOTOS.farmer,
     label: "Record",
     title: "Farm work, day by day",
-    text: "Planting, weeding, spraying, feeding. Tap the pictures; no typing needed. It saves on the phone first."
+    text: "Planting, weeding, spraying, feeding. Tap the pictures; typing is optional. It saves on the phone first."
   },
   {
     photo: PHOTOS.plantain,
@@ -62,7 +62,7 @@ const STORIES = [
 const STEPS = [
   { title: "Make your account", text: "Your name, phone number and a secret PIN of 4 to 6 numbers." },
   { title: "Add your farm", text: "Pick what you grow or raise, and where the farm is." },
-  { title: "Record as you work", text: "Work, harvests, sales and costs. It saves on the phone first." },
+  { title: "Record as you work", text: "Work, harvests, sales and costs." },
   { title: "See how you are doing", text: "Profit, harvest in store and reports, whenever you need them." }
 ];
 
@@ -212,7 +212,7 @@ export default function WelcomeDesktop() {
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/85">
               FarmBok helps you record your farm work, harvests, sales and costs, and see your profit. It works even
-              when there is no network, and it can read the words out loud.
+              when there is no network, it can be access on smartphone, and local (button) phone - by dialing a code.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/register" data-say={WORDS.newAccount.say} className={buttonClass("primary", "lg", "px-7 text-lg")}>
@@ -401,9 +401,9 @@ export default function WelcomeDesktop() {
             <span>© {year}</span>
           </div>
         </div>
-        <div className="mx-auto max-w-7xl px-8 pb-8">
+        {/* <div className="mx-auto max-w-7xl px-8 pb-8">
           <PhotoCredits />
-        </div>
+        </div> */}
       </footer>
     </div>
   );

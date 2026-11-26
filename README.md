@@ -31,7 +31,7 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Dilect Translation (per farmer preference)**
 - **USSD Voice**
 - **Buyers getting in direct contact with farmers (implemented: "Contact this farmer")**
-- **Buyer getting direct mapping on the farmer scan harvest passport**
+- **Buyer getting direct mapping on the farmer scan harvest passport** (implemented: farm location and passport map)
 - **Weather update (in-app, sms, USSD)** (implemented: Weather page, heavy-rain SMS alerts, USSD weather)
 - **Linking Farmers to e-advisory platforms**
 - **AI analysis of farmer records**
@@ -54,6 +54,7 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Farm report:** one tap to save as **PDF** (to print or share) or **CSV** (Excel).
 - **Harvest Passport:** a QR code and printable product tag for each harvest. Buyers scan it to see where and how the crop was grown, and its grade. The farmer decides whether to share it, and the farmer's phone number and full name are never shown.
 - **Weather and farm advice:** a 7-day forecast for the farmer's county (rain, heat, wind) on the Home screen and a Weather page, with simple advice such as "rain is coming, do not spray now" or "dry days, good time to dry your rice". The last forecast stays on the phone for offline use. Data from Open-Meteo, shared per county and cached on the server.
+- **Farm location and passport map:** standing on the farm, the farmer taps "Save my farm location" (GPS works without network). If the farmer turns on "Show my farm area to buyers", the Harvest Passport shows the farm area on a map, rounded to about 1 km, with a directions button. Without it, buyers get a map search for the town.
 - **Heavy-rain alerts:** a few times a day the server checks the forecast for every county with farmers. When heavy rain is coming in the next three days, each farmer there gets one message in the app, and one SMS if they allow SMS. The same rain day never alerts twice.
 - **USSD for any phone:** farmers without a smartphone dial a short code to make an account, sign in with their PIN, record farm work, and see the weather, market prices, their messages and their money. It is the same account as the app. Wrong PINs count toward the same lock.
 - **Shared phones:** several farmers can use one phone, each with a private profile and PIN.
@@ -268,7 +269,6 @@ The menu keeps no session on the server: each screen is worked out from the answ
 
 - Kpelle and Bassa voice
 - Phone pop-up notifications while the app is closed (web push)
-- GPS farm location on the Harvest Passport, for exporter traceability
 - 4-week pilot with 10–20 farmers and a partner cooperative in Bong County
 
 ## Team

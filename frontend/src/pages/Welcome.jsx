@@ -123,8 +123,8 @@ export default function Welcome() {
             <DemoAccessCard />
           </div>
 
-          <p className="pt-6 text-center text-xs font-semibold text-ink-soft">FarmBok · Farm records for every season</p>
-          <PhotoCredits className="mt-2 text-center" />
+          {/* <p className="pt-6 text-center text-xs font-semibold text-ink-soft">FarmBok · Farm records for every season</p>
+          <PhotoCredits className="mt-2 text-center" /> */}
         </div>
       </div>
     </>
