@@ -7,7 +7,7 @@ import { sessionDays } from "../services/authService.js";
 async function loadFarmer(userId) {
   const { rows } = await query(
     `SELECT id, full_name, phone_number, county, district, community, status,
-       security_question, photo_id, created_at
+       security_question, photo_id, preferred_language, created_at
      FROM farmers WHERE id = $1`,
     [userId]
   );
@@ -24,6 +24,7 @@ async function loadFarmer(userId) {
     status: row.status,
     hasSecurityQuestion: Boolean(row.security_question),
     photoId: row.photo_id ?? null,
+    preferredLanguage: row.preferred_language || "en",
     createdAt: row.created_at
   };
 }

@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Megaphone, Network, ScrollText, Settings, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, Megaphone, Network, PhoneCall, ScrollText, Settings, Users } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import Brand from "./Brand.jsx";
@@ -9,7 +9,8 @@ const NAV = [
   { to: "/admin/cooperatives", label: "Cooperatives", Icon: Network },
   { to: "/admin/announcements", label: "Messages", Icon: Megaphone },
   { to: "/admin/audit", label: "Audit log", Icon: ScrollText },
-  { to: "/admin/settings", label: "Settings", Icon: Settings }
+  { to: "/admin/settings", label: "Settings", Icon: Settings },
+  { to: "/ivr-simulator", label: "Voice simulator", Icon: PhoneCall }
 ];
 
 export default function AdminLayout() {

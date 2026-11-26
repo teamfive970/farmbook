@@ -73,9 +73,16 @@ switched off and signed out. Choosing a new code does the same to the old one.
   Africa's Talking set the USSD callback URL to
   `https://farmbook-production-abac5f39.up.railway.app/api/ussd?key=<USSD_SECRET>`.
 
-- **Voice menu**: set `VOICE_SECRET` and `PUBLIC_API_URL=https://farmbook-production-abac5f39.up.railway.app`
-  on the Backend, then set the Africa's Talking voice callback to
+- **Voice menu (IVR)**: works at once in the browser simulator,
+  `https://farmbok.up.railway.app/ivr-simulator`, with demo farmers (made at
+  start-up, kept out of real records). Optional: `IVR_DEMO_PIN` (default 1234),
+  `IVR_SIMULATOR=off` to hide it, `IVR_SIMULATOR_DEV=true` to allow real test
+  accounts. Real phone calls stay off until a voice provider serves Liberia:
+  then set `VOICE_PROVIDER`, `VOICE_SECRET` and
+  `PUBLIC_API_URL=https://farmbook-production-abac5f39.up.railway.app`, and point
+  the number's callback to
   `https://farmbook-production-abac5f39.up.railway.app/api/voice?key=<VOICE_SECRET>`.
+  See [docs/USSD-IVR.md](docs/USSD-IVR.md).
 
 ## Demo data (test servers only)
 

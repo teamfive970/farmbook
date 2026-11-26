@@ -1,0 +1,6 @@
+{
+  "_language": "bassa",
+  "_name": "Bassa",
+  "_status": "missing",
+  "_note": "No Bassa prompts yet. Fill in each key from en.json with a translation made and checked by native Bassa speakers (never machine translation), and record the matching audio in backend/voice-clips/bassa/. Until then the voice menu uses English and marks these prompts as missing."
+}

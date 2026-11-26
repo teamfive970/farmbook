@@ -1,4 +1,4 @@
-import { Check, Copy, FlaskConical, LayoutDashboard, LogIn } from "lucide-react";
+import { Check, Copy, FlaskConical, LayoutDashboard, LogIn, PhoneCall } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
@@ -79,6 +79,9 @@ export default function DemoAccessCard({ variant = "card" }) {
             <Link to={loginPath} state={{ accessCode }} className={buttonClass("primary", "md", "whitespace-nowrap")}>
               <LogIn size={16} aria-hidden="true" /> Admin sign-in
             </Link>
+            <Link to="/ivr-simulator" className={buttonClass("secondary", "md", "whitespace-nowrap")}>
+              <PhoneCall size={16} aria-hidden="true" /> Voice menu
+            </Link>
           </div>
         </div>
       </section>
@@ -106,6 +109,9 @@ export default function DemoAccessCard({ variant = "card" }) {
         <CopyValue label="PIN" value={pin} />
         <Link to={loginPath} state={{ accessCode }} className={buttonClass("primary", "lg", "col-span-2 w-full")}>
           <LogIn size={18} aria-hidden="true" /> Open admin sign-in
+        </Link>
+        <Link to="/ivr-simulator" className={buttonClass("secondary", "lg", "col-span-2 w-full")}>
+          <PhoneCall size={18} aria-hidden="true" /> Try the voice menu (IVR simulator)
         </Link>
       </div>
     </section>

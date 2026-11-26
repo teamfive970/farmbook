@@ -43,7 +43,7 @@ async function farmersIn(county) {
   const { rows } = await query(
     `SELECT DISTINCT f.id FROM farmers f
      LEFT JOIN farms fm ON fm.farmer_id = f.id
-     WHERE f.status = 'active' AND (f.county = $1 OR fm.county = $1)`,
+     WHERE f.status = 'active' AND NOT f.is_demo AND (f.county = $1 OR fm.county = $1)`,
     [county]
   );
   return rows.map((row) => row.id);
@@ -83,8 +83,8 @@ async function alertCounty(county, heavy) {
 export async function runWeatherAlerts() {
   const { rows } = await query(
     `SELECT DISTINCT county FROM (
-       SELECT county FROM farmers WHERE status = 'active'
-       UNION SELECT county FROM farms
+       SELECT county FROM farmers WHERE status = 'active' AND NOT is_demo
+       UNION SELECT fm.county FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
      ) c`
   );
   const results = [];

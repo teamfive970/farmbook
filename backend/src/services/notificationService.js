@@ -266,20 +266,20 @@ const AUDIENCE_TYPES = ["all", "county", "cooperative"];
 const SMS_LIMIT = () => Number(process.env.ANNOUNCEMENT_SMS_LIMIT || 1000);
 
 // The farmers an announcement reaches: active accounts only, and for a group,
-// active members only. Returns SQL that selects farmer ids, and its params.
+// active members only, never demo farmers. Returns SQL that selects farmer ids, and its params.
 function audienceSql(type, value) {
   if (type === "county") {
-    return { sql: "SELECT id FROM farmers WHERE status = 'active' AND county = $1", params: [value] };
+    return { sql: "SELECT id FROM farmers WHERE status = 'active' AND NOT is_demo AND county = $1", params: [value] };
   }
   if (type === "cooperative") {
     return {
       sql: `SELECT f.id FROM farmers f
             JOIN cooperative_members m ON m.farmer_id = f.id
-            WHERE f.status = 'active' AND m.status = 'active' AND m.cooperative_id = $1`,
+            WHERE f.status = 'active' AND NOT f.is_demo AND m.status = 'active' AND m.cooperative_id = $1`,
       params: [value]
     };
   }
-  return { sql: "SELECT id FROM farmers WHERE status = 'active'", params: [] };
+  return { sql: "SELECT id FROM farmers WHERE status = 'active' AND NOT is_demo", params: [] };
 }
 
 async function resolveAudience(input = {}) {

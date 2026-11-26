@@ -1,5 +1,7 @@
 import { Check, Languages, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import { api } from "../lib/api.js";
 import { LANGUAGES, availablePacks, currentLanguage, setLanguage } from "../lib/i18n.js";
 
 // Choose the language for the words on screen. Languages whose word pack is
@@ -10,6 +12,7 @@ export default function LanguagePicker({ compact = false }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const current = currentLanguage();
+  const { token, user } = useAuth();
 
   useEffect(() => {
     availablePacks().then(setPacks);
@@ -20,6 +23,11 @@ export default function LanguagePicker({ compact = false }) {
     setBusy(code);
     setError("");
     try {
+      // Kept on the farmer's account too, so the voice menu and USSD know it.
+      // Best effort: offline, the app still changes language.
+      if (token && user?.role === "farmer") {
+        await api.put("/api/auth/language", { language: code }, { token }).catch(() => {});
+      }
       await setLanguage(code);
     } catch (problem) {
       setError(problem.message || "Could not change the language. Try again with network.");

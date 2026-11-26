@@ -59,7 +59,7 @@ export async function listHarvestsForSale(filters = {}) {
                ORDER BY q.inspection_date DESC, q.created_at DESC LIMIT 1) AS grade
        FROM harvests h
        JOIN farms f ON f.id = h.farm_id
-       JOIN farmers fr ON fr.id = h.farmer_id
+       JOIN farmers fr ON fr.id = h.farmer_id AND NOT fr.is_demo
        WHERE h.passport_public = true AND h.deleted_at IS NULL AND fr.status = 'active'
          AND h.harvest_date >= CURRENT_DATE - $1::int
      )
@@ -77,7 +77,7 @@ export async function listHarvestsForSale(filters = {}) {
   // What there is to filter by, from everything on offer (not just this page).
   const { rows: options } = await query(
     `SELECT lower(trim(h.crop)) AS crop, f.county, count(*)::int AS n
-     FROM harvests h JOIN farms f ON f.id = h.farm_id JOIN farmers fr ON fr.id = h.farmer_id
+     FROM harvests h JOIN farms f ON f.id = h.farm_id JOIN farmers fr ON fr.id = h.farmer_id AND NOT fr.is_demo
      WHERE h.passport_public = true AND h.deleted_at IS NULL AND fr.status = 'active'
        AND h.harvest_date >= CURRENT_DATE - $1::int
        AND h.quantity > COALESCE((SELECT sum(s.quantity) FROM sales s
@@ -128,7 +128,7 @@ export async function getMarketPrices(filters = {}) {
        SELECT lower(trim(s.crop)) AS crop, s.unit, s.currency, s.farmer_id, s.sale_date,
               COALESCE(s.unit_price, s.total_amount / NULLIF(s.quantity, 0)) AS price,
               CASE WHEN s.sale_date > CURRENT_DATE - $1::int THEN 'now' ELSE 'before' END AS period
-       FROM sales s JOIN farmers fr ON fr.id = s.farmer_id
+       FROM sales s JOIN farmers fr ON fr.id = s.farmer_id AND NOT fr.is_demo
        WHERE s.deleted_at IS NULL AND fr.status = 'active'
          AND s.sale_date > CURRENT_DATE - (2 * $1::int) AND s.sale_date <= CURRENT_DATE
          AND ($2::text IS NULL OR fr.county = $2)
@@ -171,7 +171,7 @@ export async function getMarketPrices(filters = {}) {
     .sort((a, b) => a.crop.localeCompare(b.crop) || b.sales - a.sales);
 
   const { rows: places } = await query(
-    `SELECT DISTINCT fr.county FROM sales s JOIN farmers fr ON fr.id = s.farmer_id
+    `SELECT DISTINCT fr.county FROM sales s JOIN farmers fr ON fr.id = s.farmer_id AND NOT fr.is_demo
      WHERE s.deleted_at IS NULL AND fr.status = 'active' AND s.sale_date > CURRENT_DATE - $1::int
      ORDER BY 1`,
     [PRICE_DAYS]

@@ -59,7 +59,7 @@ export async function getAnalytics(params = {}) {
   const { from, to, county } = parseAnalyticsScope(params);
   // $1 = county (or null), $2 = from, $3 = to
   const scope = [county, from, to];
-  const farmerScope = `($1::text IS NULL OR f.county = $1)`;
+  const farmerScope = `NOT f.is_demo AND ($1::text IS NULL OR f.county = $1)`;
 
   const kpiResult = await query(
     `SELECT
@@ -67,24 +67,24 @@ export async function getAnalytics(params = {}) {
       (SELECT count(*)::int FROM farmers f WHERE ${farmerScope} AND f.status = 'active') AS active_farmers,
       (SELECT count(*)::int FROM farmers f WHERE ${farmerScope}
         AND f.created_at::date BETWEEN $2 AND $3) AS new_farmers,
-      (SELECT count(*)::int FROM farms fm JOIN farmers f ON f.id = fm.farmer_id WHERE ${farmerScope}) AS farms,
-      (SELECT COALESCE(sum(${HECTARES_SQL}), 0) FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+      (SELECT count(*)::int FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo WHERE ${farmerScope}) AS farms,
+      (SELECT COALESCE(sum(${HECTARES_SQL}), 0) FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
         WHERE ${farmerScope}) AS area_hectares,
-      (SELECT COALESCE(sum(fm.size), 0) FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+      (SELECT COALESCE(sum(fm.size), 0) FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
         WHERE ${farmerScope} AND fm.size_unit = 'lots') AS lots,
-      (SELECT count(*)::int FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+      (SELECT count(*)::int FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
         WHERE ${farmerScope} AND (fm.size IS NULL OR fm.size_unit IS NULL)) AS farms_without_size,
       (SELECT count(*)::int FROM cooperatives c WHERE c.status = 'active'
         AND ($1::text IS NULL OR c.county = $1)) AS cooperatives,
       (SELECT count(DISTINCT cm.farmer_id)::int FROM cooperative_members cm
         JOIN cooperatives c ON c.id = cm.cooperative_id AND c.status = 'active'
-        JOIN farmers f ON f.id = cm.farmer_id
+        JOIN farmers f ON f.id = cm.farmer_id AND NOT f.is_demo
         WHERE cm.status = 'active' AND ${farmerScope}) AS coop_members,
-      (SELECT count(*)::int FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id
+      (SELECT count(*)::int FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id AND NOT f.is_demo
         WHERE a.deleted_at IS NULL AND ${farmerScope} AND a.activity_date BETWEEN $2 AND $3) AS activities,
-      (SELECT count(*)::int FROM harvests h JOIN farmers f ON f.id = h.farmer_id
+      (SELECT count(*)::int FROM harvests h JOIN farmers f ON f.id = h.farmer_id AND NOT f.is_demo
         WHERE h.deleted_at IS NULL AND ${farmerScope} AND h.harvest_date BETWEEN $2 AND $3) AS harvests,
-      (SELECT count(*)::int FROM sales s JOIN farmers f ON f.id = s.farmer_id
+      (SELECT count(*)::int FROM sales s JOIN farmers f ON f.id = s.farmer_id AND NOT f.is_demo
         WHERE s.deleted_at IS NULL AND ${farmerScope} AND s.sale_date BETWEEN $2 AND $3) AS sales`,
     scope
   );
@@ -121,18 +121,18 @@ export async function getAnalytics(params = {}) {
        (SELECT count(*)::int FROM farmers f WHERE ${farmerScope}
          AND date_trunc('month', f.created_at)::date = m.m
          AND f.created_at::date BETWEEN $2 AND $3) AS new_farmers,
-       (SELECT count(*)::int FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id
+       (SELECT count(*)::int FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id AND NOT f.is_demo
          WHERE a.deleted_at IS NULL AND ${farmerScope}
          AND date_trunc('month', a.activity_date)::date = m.m AND a.activity_date BETWEEN $2 AND $3) AS activities,
-       (SELECT count(*)::int FROM harvests h JOIN farmers f ON f.id = h.farmer_id
+       (SELECT count(*)::int FROM harvests h JOIN farmers f ON f.id = h.farmer_id AND NOT f.is_demo
          WHERE h.deleted_at IS NULL AND ${farmerScope}
          AND date_trunc('month', h.harvest_date)::date = m.m AND h.harvest_date BETWEEN $2 AND $3) AS harvests,
        (SELECT COALESCE(sum(s.total_amount) FILTER (WHERE s.currency = 'LRD'), 0)
-         FROM sales s JOIN farmers f ON f.id = s.farmer_id
+         FROM sales s JOIN farmers f ON f.id = s.farmer_id AND NOT f.is_demo
          WHERE s.deleted_at IS NULL AND ${farmerScope}
          AND date_trunc('month', s.sale_date)::date = m.m AND s.sale_date BETWEEN $2 AND $3) AS sold_lrd,
        (SELECT COALESCE(sum(s.total_amount) FILTER (WHERE s.currency = 'USD'), 0)
-         FROM sales s JOIN farmers f ON f.id = s.farmer_id
+         FROM sales s JOIN farmers f ON f.id = s.farmer_id AND NOT f.is_demo
          WHERE s.deleted_at IS NULL AND ${farmerScope}
          AND date_trunc('month', s.sale_date)::date = m.m AND s.sale_date BETWEEN $2 AND $3) AS sold_usd
      FROM months m ORDER BY m.m`,
@@ -143,14 +143,14 @@ export async function getAnalytics(params = {}) {
 
   const farmTypeResult = await query(
     `SELECT fm.farm_type AS type, count(*)::int AS count
-     FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+     FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
      WHERE ${farmerScope} GROUP BY fm.farm_type ORDER BY count DESC`,
     [county]
   );
   const cropResult = await query(
     `SELECT upper(left(k.crop, 1)) || substr(k.crop, 2) AS crop, k.farms FROM (
        SELECT lower(regexp_replace(trim(fm.main_crop_or_livestock), '\\s+', ' ', 'g')) AS crop, count(*)::int AS farms
-       FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+       FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
        WHERE ${farmerScope} AND nullif(trim(fm.main_crop_or_livestock), '') IS NOT NULL
        GROUP BY 1
      ) k ORDER BY k.farms DESC, k.crop`,
@@ -158,7 +158,7 @@ export async function getAnalytics(params = {}) {
   );
   const activityTypeResult = await query(
     `SELECT a.activity_type AS type, count(*)::int AS count
-     FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id
+     FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id AND NOT f.is_demo
      WHERE a.deleted_at IS NULL AND ${farmerScope} AND a.activity_date BETWEEN $2 AND $3
      GROUP BY a.activity_type ORDER BY count DESC`,
     scope
@@ -219,27 +219,27 @@ export async function getAnalytics(params = {}) {
 export async function countyBreakdown({ from, to }) {
   const { rows } = await query(
     `SELECT c.county,
-       (SELECT count(*)::int FROM farmers f WHERE f.county = c.county) AS farmers,
-       (SELECT count(*)::int FROM farmers f WHERE f.county = c.county AND f.status = 'active') AS active_farmers,
-       (SELECT count(*)::int FROM farmers f WHERE f.county = c.county
+       (SELECT count(*)::int FROM farmers f WHERE NOT f.is_demo AND f.county = c.county) AS farmers,
+       (SELECT count(*)::int FROM farmers f WHERE NOT f.is_demo AND f.county = c.county AND f.status = 'active') AS active_farmers,
+       (SELECT count(*)::int FROM farmers f WHERE NOT f.is_demo AND f.county = c.county
          AND f.created_at::date BETWEEN $2 AND $3) AS new_farmers,
-       (SELECT count(*)::int FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+       (SELECT count(*)::int FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
          WHERE f.county = c.county) AS farms,
-       (SELECT COALESCE(sum(${HECTARES_SQL}), 0) FROM farms fm JOIN farmers f ON f.id = fm.farmer_id
+       (SELECT COALESCE(sum(${HECTARES_SQL}), 0) FROM farms fm JOIN farmers f ON f.id = fm.farmer_id AND NOT f.is_demo
          WHERE f.county = c.county) AS area_hectares,
        (SELECT count(DISTINCT cm.farmer_id)::int FROM cooperative_members cm
          JOIN cooperatives co ON co.id = cm.cooperative_id AND co.status = 'active'
-         JOIN farmers f ON f.id = cm.farmer_id
+         JOIN farmers f ON f.id = cm.farmer_id AND NOT f.is_demo
          WHERE cm.status = 'active' AND f.county = c.county) AS coop_members,
-       (SELECT count(*)::int FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id
+       (SELECT count(*)::int FROM farm_activities a JOIN farmers f ON f.id = a.farmer_id AND NOT f.is_demo
          WHERE a.deleted_at IS NULL AND f.county = c.county AND a.activity_date BETWEEN $2 AND $3) AS activities,
-       (SELECT count(*)::int FROM harvests h JOIN farmers f ON f.id = h.farmer_id
+       (SELECT count(*)::int FROM harvests h JOIN farmers f ON f.id = h.farmer_id AND NOT f.is_demo
          WHERE h.deleted_at IS NULL AND f.county = c.county AND h.harvest_date BETWEEN $2 AND $3) AS harvests,
        (SELECT COALESCE(sum(s.total_amount) FILTER (WHERE s.currency = 'LRD'), 0)
-         FROM sales s JOIN farmers f ON f.id = s.farmer_id
+         FROM sales s JOIN farmers f ON f.id = s.farmer_id AND NOT f.is_demo
          WHERE s.deleted_at IS NULL AND f.county = c.county AND s.sale_date BETWEEN $2 AND $3) AS sold_lrd,
        (SELECT COALESCE(sum(s.total_amount) FILTER (WHERE s.currency = 'USD'), 0)
-         FROM sales s JOIN farmers f ON f.id = s.farmer_id
+         FROM sales s JOIN farmers f ON f.id = s.farmer_id AND NOT f.is_demo
          WHERE s.deleted_at IS NULL AND f.county = c.county AND s.sale_date BETWEEN $2 AND $3) AS sold_usd
      FROM unnest($1::text[]) AS c(county)
      ORDER BY c.county`,
@@ -423,7 +423,7 @@ export async function exportDataset(dataset, params = {}) {
          JOIN cooperatives c ON c.id = cm.cooperative_id
          WHERE cm.farmer_id = f.id AND cm.status = 'active') AS cooperatives
      FROM farmers f
-     WHERE ($1::text IS NULL OR f.county = $1)
+     WHERE NOT f.is_demo AND ($1::text IS NULL OR f.county = $1)
      ORDER BY f.county, f.full_name`,
     [county, from, to]
   );

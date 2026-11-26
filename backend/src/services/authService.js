@@ -27,6 +27,7 @@ function serializeFarmer(row) {
     status: row.status,
     hasSecurityQuestion: Boolean(row.security_question),
     photoId: row.photo_id ?? null,
+    preferredLanguage: row.preferred_language || "en",
     createdAt: row.created_at
   };
 }
@@ -247,6 +248,15 @@ export async function logout(sessionId) {
     "UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
     [sessionId]
   );
+}
+
+// The farmer's language (shared by the app, USSD and the voice menu).
+export async function setPreferredLanguage(auth, body = {}) {
+  if (auth.role !== "farmer") throw badRequest("Only farmers have a language setting.");
+  const language = String(body.language || "").trim().toLowerCase();
+  if (!/^[a-z]{2,12}$/.test(language)) throw badRequest("Choose a language.", { field: "language" });
+  await query("UPDATE farmers SET preferred_language = $1, updated_at = now() WHERE id = $2", [language, auth.userId]);
+  return { preferredLanguage: language };
 }
 
 export async function changePin(auth, body = {}) {

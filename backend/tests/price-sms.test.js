@@ -95,18 +95,25 @@ test("a county with no sales gets prices for all of Liberia", async () => {
   assert.match(sent[0].message, /^FarmBok prices, Liberia/);
 });
 
-test("USSD can switch the price SMS on and off", async () => {
+test("USSD can switch the price SMS on and off (Notifications, then 2)", async () => {
   await farmer("0775552005");
-  const dial = async (text) =>
-    (
-      await fetch(`${server.baseUrl}/api/ussd?key=price-key`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ sessionId: "p1", phoneNumber: "+231775552005", text })
-      })
-    ).text();
-  assert.match(await dial("1122*6"), /every week\?\n1\. Yes/);
-  assert.match(await dial("1122*6*1"), /now ON/);
-  assert.match(await dial("1122*6"), /is ON/);
-  assert.match(await dial("1122*6*1"), /now OFF/);
+  let count = 0;
+  // Each switch is its own USSD session, like dialling again.
+  const session = () => {
+    const sessionId = `p${++count}`;
+    return async (text) =>
+      (
+        await fetch(`${server.baseUrl}/api/ussd?key=price-key`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ sessionId, phoneNumber: "+231775552005", text })
+        })
+      ).text();
+  };
+  const first = session();
+  assert.match(await first("1122*7*2"), /every week\?\n1\. Yes/);
+  assert.match(await first("1122*7*2*1"), /now ON/);
+  const second = session();
+  assert.match(await second("1122*7*2"), /is ON/);
+  assert.match(await second("1122*7*2*1"), /now OFF/);
 });

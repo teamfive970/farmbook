@@ -58,7 +58,7 @@ export async function runPriceSms({ now = new Date(), ignoreHours = false } = {}
 
   const { rows: farmers } = await query(
     `SELECT id, phone_number, county FROM farmers
-     WHERE price_sms AND status = 'active'
+     WHERE price_sms AND status = 'active' AND NOT is_demo
        AND (price_sms_sent_at IS NULL OR price_sms_sent_at <= $1)
      ORDER BY price_sms_sent_at NULLS FIRST, created_at
      LIMIT $2`,

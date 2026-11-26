@@ -1,5 +1,8 @@
 import { createApp } from "./app.js";
 import { ensureDemoAdmin } from "./lib/demoAccess.js";
+import { ensureDemoFarmers } from "./services/demoFarmerService.js";
+import { simulatorModes } from "./services/voiceService.js";
+import { deleteOldSessions } from "./channels/sessions.js";
 import { startPriceSms } from "./services/priceSmsService.js";
 import { startWeatherAlerts } from "./services/weatherAlertService.js";
 import { pool } from "./config/database.js";
@@ -79,6 +82,11 @@ async function bootstrapAdmin() {
 await prepareDatabase();
 await bootstrapAdmin();
 await ensureDemoAdmin();
+// Demo farmers for the IVR simulator's demo mode (see demoFarmerService.js).
+if (pool && simulatorModes().demo) {
+  await ensureDemoFarmers().catch((error) => console.error("Could not prepare the IVR demo farmers:", error.message));
+}
+if (pool) await deleteOldSessions().catch(() => {});
 
 const app = createApp();
 

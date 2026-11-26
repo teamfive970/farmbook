@@ -1,7 +1,14 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { loginLimiter, pinCheckLimiter, registerLimiter, smsLimiter } from "../middleware/rateLimit.js";
-import { changePin, login, logout, registerFarmer, setupRecoveryQuestion } from "../services/authService.js";
+import {
+  changePin,
+  login,
+  logout,
+  registerFarmer,
+  setPreferredLanguage,
+  setupRecoveryQuestion
+} from "../services/authService.js";
 import {
   recoverWithSecurityQuestion,
   recoverWithSms,
@@ -29,6 +36,10 @@ router.post("/logout", authenticate, async (req, res) => {
 
 router.get("/me", authenticate, (req, res) => {
   res.json({ user: req.auth.user });
+});
+
+router.put("/language", authenticate, async (req, res) => {
+  res.json(await setPreferredLanguage(req.auth, req.body));
 });
 
 router.post("/pin", authenticate, pinCheckLimiter, async (req, res) => {

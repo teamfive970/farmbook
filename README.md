@@ -48,7 +48,9 @@ FarmBok puts one simple record book on the phone the farmer already has:
 | --- | --- | --- |
 | Online sign-up and sign-in | ✅ Done | App |
 | USSD sign-up and sign-in | ✅ Done | USSD menu |
-| Voice menu over a phone call (USSD voice) | ✅ Done | Call FarmBok |
+| USSD: activities, harvests, sales, summary, weather, prices | ✅ Done | USSD menu (works with the Africa's Talking sandbox) |
+| Voice menu (IVR) with language choice, in a browser simulator | ✅ Done | `/ivr-simulator` |
+| Voice menu over a real phone call | 🟡 Adapter built, no phone line yet | Needs a voice provider and number for Liberia |
 | Farmers without a smartphone use FarmBok by USSD and SMS | ✅ Done | USSD menu, SMS alerts |
 | Weather updates (in-app, SMS, USSD) | ✅ Done | Weather page, heavy-rain SMS, USSD weather |
 | Real-time market prices (in-app, SMS, USSD) | ✅ Done | Market prices, weekly price SMS, USSD |
@@ -109,8 +111,9 @@ FarmBok puts one simple record book on the phone the farmer already has:
 
 ### For farmers without a smartphone
 
-- **USSD (any phone):** dial a short code to make an account, sign in with a PIN, record farm work, and see the weather, market prices, messages and money, or switch the weekly price SMS on and off. It is the same account as the app, and wrong PINs count toward the same lock.
-- **Voice menu (call FarmBok):** call a FarmBok number and hear the same menu, spoken, pressing keys on the phone. Made for farmers who cannot read a screen. New callers are told to sign up by USSD (a name cannot be typed with keys). Sentences recorded by a real person (Liberian English, Kpelle, …) are played instead of the computer voice; see [Recorded voice clips](#recorded-voice-clips).
+- **USSD (any phone):** dial a short code to make an account, sign in with a PIN, then record farm work, a harvest or a sale (with payment and costs), hear the farm summary, weather and market prices, read messages, or switch the weekly price SMS on and off. Same account as the app; wrong PINs count toward the same lock.
+- **Voice menu (IVR):** choose English, Kpelle or Bassa, type the PIN on the keypad, then record farm work, harvests and sales, or hear the summary, weather, prices and farm advice. Made for farmers who cannot read a screen. Try it with no phone line in the **browser IVR simulator** (`/ivr-simulator`), with demo farmers kept out of real records. Real phone calls need a voice provider for Liberia (the adapter is ready). Kpelle and Bassa prompts wait for native speakers; until then English is used and marked.
+- USSD, the voice menu and the app save through the same services, so records from any of them show up everywhere. Full details: **[docs/USSD-IVR.md](docs/USSD-IVR.md)**.
 - **SMS:** heavy-rain alerts, weekly market prices, buyer requests and announcements.
 
 ### Languages
@@ -162,13 +165,15 @@ FarmBok puts one simple record book on the phone the farmer already has:
 ```
 farmbook/
 ├── backend/                 Express API
-│   ├── db/migrations/       SQL migrations (001 … 017), applied in order
+│   ├── db/migrations/       SQL migrations (001 … 018), applied in order
 │   ├── scripts/             migrate · create-admin · seed-demo · voice-script
-│   ├── voice-clips/         recorded voice menu clips, one folder per language
+│   ├── voice-prompts/       words of the USSD and voice menus, one file per language
+│   ├── voice-clips/         recorded voice menu prompts, one folder per language
 │   ├── src/
 │   │   ├── routes/          auth, farms, activities, records, reports, passport, market, photos,
 │   │   │                    notifications, buyer requests, weather, insights, credit, USSD, voice, admin
 │   │   ├── services/        business rules and queries
+│   │   ├── channels/        USSD and voice menu: shared menu, sessions, prompts, voice providers
 │   │   ├── middleware/      auth, rate limits, errors
 │   │   └── lib/             PINs, tokens, encryption, lockout, SMS, photo cleaning, audit
 │   └── tests/               node:test suites
@@ -179,11 +184,12 @@ farmbook/
 │   │   └── images/home/     welcome page pictures
 │   ├── scripts/             i18n-export · i18n-import (translation sheets)
 │   └── src/
-│       ├── pages/           public pages (welcome, passport, market, lender record)
+│       ├── pages/           public pages (welcome, passport, market, lender record, IVR simulator)
 │       ├── pages/farmer/    farmer screens
 │       ├── pages/admin/     admin screens
 │       ├── lib/             sync engine, offline store, photos, reports, QR, voice, words, languages
 │       └── contexts/        auth, sync, voice, toasts, notifications
+├── docs/USSD-IVR.md         USSD and voice menu: architecture, simulator, testing, setup
 ├── DEPLOY.md                Railway setup and troubleshooting
 └── package.json             helper scripts for both folders
 ```
@@ -286,10 +292,16 @@ Everything runs with only `DATABASE_URL` set. The other variables switch on extr
 | Variable | Purpose |
 | --- | --- |
 | `USSD_SECRET` | Turns on the USSD menu. The gateway must call `/api/ussd?key=<USSD_SECRET>`; without it the address answers 404 |
-| `VOICE_SECRET` | Turns on the voice menu. The gateway must call `/api/voice?key=<VOICE_SECRET>` |
-| `PUBLIC_API_URL` | This backend's public address, used in the voice menu's next-step links |
+| `USSD_SESSION_MINUTES` | Idle minutes before a USSD session expires (default 5) |
+| `IVR_SIMULATOR` | `off` hides the browser IVR simulator (on by default, demo farmers only) |
+| `IVR_SIMULATOR_DEV` | `true` allows the simulator's development mode (real test accounts) on a production server |
+| `IVR_DEMO_PIN` | PIN of the simulator's demo farmers (default `1234`, shown publicly) |
+| `VOICE_PROVIDER` | Company for real calls: `none` (default) or `africastalking` |
+| `VOICE_SECRET` | Secret in the live voice callback URL `/api/voice?key=<VOICE_SECRET>` (setting it alone means Africa's Talking) |
+| `VOICE_SESSION_MINUTES` | Idle minutes before a call session expires (default 10) |
+| `PUBLIC_API_URL` | This backend's public address, used in voice callback and recording links |
 | `VOICE_SAY_VOICE` | `woman` (default) or `man` |
-| `VOICE_CLIP_LANG` | Folder of recorded clips to play in the voice menu, e.g. `en-lr` (default) or `kpe` |
+| `CHANNEL_LOG` | `off` stops the one-line log per USSD or voice step (PINs are never logged) |
 | `ANTHROPIC_API_KEY` | Turns on the AI summary in My farm insights. Without it the page uses simple rules only |
 | `INSIGHTS_MODEL`, `INSIGHTS_AI` | AI model (default `claude-haiku-5-5`); `INSIGHTS_AI=off` turns the AI off even with a key |
 
@@ -312,7 +324,7 @@ Vite builds these into the app, so rebuild after changing them.
 | `backend/`  | `npm run admin:create -- --name "…"`      | Create an admin (prints the access code and PIN once) |
 | `backend/`  | `npm run seed:demo`                       | Load demo farmers, harvests, sales and cooperatives   |
 | `backend/`  | `npm test`                                | API tests                                             |
-| `backend/`  | `npm run voice:script`                    | List the voice menu sentences to record, with file names |
+| `backend/`  | `npm run voice:script`                    | List the voice prompts to record and what is translated |
 | `frontend/` | `npm run dev` / `build` / `preview`       | Web app                                               |
 | `frontend/` | `npm test`                                | Web app tests                                         |
 | `frontend/` | `npm run i18n:export -- <language>`       | Make the translation sheet for a language             |
@@ -334,31 +346,12 @@ FarmBok runs on Railway as three services: Backend (`/backend`), Frontend (`/fro
 
 ## USSD and voice menu setup
 
-### USSD (Africa's Talking)
+Everything is in **[docs/USSD-IVR.md](docs/USSD-IVR.md)**: the menus, the call flow, the browser simulator, how to test with the free Africa's Talking USSD sandbox, recorded prompts and languages, sessions and security, every variable and endpoint, and how to connect a live voice provider later.
 
-1. In Africa's Talking, create a USSD channel (a sandbox code works for testing, for example `*384*1234#`).
-2. On the Backend service, set `USSD_SECRET` to a long random text.
-3. Set the channel's callback URL to `https://<your-backend>/api/ussd?key=<USSD_SECRET>`.
-4. Dial the code. A new number gets "Make my account"; a known number is asked for its PIN, then sees the menu.
+In short:
 
-The menu keeps no session on the server: each screen is worked out from the answers so far. A retried "save" in the same USSD session saves only once.
-
-### Voice menu (Africa's Talking Voice)
-
-1. Ask Africa's Talking for a voice number (voice@africastalking.com) on a live application.
-2. On the Backend service, set `VOICE_SECRET` to a long random text and `PUBLIC_API_URL=https://<your-backend>`.
-3. Set the voice number's callback URL to `https://<your-backend>/api/voice?key=<VOICE_SECRET>`.
-4. Call the number. The menu is the same as USSD, spoken; farmers type their PIN and press #. The keys pressed are kept in the server's memory for the call only (never in a URL).
-
-### Recorded voice clips
-
-The voice menu reads each sentence with the computer voice unless a recording of it exists. To use real voices:
-
-1. Run `npm run voice:script` in `backend/`. It writes `backend/voice-clips/RECORDING-SCRIPT.md`: every fixed sentence (about 80) with the file name its recording needs, for example `press-1-for-record-farm-work.mp3`.
-2. Record each sentence as its own short MP3 or WAV file and put it in `backend/voice-clips/<language>/`, e.g. `en-lr/` for Liberian English or `kpe/` for Kpelle. In another language, say the meaning; the file name stays the English one.
-3. Commit the files and deploy. Set `VOICE_CLIP_LANG` to the folder to use (default `en-lr`).
-
-Clips can be added a few at a time: any sentence without a clip, and any sentence with a name, price or date in it, is still read by the computer voice. The backend serves the clips to Africa's Talking at `/api/voice/clips/<language>/<file>`. Run `npm run voice:script` again after changing the USSD or voice menu: it shows which sentences are recorded and which still need a clip.
+- **USSD**: create a sandbox USSD channel in Africa's Talking, set `USSD_SECRET` on the Backend, and set the callback URL to `https://<your-backend>/api/ussd?key=<USSD_SECRET>`.
+- **Voice menu**: open `/ivr-simulator` on the web app. No phone line, number or provider is needed. Real calls stay off until `VOICE_PROVIDER` is set.
 
 ## Languages
 
@@ -401,7 +394,8 @@ To change one, replace both files with the same names, or edit `frontend/src/lib
 
 - Word packs and recorded voice for Kpelle and Bassa first, with native speakers from the pilot area
 - Phone pop-up notifications while the app is closed (web push)
-- Record the voice menu clips in Liberian English and Kpelle (support is built in)
+- Voice menu prompts translated and recorded in Kpelle and Bassa by native speakers (`npm run voice:script` lists them)
+- A voice provider and phone number that serve Liberia, for real IVR calls
 - 4-week pilot with 10–20 farmers and a partner cooperative in Bong County
 
 ## Team

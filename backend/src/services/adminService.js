@@ -58,16 +58,18 @@ function safeAction(value, field = "action") {
 
 export async function getDashboard() {
   const { rows } = await query(
-    `SELECT
-      (SELECT count(*)::int FROM farmers) AS total_farmers,
-      (SELECT count(*)::int FROM farmers WHERE status = 'active') AS active_farmers,
-      (SELECT count(*)::int FROM farmers WHERE created_at >= date_trunc('month', now())) AS farmers_this_month,
-      (SELECT count(*)::int FROM farms) AS total_farms,
-      (SELECT count(*)::int FROM farm_activities WHERE deleted_at IS NULL) AS total_activities,
+    `WITH demo AS (SELECT id FROM farmers WHERE is_demo)
+     SELECT
+      (SELECT count(*)::int FROM farmers WHERE NOT is_demo) AS total_farmers,
+      (SELECT count(*)::int FROM farmers WHERE NOT is_demo AND status = 'active') AS active_farmers,
+      (SELECT count(*)::int FROM farmers WHERE NOT is_demo AND created_at >= date_trunc('month', now())) AS farmers_this_month,
+      (SELECT count(*)::int FROM farms WHERE farmer_id NOT IN (SELECT id FROM demo)) AS total_farms,
+      (SELECT count(*)::int FROM farm_activities WHERE deleted_at IS NULL AND farmer_id NOT IN (SELECT id FROM demo)) AS total_activities,
       (SELECT count(*)::int FROM farm_activities
-        WHERE deleted_at IS NULL AND created_at >= now() - interval '7 days') AS activities_this_week,
-      (SELECT count(*)::int FROM harvests WHERE deleted_at IS NULL) AS total_harvests,
-      (SELECT count(*)::int FROM sales WHERE deleted_at IS NULL) AS total_sales,
+        WHERE deleted_at IS NULL AND created_at >= now() - interval '7 days'
+          AND farmer_id NOT IN (SELECT id FROM demo)) AS activities_this_week,
+      (SELECT count(*)::int FROM harvests WHERE deleted_at IS NULL AND farmer_id NOT IN (SELECT id FROM demo)) AS total_harvests,
+      (SELECT count(*)::int FROM sales WHERE deleted_at IS NULL AND farmer_id NOT IN (SELECT id FROM demo)) AS total_sales,
       (SELECT count(*)::int FROM cooperatives WHERE status = 'active') AS total_cooperatives`
   );
   const metrics = rows[0];
@@ -110,6 +112,8 @@ export async function listFarmers(adminAuth, req, params = {}) {
     conditions.push(`f.status = $${values.length}`);
   }
 
+  // Demo farmers (IVR simulator) are not real farmers.
+  conditions.push("NOT f.is_demo");
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const countResult = await query(`SELECT count(*)::int AS total FROM farmers f ${where}`, values);
   const { rows } = await query(

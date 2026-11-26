@@ -1,0 +1,6 @@
+{
+  "_language": "kpelle",
+  "_name": "Kpelle",
+  "_status": "missing",
+  "_note": "No Kpelle prompts yet. Fill in each key from en.json with a translation made and checked by native Kpelle speakers (never machine translation), and record the matching audio in backend/voice-clips/kpelle/. Until then the voice menu uses English and marks these prompts as missing."
+}

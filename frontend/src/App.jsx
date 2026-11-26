@@ -49,6 +49,7 @@ import Insights from "./pages/farmer/Insights.jsx";
 import Loan from "./pages/farmer/Loan.jsx";
 import CreditRecord from "./pages/CreditRecord.jsx";
 import Market from "./pages/Market.jsx";
+import IvrSimulator from "./pages/IvrSimulator.jsx";
 import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
 function ScrollToTop() {
@@ -92,6 +93,8 @@ export default function App() {
         {/* Public: buyers scan a harvest batch's QR code. */}
         <Route path="/p/:code" element={<Passport />} />
         <Route path="/market" element={<Market />} />
+        {/* Public: try the voice menu (IVR) in the browser. */}
+        <Route path="/ivr-simulator" element={<IvrSimulator />} />
         <Route path="/credit/:code" element={<CreditRecord />} />
 
         <Route element={<RequireRole role="farmer" />}>
