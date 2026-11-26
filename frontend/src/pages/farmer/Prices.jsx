@@ -1,4 +1,4 @@
-import { ChevronRight, Store } from "lucide-react";
+import { ChevronRight, MessageSquareText, Store } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketPrices from "../../components/MarketPrices.jsx";
 import { PageHeader } from "../../components/ui.jsx";
@@ -13,6 +13,18 @@ export default function Prices() {
     <div className="space-y-4">
       <PageHeader title={WORDS.pricesTitle.text} subtitle="What crops sold for lately." say={WORDS.pricesTitle} backTo="/app/money" />
       <MarketPrices defaultCounty={user?.county || "all"} wide />
+      <Link
+        to="/app/messages#sms-settings"
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
+        data-say={WORDS.priceSms.say}
+      >
+        <MessageSquareText size={22} className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block text-sm font-bold text-ink">{WORDS.priceSms.text}</span>
+          <span className="block text-xs text-ink-soft">Works on any phone. Turn it on in Messages.</span>
+        </span>
+        <ChevronRight size={18} className="text-ink-soft" aria-hidden="true" />
+      </Link>
       <Link
         to="/market"
         className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"

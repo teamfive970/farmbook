@@ -7,6 +7,8 @@
 //      prefer a West African English voice when the phone has one, speak
 //      slowly, and use simple Liberian English wording.
 
+import { ACTIVE_LANGUAGE } from "./i18nState.js";
+
 const ENABLED_KEY = "minders.voice";
 
 // Closest available accents first. Phones rarely have a Liberian voice, but
@@ -60,12 +62,24 @@ if (voiceSupported()) {
   });
 }
 
+// Clips for the chosen language (public/audio/<language>/manifest.json) come
+// first, then the shared clips (public/audio/manifest.json).
+function readClips(url, folder) {
+  return fetch(url)
+    .then((response) => (response.ok ? response.json() : { clips: {} }))
+    .then((data) =>
+      Object.fromEntries(Object.entries(data?.clips || {}).map(([key, file]) => [key, folder ? `${folder}/${file}` : file]))
+    )
+    .catch(() => ({}));
+}
+
 function loadManifest() {
   if (!manifestPromise) {
-    manifestPromise = fetch("/audio/manifest.json")
-      .then((response) => (response.ok ? response.json() : { clips: {} }))
-      .then((data) => data?.clips || {})
-      .catch(() => ({}));
+    const code = ACTIVE_LANGUAGE.code;
+    manifestPromise = Promise.all([
+      readClips("/audio/manifest.json", ""),
+      code === "en" ? Promise.resolve({}) : readClips(`/audio/${code}/manifest.json`, code)
+    ]).then(([shared, local]) => ({ ...shared, ...local }));
   }
   return manifestPromise;
 }

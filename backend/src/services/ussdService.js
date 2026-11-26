@@ -223,6 +223,23 @@ async function moneyText(farmer) {
   return end(parts.length ? `Your money (all time). ${parts.join(". ")}` : "No money records yet.");
 }
 
+async function priceSmsSwitch(answers, farmer) {
+  const { rows } = await query("SELECT price_sms FROM farmers WHERE id = $1", [farmer.id]);
+  const on = rows[0]?.price_sms;
+  const choice = answers.next();
+  if (choice === undefined) {
+    return con(
+      on
+        ? "Weekly price SMS is ON.\n1. Turn it off\n2. Keep it on"
+        : "Get market prices by SMS every week?\n1. Yes, turn it on\n2. No"
+    );
+  }
+  if (choice !== "1" && choice !== "2") return WRONG;
+  if (choice === "2") return end(on ? "OK. You will still get prices every week." : "OK. No price SMS.");
+  await query("UPDATE farmers SET price_sms = $1, updated_at = now() WHERE id = $2", [!on, farmer.id]);
+  return end(on ? "Weekly price SMS is now OFF." : "Weekly price SMS is now ON. Your first prices will come soon.");
+}
+
 async function knownFarmer(answers, farmer, sessionId) {
   const pin = answers.next();
   if (pin === undefined) return con(`FarmBok. Hello ${farmer.full_name.split(/\s+/)[0]}.\nPut your PIN:`);
@@ -244,13 +261,14 @@ async function knownFarmer(answers, farmer, sessionId) {
 
   const choice = answers.next();
   if (choice === undefined) {
-    return con("1. Record farm work\n2. Weather\n3. Market prices\n4. My messages\n5. My money");
+    return con("1. Record farm work\n2. Weather\n3. Market prices\n4. My messages\n5. My money\n6. Weekly price SMS");
   }
   if (choice === "1") return recordWork(answers, farmer, sessionId);
   if (choice === "2") return weatherText(await farmCounty(farmer));
   if (choice === "3") return pricesText(farmer.county);
   if (choice === "4") return messagesText(farmer);
   if (choice === "5") return moneyText(farmer);
+  if (choice === "6") return priceSmsSwitch(answers, farmer);
   return WRONG;
 }
 

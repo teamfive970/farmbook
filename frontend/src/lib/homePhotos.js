@@ -42,10 +42,11 @@ export const PHOTOS = {
     credit: "Plantain farm (Wiki Loves Africa 2016, Liberia)",
     position: "50% 50%"
   },
+  // FarmBok's own illustration (no credit needed): a market stall, a buyer
+  // scanning a Harvest Passport, and a card of fair market prices.
   market: {
-    ...commons("Market stall @ Monrovia, Liberia - panoramio.jpg", "8/84", [500, 960]),
-    alt: "A market stall selling rice and food in Monrovia",
-    credit: "Market stall, Monrovia (Panoramio, blk24ga)",
+    src: "/images/home/market.svg",
+    alt: "A Liberian market stall with rice, cassava, plantain and palm oil, a buyer scanning a Harvest Passport, and a market price card",
     position: "50% 50%"
   },
   rubber: {
@@ -62,4 +63,6 @@ export const PHOTOS = {
   }
 };
 
-export const PHOTO_CREDITS = Object.values(PHOTOS).map(({ credit, page }) => ({ credit, page }));
+export const PHOTO_CREDITS = Object.values(PHOTOS)
+  .filter((photo) => photo.page)
+  .map(({ credit, page }) => ({ credit, page }));

@@ -9,6 +9,7 @@ import {
   MessageSquareText,
   QrCode,
   Sprout,
+  TrendingUp,
   Users,
   Wallet,
   WifiOff
@@ -34,6 +35,7 @@ const LOOK = {
   passport: { Icon: QrCode, tone: "bg-primary-soft text-primary-dark", label: "Harvest Passport" },
   group_joined: { Icon: Users, tone: "bg-violet-100 text-violet-700", label: "My group" },
   buyer_request: { Icon: Handshake, tone: "bg-emerald-100 text-emerald-800", label: "Buyer" },
+  prices: { Icon: TrendingUp, tone: "bg-emerald-100 text-emerald-800", label: "Market prices" },
   weather: { Icon: CloudRainWind, tone: "bg-sky-100 text-sky-800", label: "Weather" },
   welcome: { Icon: Sprout, tone: "bg-primary-soft text-primary-dark", label: "FarmBok" }
 };
@@ -89,7 +91,7 @@ function MessageCard({ item, onOpen }) {
   );
 }
 
-function SmsSwitch({ on, busy, onChange }) {
+function SmsSwitch({ on, busy, onChange, words = WORDS.messagesSms, hint = "News from the Ministry and your group. Reminders stay in the app.", Icon = MessageSquareText }) {
   return (
     <button
       type="button"
@@ -97,13 +99,13 @@ function SmsSwitch({ on, busy, onChange }) {
       aria-checked={on}
       disabled={busy}
       onClick={() => onChange(!on)}
-      data-say={WORDS.messagesSms.say}
+      data-say={words.say}
       className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-card disabled:opacity-60"
     >
-      <MessageSquareText size={22} className="shrink-0 text-ink-soft" aria-hidden="true" />
+      <Icon size={22} className="shrink-0 text-ink-soft" aria-hidden="true" />
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-ink">{WORDS.messagesSms.text}</span>
-        <span className="block text-xs text-ink-soft">News from the Ministry and your group. Reminders stay in the app.</span>
+        <span className="block text-sm font-bold text-ink">{words.text}</span>
+        <span className="block text-xs text-ink-soft">{hint}</span>
       </span>
       <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-primary" : "bg-line"}`}>
         <span
@@ -169,10 +171,10 @@ export default function Notifications() {
     if (canAsk) await api.post("/api/notifications/read-all", undefined, { token }).catch(() => {});
   }
 
-  async function changeSms(on) {
+  async function changeSms(on, field = "sms") {
     setSavingSms(true);
     try {
-      const result = await api.patch("/api/notifications/settings", { sms: on }, { token });
+      const result = await api.patch("/api/notifications/settings", { [field]: on }, { token });
       save({ ...inbox, settings: result.settings });
     } catch (requestError) {
       setError(requestError.message);
@@ -180,6 +182,13 @@ export default function Notifications() {
       setSavingSms(false);
     }
   }
+
+  // "Turn it on in Messages" links straight to the SMS switches.
+  useEffect(() => {
+    if (!loading && window.location.hash === "#sms-settings") {
+      document.getElementById("sms-settings")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [loading]);
 
   if (loading) return <PageLoading label="Opening your messages…" />;
 
@@ -246,7 +255,17 @@ export default function Notifications() {
       )}
 
       {canAsk && inbox?.settings && (
-        <SmsSwitch on={inbox.settings.sms} busy={savingSms} onChange={changeSms} />
+        <div id="sms-settings" className="space-y-2">
+          <SmsSwitch on={inbox.settings.sms} busy={savingSms} onChange={changeSms} />
+          <SmsSwitch
+            on={Boolean(inbox.settings.priceSms)}
+            busy={savingSms}
+            onChange={(on) => changeSms(on, "priceSms")}
+            words={WORDS.priceSms}
+            hint="Each week: what crops are selling for in your county."
+            Icon={TrendingUp}
+          />
+        </div>
       )}
     </div>
   );

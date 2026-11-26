@@ -203,12 +203,12 @@ export async function listNotifications(farmerId) {
        ORDER BY created_at DESC, id DESC LIMIT $2`,
       [farmerId, INBOX_LIMIT]
     ),
-    query("SELECT notify_sms FROM farmers WHERE id = $1", [farmerId])
+    query("SELECT notify_sms, price_sms FROM farmers WHERE id = $1", [farmerId])
   ]);
   return {
     notifications: rows.map(serialize),
     unreadCount: await unreadCount(farmerId),
-    settings: { sms: settings.rows[0]?.notify_sms ?? true }
+    settings: { sms: settings.rows[0]?.notify_sms ?? true, priceSms: settings.rows[0]?.price_sms ?? false }
   };
 }
 
@@ -235,10 +235,27 @@ export async function markAllRead(farmerId) {
   return { unreadCount: 0 };
 }
 
+// sms: news and alerts by SMS. priceSms: the weekly market price text.
+// Either or both can be sent.
 export async function updateNotificationSettings(farmerId, body = {}) {
-  if (typeof body.sms !== "boolean") throw badRequest("Choose on or off.", { field: "sms" });
-  await query("UPDATE farmers SET notify_sms = $1, updated_at = now() WHERE id = $2", [body.sms, farmerId]);
-  return { settings: { sms: body.sms } };
+  const changes = {};
+  for (const [field, column] of [
+    ["sms", "notify_sms"],
+    ["priceSms", "price_sms"]
+  ]) {
+    if (body[field] === undefined) continue;
+    if (typeof body[field] !== "boolean") throw badRequest("Choose on or off.", { field });
+    changes[column] = body[field];
+  }
+  const columns = Object.keys(changes);
+  if (!columns.length) throw badRequest("Choose on or off.", { field: "sms" });
+  const sets = columns.map((column, index) => `${column} = $${index + 1}`).join(", ");
+  const { rows } = await query(
+    `UPDATE farmers SET ${sets}, updated_at = now() WHERE id = $${columns.length + 1}
+     RETURNING notify_sms, price_sms`,
+    [...columns.map((column) => changes[column]), farmerId]
+  );
+  return { settings: { sms: rows[0]?.notify_sms ?? true, priceSms: rows[0]?.price_sms ?? false } };
 }
 
 // ---------------------------------------------------------------------------

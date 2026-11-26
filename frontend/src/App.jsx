@@ -44,6 +44,10 @@ import SeasonCompare from "./pages/farmer/SeasonCompare.jsx";
 import BuyerRequests from "./pages/farmer/BuyerRequests.jsx";
 import Prices from "./pages/farmer/Prices.jsx";
 import Weather from "./pages/farmer/Weather.jsx";
+import Advice from "./pages/farmer/Advice.jsx";
+import Insights from "./pages/farmer/Insights.jsx";
+import Loan from "./pages/farmer/Loan.jsx";
+import CreditRecord from "./pages/CreditRecord.jsx";
 import Market from "./pages/Market.jsx";
 import { AnimalEventForm, ProductionDetail, ProductionForm } from "./pages/farmer/Productions.jsx";
 
@@ -88,6 +92,7 @@ export default function App() {
         {/* Public: buyers scan a harvest batch's QR code. */}
         <Route path="/p/:code" element={<Passport />} />
         <Route path="/market" element={<Market />} />
+        <Route path="/credit/:code" element={<CreditRecord />} />
 
         <Route element={<RequireRole role="farmer" />}>
           <Route path="/app" element={<FarmerLayout />}>
@@ -123,6 +128,9 @@ export default function App() {
             <Route path="requests" element={<BuyerRequests />} />
             <Route path="prices" element={<Prices />} />
             <Route path="weather" element={<Weather />} />
+            <Route path="advice" element={<Advice />} />
+            <Route path="insights" element={<Insights />} />
+            <Route path="loan" element={<Loan />} />
             <Route path="money/buyers" element={<Buyers />} />
             <Route path="money/buyers/new" element={<BuyerForm />} />
             <Route path="money/buyers/:clientId" element={<BuyerForm />} />

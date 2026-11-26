@@ -1,4 +1,4 @@
-import { Bell, ChartColumn, CloudSun, ClipboardList, Handshake, Tags, Fence, House, KeyRound, Loader2, MapPin, Plus, Smartphone, UserRound, Users, Wallet } from "lucide-react";
+import { Bell, ChartColumn, CloudSun, GraduationCap, HandCoins, Sparkles, ClipboardList, Handshake, Tags, Fence, House, KeyRound, Loader2, MapPin, Plus, Smartphone, UserRound, Users, Wallet } from "lucide-react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { NotificationProvider, useNotifications } from "../contexts/NotificationContext.jsx";
@@ -21,7 +21,10 @@ const NAV = [
 // Extra shortcuts shown only in the desktop side menu (there is room there).
 const DESK_MORE = [
   { to: "/app/weather", words: WORDS.weatherOpen, Icon: CloudSun },
+  { to: "/app/advice", words: WORDS.adviceOpen, Icon: GraduationCap },
+  { to: "/app/insights", words: WORDS.insightsOpen, Icon: Sparkles },
   { to: "/app/compare", words: WORDS.compareOpen, Icon: ChartColumn },
+  { to: "/app/loan", words: WORDS.loanOpen, Icon: HandCoins },
   { to: "/app/prices", words: WORDS.pricesOpen, Icon: Tags },
   { to: "/app/requests", words: WORDS.requestsOpen, Icon: Handshake },
   { to: "/app/harvests", words: { text: "Harvests", say: "See your harvests." }, Icon: ICONS.harvest },

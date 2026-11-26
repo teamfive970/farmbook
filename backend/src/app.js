@@ -16,6 +16,9 @@ import buyerRequestRoutes from "./routes/buyerRequestRoutes.js";
 import marketRoutes from "./routes/marketRoutes.js";
 import weatherRoutes from "./routes/weatherRoutes.js";
 import ussdRoutes from "./routes/ussdRoutes.js";
+import insightsRoutes from "./routes/insightsRoutes.js";
+import voiceRoutes from "./routes/voiceRoutes.js";
+import { creditRecordRoutes, creditShareRoutes } from "./routes/creditRoutes.js";
 import cooperativeRoutes from "./routes/cooperativeRoutes.js";
 import passportRoutes from "./routes/passportRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -111,6 +114,10 @@ export function createApp() {
   app.use("/api/market", marketRoutes);
   app.use("/api/weather", weatherRoutes);
   app.use("/api/ussd", ussdRoutes);
+  app.use("/api/insights", insightsRoutes);
+  app.use("/api/voice", voiceRoutes);
+  app.use("/api/credit-shares", creditShareRoutes);
+  app.use("/api/credit", creditRecordRoutes);
   app.use("/api/admin", adminRoutes);
 
   app.use("/api", notFoundHandler);

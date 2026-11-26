@@ -28,17 +28,17 @@ FarmBok puts one simple record book on the phone the farmer already has:
 
 - **USSD sign-up/sign-in** (implemented: USSD menu)
 - **Online sign-up/sign-in (already implemented)**
-- **Dilect Translation (per farmer preference)**
-- **USSD Voice**
+- **Dilect Translation (per farmer preference)** (ready for translators: language picker, word packs, recorded voice clips; packs need native speakers)
+- **USSD Voice** (implemented: voice menu over a phone call)
 - **Buyers getting in direct contact with farmers (implemented: "Contact this farmer")**
 - **Buyer getting direct mapping on the farmer scan harvest passport** (implemented: farm location and passport map)
 - **Weather update (in-app, sms, USSD)** (implemented: Weather page, heavy-rain SMS alerts, USSD weather)
-- **Linking Farmers to e-advisory platforms**
-- **AI analysis of farmer records**
+- **Linking Farmers to e-advisory platforms** (implemented: Farm advice page)
+- **AI analysis of farmer records** (implemented: My farm insights)
 - **Connecting farmers to market places (implemented: FarmBok market)**
-- **Farmers getting market price in realtime (in-app, sms, USSD)** (in-app and USSD implemented)
+- **Farmers getting market price in realtime (in-app, sms, USSD)** (implemented: in-app, USSD and weekly SMS)
 - **Make a way that farmers without smartphone can also use the app through USSD & SMS** (implemented: USSD menu and SMS alerts)
-- **Make a way that a specific farm or coorperative can benefit from micro-finance/load organization**
+- **Make a way that a specific farm or coorperative can benefit from micro-finance/load organization** (implemented: Show my record to a lender)
 - **Make a way that buyers can connect with farmers even without having to scan the Harvest passport.** (implemented: Harvests for sale)
 
 ## Current Features
@@ -55,6 +55,12 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **Harvest Passport:** a QR code and printable product tag for each harvest. Buyers scan it to see where and how the crop was grown, and its grade. The farmer decides whether to share it, and the farmer's phone number and full name are never shown.
 - **Weather and farm advice:** a 7-day forecast for the farmer's county (rain, heat, wind) on the Home screen and a Weather page, with simple advice such as "rain is coming, do not spray now" or "dry days, good time to dry your rice". The last forecast stays on the phone for offline use. Data from Open-Meteo, shared per county and cached on the server.
 - **Farm location and passport map:** standing on the farm, the farmer taps "Save my farm location" (GPS works without network). If the farmer turns on "Show my farm area to buyers", the Harvest Passport shows the farm area on a map, rounded to about 1 km, with a directions button. Without it, buyers get a map search for the town.
+- **Market prices by SMS:** farmers can switch on a weekly text of what crops sell for in their county (in Messages, or option 6 on USSD). Off by default. A county with too few sales gets prices for all of Liberia, and nothing is sent when there are no prices. A copy also goes to the app inbox.
+- **Farm advice:** a page that links farmers to extension officers (Ministry of Agriculture county contacts) and free, trusted advice: RiceAdvice (AfricaRice), farmer training videos (Access Agriculture), pest and disease factsheets (CABI PlantwisePlus), the Ministry's cocoa field-school manual and FAO Liberia. Advice for the farmer's own crops comes first. The list is in `frontend/src/lib/advisory.js`.
+- **My farm insights:** what changed this season (last 6 months) next to the season before, in plain words: profit, costs that went up or down (for example "you spent 50% more on fertilizer"), harvest changes, selling below or above the county market price, and gaps in records. Simple rules always work; if `ANTHROPIC_API_KEY` is set, an AI model also writes a short summary from the same numbers (no name or phone is sent) and it is labelled "Written by AI".
+- **Voice menu (call FarmBok):** farmers call a FarmBok number and hear the same menu as USSD, pressing keys on any phone: weather, market prices, and, after typing their PIN, record farm work, messages, money and the weekly price SMS. Made for farmers who cannot read a screen. New callers are told to sign up by USSD (a name cannot be typed with keys). Uses Africa's Talking Voice; off until `VOICE_SECRET` is set.
+- **Show my record to a lender:** the farmer makes a private link (code `CR-…`) for a micro-finance group, bank, VSLA or cooperative. The lender sees, without signing in, the last 12 months: money in and costs month by month, profit, harvests, sales and how many were fully paid, quality grades, group membership and how regularly records are kept, ready to print or save as PDF. The farmer chooses whether to show full name and phone, how long the link works (1 week, 1 month or 3 months), sees how many times it was opened, and can stop it at any time.
+- **Languages:** Me → Language lets each farmer choose the language of the words on screen. Kpelle, Bassa, Dan (Gio), Mano, Kru, Loma, Vai, Kissi, Grebo, Gola, Mandingo and Krahn appear as soon as native speakers fill in their word pack (`npm run i18n:export -- kpelle`, fill the sheet, `npm run i18n:import -- …`; see `frontend/public/i18n/README.md`). Untranslated words stay in English, and recorded clips in `public/audio/<language>/` are played by "Talk to me". No machine translation is used.
 - **Heavy-rain alerts:** a few times a day the server checks the forecast for every county with farmers. When heavy rain is coming in the next three days, each farmer there gets one message in the app, and one SMS if they allow SMS. The same rain day never alerts twice.
 - **USSD for any phone:** farmers without a smartphone dial a short code to make an account, sign in with their PIN, record farm work, and see the weather, market prices, their messages and their money. It is the same account as the app. Wrong PINs count toward the same lock.
 - **Shared phones:** several farmers can use one phone, each with a private profile and PIN.
@@ -207,6 +213,9 @@ The dev server forwards `/api` to the API on port 8000, so no extra settings are
 | `WEATHER_CACHE_MINUTES` | How long one county's forecast is reused before asking again (default 30) |
 | `WEATHER_API_URL` | Forecast service address (default Open-Meteo). Set `WEATHER_PROVIDER=off` to turn weather off |
 | `WEATHER_ALERTS`, `WEATHER_ALERT_HOURS`, `WEATHER_ALERT_MM` | Heavy-rain alerts: `off` to stop them, how often to check (default 6 hours), and how many mm of rain in a day counts as heavy (default 30) |
+| `PRICE_SMS`, `PRICE_SMS_CHECK_HOURS` | Weekly price SMS: `off` to stop it; how often to look for farmers due (default every 3 hours, texts only go out 08:00-18:00 Liberia time) |
+| `ANTHROPIC_API_KEY`, `INSIGHTS_MODEL`, `INSIGHTS_AI` | Optional AI summary on My farm insights. Without a key the page uses simple rules only. Model defaults to `claude-haiku-5-5`; `INSIGHTS_AI=off` turns the AI off |
+| `VOICE_SECRET`, `PUBLIC_API_URL`, `VOICE_SAY_VOICE` | Voice menu: the gateway calls `/api/voice?key=<VOICE_SECRET>`. `PUBLIC_API_URL` is this backend's public address (used for the next-step link if needed); `VOICE_SAY_VOICE` is `woman` or `man` |
 | `USSD_SECRET` | Turns on the USSD menu. The gateway must call `/api/ussd?key=<USSD_SECRET>`; without it the address answers 404 |
 | `DEMO_ADMIN_ACCESS_CODE`, `DEMO_ADMIN_PIN`                    | Shared tester login shown on the home page. The server keeps this admin working; it cannot change its code or PIN or send SMS. Delete both and the next start switches it off |
 | `ADMIN_NAME`, `ADMIN_ACCESS_CODE`, `ADMIN_PIN`, `ADMIN_PHONE` | Creates the first admin at start-up while none exists                                                                                                                         |
@@ -255,6 +264,13 @@ FarmBok runs on Railway as three services: Backend (`/backend`), Frontend (`/fro
 4. Dial the code. A new number gets "Make my account"; a known number is asked for its PIN, then sees the menu.
 
 The menu keeps no session on the server: each screen is worked out from the answers so far. A retried "save" in the same USSD session saves only once.
+
+### Voice menu (Africa's Talking Voice)
+
+1. Ask Africa's Talking for a voice number (voice@africastalking.com) on a live application.
+2. On the Backend service, set `VOICE_SECRET` to a long random text (and `PUBLIC_API_URL=https://<your-backend>`).
+3. Set the voice number's callback URL to `https://<your-backend>/api/voice?key=<VOICE_SECRET>`.
+4. Call the number. The menu is the same as USSD, spoken; farmers type their PIN and press #. The keys pressed are kept in the server's memory for the call only (not in any URL).
 
 ## Security and privacy
 

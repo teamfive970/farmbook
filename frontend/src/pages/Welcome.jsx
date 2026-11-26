@@ -101,22 +101,20 @@ export default function Welcome() {
           <Link
             to="/market"
             data-say="See harvests for sale and market prices."
-            className="mt-6 block overflow-hidden rounded-2xl shadow-card"
+            className="mt-6 block overflow-hidden rounded-2xl bg-white shadow-card"
           >
-            <Photo photo={PHOTOS.market} sizes="(max-width: 448px) 100vw, 448px" className="h-40">
-              <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
-                <div>
-                  <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-white/80">
-                    <Store size={14} aria-hidden="true" /> FarmBok market
-                  </p>
-                  <p className="mt-0.5 text-lg font-bold leading-tight">Harvests for sale & market prices</p>
-                </div>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-primary-dark">
-                  <ChevronRight size={20} aria-hidden="true" />
-                </span>
+            <Photo photo={PHOTOS.market} sizes="(max-width: 448px) 100vw, 448px" className="aspect-[3/2]" />
+            <div className="flex items-center justify-between gap-3 p-4">
+              <div>
+                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
+                  <Store size={14} aria-hidden="true" /> FarmBok market
+                </p>
+                <p className="mt-0.5 text-lg font-bold leading-tight text-ink">Harvests for sale & fair market prices</p>
               </div>
-            </Photo>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                <ChevronRight size={20} aria-hidden="true" />
+              </span>
+            </div>
           </Link>
 
           <div className="mt-6">

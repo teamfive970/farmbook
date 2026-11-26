@@ -1,4 +1,4 @@
-import { ChartColumn, ChevronRight, Tags } from "lucide-react";
+import { ChartColumn, ChevronRight, HandCoins, Sparkles, Tags } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChoiceButton, CropIcon, Section } from "../../components/Choices.jsx";
@@ -210,6 +210,32 @@ export default function Money() {
         <span className="flex-1">
           <span className="block text-sm font-bold text-ink">{WORDS.pricesOpen.text}</span>
           <span className="block text-xs text-ink-soft">What crops sold for lately, near you</span>
+        </span>
+        <ChevronRight size={18} className="text-ink-soft" />
+      </Link>
+
+      <Link
+        to="/app/insights"
+        data-say={WORDS.insightsOpen.say}
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card lg:col-span-6"
+      >
+        <Sparkles size={22} className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block text-sm font-bold text-ink">{WORDS.insightsOpen.text}</span>
+          <span className="block text-xs text-ink-soft">Costs, harvest and prices: what changed, in simple words</span>
+        </span>
+        <ChevronRight size={18} className="text-ink-soft" />
+      </Link>
+
+      <Link
+        to="/app/loan"
+        data-say={WORDS.loanOpen.say}
+        className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card lg:col-span-6"
+      >
+        <HandCoins size={22} className="text-primary" aria-hidden="true" />
+        <span className="flex-1">
+          <span className="block text-sm font-bold text-ink">{WORDS.loanOpen.text}</span>
+          <span className="block text-xs text-ink-soft">A private link for a loan: money in and out, harvests, sales</span>
         </span>
         <ChevronRight size={18} className="text-ink-soft" />
       </Link>

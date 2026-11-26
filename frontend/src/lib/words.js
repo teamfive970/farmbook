@@ -94,6 +94,7 @@ import {
   Wheat,
   Wind,
 } from "lucide-react";
+import { translated } from "./i18nState.js";
 
 // Words for farmers, in simple Liberian English (the English people speak
 // every day in Liberia), written so an old ma who does not read can follow when
@@ -108,8 +109,18 @@ import {
 // Please have farmers and the Agriculture Lead check these words in the pilot
 // and change any that do not sound natural.
 
+// Every phrase with a key is listed here (TRANSLATABLE), so a language pack (lib/i18n.js)
+// can swap the words shown on screen for Kpelle, Bassa and other languages.
+export const TRANSLATABLE = [];
+
+// In another language the screen shows the translated words. The voice
+// plays a recorded clip in that language when there is one (lib/speech.js);
+// without a clip it reads the English `say`, which a phone voice can say well.
 function w(key, text, say = text) {
-  return { key, text, say };
+  const local = translated(key);
+  const phrase = local ? { key, text: local.text, say, english: text } : { key, text, say };
+  if (key) TRANSLATABLE.push({ key, text, say });
+  return phrase;
 }
 
 export const WORDS = {
@@ -803,40 +814,47 @@ Object.assign(WORDS, {
 // ---------- Messages and Compare seasons ----------
 
 Object.assign(WORDS, {
-  messagesTitle: w(null, "Messages", "Your messages. News from the Ministry and your group, and small reminders about your farm."),
-  messagesNone: w(null, "No messages yet", "No message yet. When the Ministry or your group send news, it will show here."),
-  messagesNew: w(null, "New", "These ones are new."),
-  messagesEarlier: w(null, "Earlier", "These ones you saw before."),
-  messagesAllRead: w(null, "Mark all as read", "Mark all the messages as read."),
-  messagesOffline: w(null, "No network. These are the messages you last opened.", "Network not there. These the messages you saw last time."),
-  messagesSms: w(null, "Also send important messages by SMS", "Send big news to my phone by text message too."),
-  compareTitle: w(null, "Compare seasons", "See this season next to the season before. Did you harvest more? Did you keep more money?"),
-  compareOpen: w(null, "Compare seasons", "See this season next to the one before."),
+  messagesTitle: w("ui.messagesTitle", "Messages", "Your messages. News from the Ministry and your group, and small reminders about your farm."),
+  messagesNone: w("ui.messagesNone", "No messages yet", "No message yet. When the Ministry or your group send news, it will show here."),
+  messagesNew: w("ui.messagesNew", "New", "These ones are new."),
+  messagesEarlier: w("ui.messagesEarlier", "Earlier", "These ones you saw before."),
+  messagesAllRead: w("ui.messagesAllRead", "Mark all as read", "Mark all the messages as read."),
+  messagesOffline: w("ui.messagesOffline", "No network. These are the messages you last opened.", "Network not there. These the messages you saw last time."),
+  messagesSms: w("ui.messagesSms", "Also send important messages by SMS", "Send big news to my phone by text message too."),
+  compareTitle: w("ui.compareTitle", "Compare seasons", "See this season next to the season before. Did you harvest more? Did you keep more money?"),
+  compareOpen: w("ui.compareOpen", "Compare seasons", "See this season next to the one before."),
   compareNothingBefore: w(
     null,
     "Nothing recorded in the time before yet. Keep recording, and next season you will see the difference.",
     "Nothing in the time before yet. Keep putting your work, and next season you will see the difference."
   ),
-  compareNothing: w(null, "No records in these two periods yet", "Nothing to compare yet. Put your harvests, sales and costs first.")
+  compareNothing: w("ui.compareNothing", "No records in these two periods yet", "Nothing to compare yet. Put your harvests, sales and costs first.")
 });
 
 // ---------- Buyer requests ("Contact this farmer") ----------
 
 Object.assign(WORDS, {
-  requestsTitle: w(null, "Buyer requests", "Buyer requests. People who scanned your Harvest Passport and want to buy."),
-  requestsOpen: w(null, "Buyer requests", "See the buyers who want your crops."),
-  requestsNone: w(null, "No buyer requests yet", "No buyer asked yet. Turn on the Harvest Passport for your harvest, so buyers can scan it."),
-  requestCall: w(null, "Call", "Call this buyer."),
-  requestShare: w(null, "Share my number", "Send my phone number to this buyer by text message."),
-  requestDecline: w(null, "Not now", "Say no to this buyer. They will not be told.")
+  requestsTitle: w("ui.requestsTitle", "Buyer requests", "Buyer requests. People who scanned your Harvest Passport and want to buy."),
+  requestsOpen: w("ui.requestsOpen", "Buyer requests", "See the buyers who want your crops."),
+  requestsNone: w("ui.requestsNone", "No buyer requests yet", "No buyer asked yet. Turn on the Harvest Passport for your harvest, so buyers can scan it."),
+  requestCall: w("ui.requestCall", "Call", "Call this buyer."),
+  requestShare: w("ui.requestShare", "Share my number", "Send my phone number to this buyer by text message."),
+  requestDecline: w("ui.requestDecline", "Not now", "Say no to this buyer. They will not be told.")
 });
 
 // ---------- Market ----------
 
 Object.assign(WORDS, {
-  pricesTitle: w(null, "Market prices", "Market prices. What other farmers sold their crops for lately. It help you to set a fair price."),
-  pricesOpen: w(null, "Market prices", "See what crops are selling for."),
-  weatherTitle: w(null, "Weather", "Weather. Rain and sun for this week, and what to do on your farm."),
-  weatherOpen: w(null, "Weather", "See the weather and farm advice."),
-  marketOpen: w(null, "Harvests for sale", "See harvests for sale from farmers.")
+  pricesTitle: w("ui.pricesTitle", "Market prices", "Market prices. What other farmers sold their crops for lately. It help you to set a fair price."),
+  pricesOpen: w("ui.pricesOpen", "Market prices", "See what crops are selling for."),
+  priceSms: w("ui.priceSms", "Market prices by SMS every week", "Get market prices by SMS every week. Touch to turn on or off."),
+  loanTitle: w("ui.loanTitle", "Show my record to a lender", "Show my farm record to a lender, for a loan."),
+  loanOpen: w("ui.loanOpen", "Show my record to a lender", "Show my farm record to a lender, for a loan."),
+  insightsTitle: w("ui.insightsTitle", "My farm insights", "My farm insights. What changed on your farm this season."),
+  insightsOpen: w("ui.insightsOpen", "My farm insights", "See what changed on your farm this season, in simple words."),
+  adviceTitle: w("ui.adviceTitle", "Farm advice", "Farm advice. Free help from extension officers and farm experts for your crops."),
+  adviceOpen: w("ui.adviceOpen", "Farm advice", "Get free farm advice for your crops."),
+  weatherTitle: w("ui.weatherTitle", "Weather", "Weather. Rain and sun for this week, and what to do on your farm."),
+  weatherOpen: w("ui.weatherOpen", "Weather", "See the weather and farm advice."),
+  marketOpen: w("ui.marketOpen", "Harvests for sale", "See harvests for sale from farmers.")
 });

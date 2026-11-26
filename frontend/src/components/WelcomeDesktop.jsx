@@ -284,7 +284,7 @@ export default function WelcomeDesktop() {
       {/* Market band */}
       <section className="border-y border-line bg-canvas">
         <div className="mx-auto grid max-w-7xl grid-cols-2 items-stretch gap-0 px-8 py-20">
-          <Photo photo={PHOTOS.market} sizes="(min-width: 1280px) 620px, 50vw" className="min-h-[360px] rounded-l-3xl" />
+          <Photo photo={PHOTOS.market} sizes="(min-width: 1280px) 620px, 50vw" className="min-h-[400px] rounded-l-3xl" />
           <div className="flex flex-col justify-center rounded-r-3xl bg-white p-12 shadow-card">
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-primary">
               <Store size={16} aria-hidden="true" /> FarmBok market

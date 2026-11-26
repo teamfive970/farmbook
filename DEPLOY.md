@@ -73,6 +73,10 @@ switched off and signed out. Choosing a new code does the same to the old one.
   Africa's Talking set the USSD callback URL to
   `https://farmbook-production-abac5f39.up.railway.app/api/ussd?key=<USSD_SECRET>`.
 
+- **Voice menu**: set `VOICE_SECRET` and `PUBLIC_API_URL=https://farmbook-production-abac5f39.up.railway.app`
+  on the Backend, then set the Africa's Talking voice callback to
+  `https://farmbook-production-abac5f39.up.railway.app/api/voice?key=<VOICE_SECRET>`.
+
 ## Demo data (test servers only)
 
 `npm run seed:demo` (in `backend/`) adds James Kollie and 40 demo farmers, all

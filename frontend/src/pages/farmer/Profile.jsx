@@ -31,6 +31,7 @@ import { SECURITY_QUESTIONS } from "../../lib/labels.js";
 import { api } from "../../lib/api.js";
 import { rememberOfflineLogin } from "../../lib/offlineAuth.js";
 import { VoiceToggle } from "../../components/Voice.jsx";
+import LanguagePicker from "../../components/LanguagePicker.jsx";
 import { WORDS } from "../../lib/words.js";
 
 const EMPTY_PIN = { currentPin: "", newPin: "", confirmPin: "" };
@@ -135,6 +136,10 @@ export default function Profile() {
         </div>
         <VoiceToggle compact />
       </div>
+
+      <section className="rounded-2xl bg-white p-5 shadow-card lg:col-span-12">
+        <LanguagePicker />
+      </section>
 
       <div className="rounded-2xl bg-white p-5 shadow-card lg:col-span-7">
         <div className="flex items-center gap-4">

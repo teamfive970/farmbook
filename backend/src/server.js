@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { ensureDemoAdmin } from "./lib/demoAccess.js";
+import { startPriceSms } from "./services/priceSmsService.js";
 import { startWeatherAlerts } from "./services/weatherAlertService.js";
 import { pool } from "./config/database.js";
 import { encryptSecret } from "./lib/crypto.js";
@@ -85,6 +86,7 @@ const server = app.listen(port, host, () => {
   console.log(`FarmBok API listening on http://${host}:${port}`);
 });
 startWeatherAlerts();
+startPriceSms();
 
 let shuttingDown = false;
 async function shutdown(signal) {

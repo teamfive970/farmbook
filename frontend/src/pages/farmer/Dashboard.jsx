@@ -2,6 +2,7 @@ import {
   ArrowRight,
   ClipboardList,
   ClipboardPlus,
+  GraduationCap,
   CloudOff,
   ChevronRight,
   CloudUpload,
@@ -178,6 +179,20 @@ export default function Dashboard() {
         </Link>
       </div>
         <WeatherCard county={farms.find((farm) => farm.county)?.county || user.county} />
+        <Link
+          to="/app/advice"
+          data-say={WORDS.adviceOpen.say}
+          className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
+            <GraduationCap size={22} aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-ink">{WORDS.adviceOpen.text}</span>
+            <span className="block text-xs text-ink-soft">Extension officers, videos and help for your crops</span>
+          </span>
+          <ChevronRight size={18} className="text-ink-soft" aria-hidden="true" />
+        </Link>
       </div>
 
       {farmCards.length > 0 && (
