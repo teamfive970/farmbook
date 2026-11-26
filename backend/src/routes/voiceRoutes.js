@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import express, { Router } from "express";
 import rateLimit from "express-rate-limit";
+import { clipFile } from "../lib/voiceClips.js";
 import { handleVoice } from "../services/voiceService.js";
 
 // Africa's Talking Voice calls this address for each step of a call.
@@ -25,6 +26,17 @@ router.use(
     skip: () => process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true"
   })
 );
+
+// Recorded clips (backend/voice-clips/<language>/<file>). Africa's Talking
+// fetches these while the call plays, so they need no key. Only files found
+// in the clips folder are served.
+router.get("/clips/:language/:file", (req, res) => {
+  const clip = clipFile(req.params.language, req.params.file);
+  if (!clip) return res.status(404).json({ error: { code: "NOT_FOUND", message: "Not found." } });
+  res.set("Cache-Control", "public, max-age=86400");
+  res.type(clip.type);
+  return res.sendFile(clip.path);
+});
 
 router.post("/", express.urlencoded({ extended: false, limit: "10kb" }), async (req, res) => {
   if (!secretMatches(req.query.key)) {

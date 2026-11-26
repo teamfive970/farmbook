@@ -4,6 +4,7 @@ import { ApiError } from "../lib/errors.js";
 import { assertNotLocked, clearFailures, recordFailure } from "../lib/lockout.js";
 import { normalizePhone } from "../lib/phone.js";
 import { verifyPin } from "../lib/pin.js";
+import { shortPrice } from "../lib/text.js";
 import { registerFarmer } from "./authService.js";
 import { createActivity } from "./activityService.js";
 import { getMarketPrices } from "./marketService.js";
@@ -95,7 +96,7 @@ async function pricesText(county) {
   if (!data.prices.length) return end("No market prices yet. More farmers need to record sales.");
   const lines = data.prices
     .slice(0, 4)
-    .map((item) => `${item.crop} ${CURRENCY[item.currency] || ""}${Math.round(item.median)}/${String(item.unit).replace(/s$/, "")}`);
+    .map((item) => `${item.crop} ${CURRENCY[item.currency] || ""}${shortPrice(item.median)}/${String(item.unit).replace(/s$/, "")}`);
   return end(`Prices (${place}, last ${data.days} days): ${lines.join("; ")}`);
 }
 
@@ -154,6 +155,7 @@ const WORK = [
   ["Feeding animals", "feeding"],
   ["Checking the farm", "monitoring"]
 ];
+export const WORK_LABELS = WORK.map(([label]) => label);
 
 function dateOnly(daysAgo) {
   const date = new Date(Date.now() - daysAgo * 86_400_000);
@@ -183,7 +185,7 @@ async function recordWork(answers, farmer, sessionId) {
 
   // One record per USSD session, so a repeated request does not save twice.
   await createActivity(farmer.id, {
-    clientId: `ussd-${sessionId}`.slice(0, 100),
+    clientId: `ussd-session-${sessionId}`.slice(0, 100),
     farmId: farm.id,
     activityType: work[1],
     activityDate: dateOnly(dayChoice === "1" ? 0 : 1),

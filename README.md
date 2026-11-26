@@ -110,7 +110,7 @@ FarmBok puts one simple record book on the phone the farmer already has:
 ### For farmers without a smartphone
 
 - **USSD (any phone):** dial a short code to make an account, sign in with a PIN, record farm work, and see the weather, market prices, messages and money, or switch the weekly price SMS on and off. It is the same account as the app, and wrong PINs count toward the same lock.
-- **Voice menu (call FarmBok):** call a FarmBok number and hear the same menu, spoken, pressing keys on the phone. Made for farmers who cannot read a screen. New callers are told to sign up by USSD (a name cannot be typed with keys).
+- **Voice menu (call FarmBok):** call a FarmBok number and hear the same menu, spoken, pressing keys on the phone. Made for farmers who cannot read a screen. New callers are told to sign up by USSD (a name cannot be typed with keys). Sentences recorded by a real person (Liberian English, Kpelle, …) are played instead of the computer voice; see [Recorded voice clips](#recorded-voice-clips).
 - **SMS:** heavy-rain alerts, weekly market prices, buyer requests and announcements.
 
 ### Languages
@@ -163,7 +163,8 @@ FarmBok puts one simple record book on the phone the farmer already has:
 farmbook/
 ├── backend/                 Express API
 │   ├── db/migrations/       SQL migrations (001 … 017), applied in order
-│   ├── scripts/             migrate · create-admin · seed-demo
+│   ├── scripts/             migrate · create-admin · seed-demo · voice-script
+│   ├── voice-clips/         recorded voice menu clips, one folder per language
 │   ├── src/
 │   │   ├── routes/          auth, farms, activities, records, reports, passport, market, photos,
 │   │   │                    notifications, buyer requests, weather, insights, credit, USSD, voice, admin
@@ -288,6 +289,7 @@ Everything runs with only `DATABASE_URL` set. The other variables switch on extr
 | `VOICE_SECRET` | Turns on the voice menu. The gateway must call `/api/voice?key=<VOICE_SECRET>` |
 | `PUBLIC_API_URL` | This backend's public address, used in the voice menu's next-step links |
 | `VOICE_SAY_VOICE` | `woman` (default) or `man` |
+| `VOICE_CLIP_LANG` | Folder of recorded clips to play in the voice menu, e.g. `en-lr` (default) or `kpe` |
 | `ANTHROPIC_API_KEY` | Turns on the AI summary in My farm insights. Without it the page uses simple rules only |
 | `INSIGHTS_MODEL`, `INSIGHTS_AI` | AI model (default `claude-haiku-5-5`); `INSIGHTS_AI=off` turns the AI off even with a key |
 
@@ -310,6 +312,7 @@ Vite builds these into the app, so rebuild after changing them.
 | `backend/`  | `npm run admin:create -- --name "…"`      | Create an admin (prints the access code and PIN once) |
 | `backend/`  | `npm run seed:demo`                       | Load demo farmers, harvests, sales and cooperatives   |
 | `backend/`  | `npm test`                                | API tests                                             |
+| `backend/`  | `npm run voice:script`                    | List the voice menu sentences to record, with file names |
 | `frontend/` | `npm run dev` / `build` / `preview`       | Web app                                               |
 | `frontend/` | `npm test`                                | Web app tests                                         |
 | `frontend/` | `npm run i18n:export -- <language>`       | Make the translation sheet for a language             |
@@ -346,6 +349,16 @@ The menu keeps no session on the server: each screen is worked out from the answ
 2. On the Backend service, set `VOICE_SECRET` to a long random text and `PUBLIC_API_URL=https://<your-backend>`.
 3. Set the voice number's callback URL to `https://<your-backend>/api/voice?key=<VOICE_SECRET>`.
 4. Call the number. The menu is the same as USSD, spoken; farmers type their PIN and press #. The keys pressed are kept in the server's memory for the call only (never in a URL).
+
+### Recorded voice clips
+
+The voice menu reads each sentence with the computer voice unless a recording of it exists. To use real voices:
+
+1. Run `npm run voice:script` in `backend/`. It writes `backend/voice-clips/RECORDING-SCRIPT.md`: every fixed sentence (about 80) with the file name its recording needs, for example `press-1-for-record-farm-work.mp3`.
+2. Record each sentence as its own short MP3 or WAV file and put it in `backend/voice-clips/<language>/`, e.g. `en-lr/` for Liberian English or `kpe/` for Kpelle. In another language, say the meaning; the file name stays the English one.
+3. Commit the files and deploy. Set `VOICE_CLIP_LANG` to the folder to use (default `en-lr`).
+
+Clips can be added a few at a time: any sentence without a clip, and any sentence with a name, price or date in it, is still read by the computer voice. The backend serves the clips to Africa's Talking at `/api/voice/clips/<language>/<file>`. Run `npm run voice:script` again after changing the USSD or voice menu: it shows which sentences are recorded and which still need a clip.
 
 ## Languages
 
@@ -388,7 +401,7 @@ To change one, replace both files with the same names, or edit `frontend/src/lib
 
 - Word packs and recorded voice for Kpelle and Bassa first, with native speakers from the pilot area
 - Phone pop-up notifications while the app is closed (web push)
-- Spoken voice menu in local languages (recorded clips)
+- Record the voice menu clips in Liberian English and Kpelle (support is built in)
 - 4-week pilot with 10–20 farmers and a partner cooperative in Bong County
 
 ## Team

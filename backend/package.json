@@ -12,7 +12,8 @@
     "migrate": "node scripts/migrate.js",
     "admin:create": "node scripts/create-admin.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "test": "node --test --test-concurrency=1 \"tests/*.test.js\""
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\"",
+    "voice:script": "node scripts/voice-script.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

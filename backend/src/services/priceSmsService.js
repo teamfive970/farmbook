@@ -1,6 +1,7 @@
 import { query } from "../config/database.js";
 import { sendSms, smsAvailable } from "../lib/sms.js";
 import { getMarketPrices } from "./marketService.js";
+import { shortPrice } from "../lib/text.js";
 
 // Weekly market prices by SMS, for farmers who switch it on.
 //
@@ -22,7 +23,7 @@ function unitWord(unit) {
 export function priceText(place, data, max = 5) {
   const lines = data.prices
     .slice(0, max)
-    .map((item) => `${item.crop} ${CURRENCY[item.currency] || ""}${Math.round(item.median).toLocaleString("en-US")}/${unitWord(item.unit)}`);
+    .map((item) => `${item.crop} ${CURRENCY[item.currency] || ""}${shortPrice(item.median)}/${unitWord(item.unit)}`);
   return `FarmBok prices, ${place} (last ${data.days} days): ${lines.join(", ")}. Sell for a fair price!`;
 }
 

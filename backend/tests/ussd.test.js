@@ -85,6 +85,9 @@ test("a new farmer makes an account by USSD, then signs in and records work", as
   const work = await query("SELECT activity_type, notes FROM farm_activities WHERE farmer_id = $1", [rows[0].id]);
   assert.equal(work.rows.length, 1, "a retried request does not save twice");
   assert.equal(work.rows[0].activity_type, "weeding");
+  // Some gateways and simulators send very short session IDs.
+  const short = await dial("1234*1*1*2*2", { session: "s9" });
+  assert.equal(short.text, "END Saved: Planting on Swamp farm, yesterday. Thank you.");
 
   assert.match((await dial("1234*2")).text, /^END Bong: Today rain, 29C\. Tmrw: dry/);
   assert.match((await dial("1234*3")).text, /^END No market prices yet/);
