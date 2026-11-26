@@ -1,14 +1,17 @@
 import { Bell, ChartColumn, CloudSun, GraduationCap, HandCoins, Sparkles, ClipboardList, Handshake, Tags, Fence, House, KeyRound, Loader2, MapPin, Plus, Smartphone, UserRound, Users, Wallet } from "lucide-react";
+import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import { NotificationProvider, useNotifications } from "../contexts/NotificationContext.jsx";
 import { CountBadge, MessagesBell } from "./MessagesBell.jsx";
 import { useSync } from "../contexts/SyncContext.jsx";
 import Brand from "./Brand.jsx";
+import FarmerAvatar from "./FarmerAvatar.jsx";
 import { CloudSentIcon } from "./ui.jsx";
 import { VoiceToggle } from "./Voice.jsx";
 import { ICONS } from "../lib/icons.js";
 import { WORDS } from "../lib/words.js";
+import { sendWaitingPhotos } from "../lib/photos.js";
 
 const NAV = [
   { to: "/app", words: WORDS.navHome, Icon: House, end: true },
@@ -34,15 +37,6 @@ const DESK_MORE = [
 
 // Forms read best in a narrower column on a wide screen.
 const FORM_PAGE = /\/(new|edit|record|check)(\/|$)|\/check\/|\/money\/(sell|spend)|\/animal-events\/|\/money\/buyers\/./;
-
-function initials(name) {
-  return String(name || "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "")
-    .join("");
-}
 
 function DeskLink({ to, words, Icon, end, badge = 0 }) {
   return (
@@ -79,8 +73,15 @@ export default function FarmerLayout() {
 function FarmerShell() {
   const { unread } = useNotifications();
   const { syncing, online, pendingCount } = useSync();
-  const { user, needsOnlineSignIn, lock } = useAuth();
+  const { user, token, needsOnlineSignIn, lock } = useAuth();
   const pendingAccount = Boolean(user?.pendingRegistration);
+
+  // Harvest photos taken without network are sent once the records are sent.
+  useEffect(() => {
+    if (online && !syncing && pendingCount === 0 && token && user?.id && !pendingAccount) {
+      sendWaitingPhotos(user.id, token);
+    }
+  }, [online, syncing, pendingCount, token, user?.id, pendingAccount]);
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const formPage = FORM_PAGE.test(pathname || "");
@@ -114,9 +115,7 @@ function FarmerShell() {
           <Brand to="/app" size="lg" />
         </div>
         <div className="mx-4 flex items-center gap-3 rounded-2xl bg-canvas p-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white">
-            {initials(user?.fullName) || <UserRound size={20} aria-hidden="true" />}
-          </span>
+          <FarmerAvatar />
           <span className="min-w-0">
             <span className="block truncate text-sm font-bold text-ink">{user?.fullName || "Farmer"}</span>
             {place && (

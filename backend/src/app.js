@@ -18,6 +18,7 @@ import weatherRoutes from "./routes/weatherRoutes.js";
 import ussdRoutes from "./routes/ussdRoutes.js";
 import insightsRoutes from "./routes/insightsRoutes.js";
 import voiceRoutes from "./routes/voiceRoutes.js";
+import photoRoutes from "./routes/photoRoutes.js";
 import { creditRecordRoutes, creditShareRoutes } from "./routes/creditRoutes.js";
 import cooperativeRoutes from "./routes/cooperativeRoutes.js";
 import passportRoutes from "./routes/passportRoutes.js";
@@ -56,7 +57,17 @@ export function createApp() {
   if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
 
   const origins = allowedOrigins();
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          // blob: shows the farmer's own photos; the passport map comes from OpenStreetMap.
+          "img-src": ["'self'", "data:", "blob:"],
+          "frame-src": ["'self'", "https://www.openstreetmap.org"]
+        }
+      }
+    })
+  );
   app.use(
     cors({
       origin(origin, callback) {
@@ -116,6 +127,7 @@ export function createApp() {
   app.use("/api/ussd", ussdRoutes);
   app.use("/api/insights", insightsRoutes);
   app.use("/api/voice", voiceRoutes);
+  app.use("/api/photos", photoRoutes);
   app.use("/api/credit-shares", creditShareRoutes);
   app.use("/api/credit", creditRecordRoutes);
   app.use("/api/admin", adminRoutes);

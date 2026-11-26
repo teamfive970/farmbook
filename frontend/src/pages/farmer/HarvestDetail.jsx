@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CropIcon, GradeBadge, QrCode, Section } from "../../components/Choices.jsx";
 import { SpeakButton } from "../../components/Voice.jsx";
+import HarvestPhotos from "../../components/HarvestPhotos.jsx";
 import {
   Button,
   ConfirmDialog,
@@ -319,6 +320,8 @@ export default function HarvestDetail() {
           <ICONS.expense size={18} aria-hidden="true" /> Put a cost for this harvest
         </Link>
       </Section>
+
+      <HarvestPhotos harvest={harvest} className="lg:col-span-6" />
 
       {/* Harvest Passport */}
       <Section title={WORDS.passport} className="lg:col-span-6">

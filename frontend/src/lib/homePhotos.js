@@ -1,68 +1,44 @@
-// Photos of farming in Liberia used on the welcome page.
+// Pictures on the welcome page. They are FarmBok's own images, stored with the
+// app in frontend/public/images/home/ (two sizes each, so phones download the
+// small one), so they work without any outside website.
 //
-// Every photo comes from Wikimedia Commons, where files must carry a free
-// licence (CC BY, CC BY-SA or public domain). Each one is linked to its Commons
-// page, which names the photographer and the exact licence; the welcome page
-// footer shows those credits.
-//
-// To use your own photos instead: put the files in frontend/public/photos/
-// and set `src` on the entry to "/photos/your-file.jpg". Keep `alt` short and
-// describe what is in the picture.
+// To change a picture: put new files in public/images/home/ named
+// <name>-800.webp and <name>-1600.webp (or change `src` below), keep `alt`
+// short and describe what is in the picture.
 
-const COMMONS = "https://upload.wikimedia.org/wikipedia/commons/thumb";
-
-// `hash` is the folder Wikimedia stores the file in (the first characters of
-// the md5 of the file name). Widths must not be larger than the original.
-function commons(file, hash, widths) {
-  const name = encodeURIComponent(file.replace(/ /g, "_"));
-  const url = (w) => `${COMMONS}/${hash}/${name}/${w}px-${name}`;
+function local(name) {
   return {
-    src: url(widths[widths.length - 1]),
-    srcSet: widths.map((w) => `${url(w)} ${w}w`).join(", "),
-    page: `https://commons.wikimedia.org/wiki/File:${name}`
+    src: `/images/home/${name}-1600.webp`,
+    srcSet: `/images/home/${name}-800.webp 800w, /images/home/${name}-1600.webp 1600w`
   };
 }
 
 export const PHOTOS = {
-  rice: {
-    ...commons("Inland valley rice culivation in Liberia - panoramio.jpg", "c/c8", [960, 1280, 1920]),
-    alt: "Green rice growing in a swamp farm in Bong County, Liberia",
-    credit: "Inland valley rice, Suakoko, Bong County (Panoramio)",
-    position: "50% 55%"
+  // Harvest summary: harvested, sold, in store and profit in L$ and US$.
+  profit: {
+    ...local("profit"),
+    alt: "A Liberian farmer smiles at her phone showing her harvest summary and profit in L$ and US$",
+    position: "22% 40%"
   },
-  farmer: {
-    ...commons("Farmer's Wife.jpg", "7/77", [960, 1280]),
-    alt: "A Liberian woman farmer on her farm",
-    credit: "Farmer's wife (Wiki Loves Africa 2016, Liberia)",
-    position: "50% 35%"
+  // Farm journal: planting, weeding, spraying and feeding.
+  journal: {
+    ...local("journal"),
+    alt: "A farmer planting seedlings next to the FarmBok farm journal with planting, weeding, spraying and feeding",
+    position: "30% 40%"
   },
-  plantain: {
-    ...commons("Plantain Farm View.jpg", "6/66", [960, 1280]),
-    alt: "A plantain farm in Liberia",
-    credit: "Plantain farm (Wiki Loves Africa 2016, Liberia)",
-    position: "50% 50%"
+  // Harvest Passport tag with QR code, checked on a phone.
+  passport: {
+    ...local("passport"),
+    alt: "A Harvest Passport tag with a QR code on fresh vegetables, and a phone showing the harvest is verified",
+    position: "45% 50%"
   },
-  // FarmBok's own illustration (no credit needed): a market stall, a buyer
-  // scanning a Harvest Passport, and a card of fair market prices.
+  // Harvests for sale and fair market prices.
   market: {
-    src: "/images/home/market.svg",
-    alt: "A Liberian market stall with rice, cassava, plantain and palm oil, a buyer scanning a Harvest Passport, and a market price card",
-    position: "50% 50%"
-  },
-  rubber: {
-    ...commons("Rubber Tree Plantation in Margibi County, Liberia.jpg", "0/09", [960, 1280, 1920]),
-    alt: "Rows of rubber trees on a farm in Margibi County, Liberia",
-    credit: "Rubber tree plantation, Margibi County",
-    position: "50% 50%"
-  },
-  transport: {
-    ...commons("Farmer Motorbike.jpg", "b/b1", [960, 1280]),
-    alt: "A farmer with a motorbike on a farm road in Liberia",
-    credit: "Farmer and motorbike (Wiki Loves Africa 2016, Liberia)",
+    ...local("market"),
+    alt: "A farmer holding a basket of vegetables next to a laptop showing harvests for sale and market prices",
     position: "50% 50%"
   }
 };
 
-export const PHOTO_CREDITS = Object.values(PHOTOS)
-  .filter((photo) => photo.page)
-  .map(({ credit, page }) => ({ credit, page }));
+// The pictures are FarmBok's own, so there are no outside credits to show.
+export const PHOTO_CREDITS = [];

@@ -19,6 +19,9 @@ import {
   buttonClass
 } from "../../components/ui.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
+import { useAuth } from "../../contexts/AuthContext.jsx";
+import PhotoPicker from "../../components/PhotoPicker.jsx";
+import { queueHarvestPhoto, sendWaitingPhotos } from "../../lib/photos.js";
 import { useToast } from "../../contexts/ToastContext.jsx";
 import { useFarmerData } from "../../hooks/useFarmerData.js";
 import { newClientId, todayInputValue } from "../../lib/format.js";
@@ -53,6 +56,8 @@ export default function HarvestForm() {
   const [showWrite, setShowWrite] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const { user, token } = useAuth();
 
   useEffect(() => {
     if (form) return;
@@ -178,6 +183,9 @@ export default function HarvestForm() {
       const record = editing
         ? await updateRecord(existing, payload)
         : await createRecord("harvests", { clientId: newClientId(), passportPublic: false, ...payload });
+      // Photos wait on the phone with the harvest and go after it.
+      for (const blob of photos) await queueHarvestPhoto(user.id, record.clientId, blob).catch(() => {});
+      if (photos.length && online) setTimeout(() => sendWaitingPhotos(user.id, token), 4000);
       toast.success(online ? WORDS.savedSending.text : WORDS.saved.say);
       navigate(`/app/harvests/${record.clientId}`, { replace: true });
     } catch (requestError) {
@@ -281,6 +289,12 @@ export default function HarvestForm() {
         </Section>
 
         <DateChoice value={form.harvestDate} onChange={set("harvestDate")} />
+
+        {!editing && (
+          <Section title={{ text: "Photo of the harvest", say: "Take a photo of the harvest as proof. Buyers see it on the Harvest Passport." }} hint="you can leave it">
+            <PhotoPicker photos={photos} onChange={setPhotos} />
+          </Section>
+        )}
 
         <Section title={WORDS.whereKept} hint="you can leave it">
           <PictureGrid items={STORAGE_PLACES} value={form.storage} onChange={set("storage")} />

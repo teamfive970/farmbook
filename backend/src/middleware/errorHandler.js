@@ -19,6 +19,12 @@ export function errorHandler(error, req, res, next) {
     });
   }
 
+  if (error?.type === "entity.too.large") {
+    return res.status(413).json({
+      error: { code: "TOO_LARGE", message: "This is too big to send. A photo must be smaller than 1.5 MB." }
+    });
+  }
+
   if (error?.type === "entity.parse.failed") {
     return res.status(400).json({
       error: { code: "VALIDATION_ERROR", message: "The request body is not valid JSON." }

@@ -1,16 +1,54 @@
-import { CircleCheck, CircleX, Store } from "lucide-react";
+import { CircleCheck, CircleX, Store, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
 import { PageLoading } from "../components/ui.jsx";
 import ContactFarmer from "../components/ContactFarmer.jsx";
 import { PassportMap } from "../components/FarmMap.jsx";
-import { api } from "../lib/api.js";
+import { api, apiUrl } from "../lib/api.js";
 import { formatDate } from "../lib/format.js";
 import { activityMeta, farmMeta, formatFarmSize } from "../lib/labels.js";
 import { CropIcon, GradeBadge } from "../components/Choices.jsx";
 import { ICONS } from "../lib/icons.js";
 import { GRADES, QUALITY_CHECKS, unitText } from "../lib/words.js";
+
+// Photos the farmer took of this harvest. Tap one to see it bigger.
+function PassportPhotos({ photos, crop }) {
+  const [open, setOpen] = useState(null);
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-card">
+      <h2 className="text-sm font-bold text-ink">Photos of this harvest</h2>
+      <p className="text-xs text-ink-soft">Taken by the farmer.</p>
+      <ul className={`mt-3 grid gap-2 ${photos.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+        {photos.map((photo, index) => (
+          <li key={photo.id}>
+            <button
+              type="button"
+              onClick={() => setOpen(photo)}
+              className={`block w-full overflow-hidden rounded-xl bg-emerald-50 ${photos.length === 1 ? "aspect-[4/3]" : "aspect-square"}`}
+              aria-label={`See photo ${index + 1} bigger`}
+            >
+              <img src={apiUrl(photo.url)} alt={`${crop} harvest, photo ${index + 1}`} loading="lazy" className="h-full w-full object-cover" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4" role="dialog" aria-label="Harvest photo">
+          <img src={apiUrl(open.url)} alt={`${crop} harvest`} className="max-h-full max-w-full rounded-xl object-contain" />
+          <button
+            type="button"
+            onClick={() => setOpen(null)}
+            aria-label="Close"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink"
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Public Harvest Passport: what a buyer sees after scanning a batch's QR code.
 // No sign-in. Shows where the crop came from, the farm work before harvest and
@@ -74,6 +112,8 @@ export default function Passport() {
             </div>
           </div>
         </div>
+
+        {passport.photos?.length > 0 && <PassportPhotos photos={passport.photos} crop={passport.crop} />}
 
         {passport.canContact && (
           <ContactFarmer

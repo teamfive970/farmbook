@@ -1,3 +1,4 @@
+import { passportPhotoIds } from "./photoService.js";
 import { query } from "../config/database.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import { firstNameOnly } from "../lib/text.js";
@@ -56,9 +57,12 @@ export async function getPassport(code) {
   const quantitySold = Math.min(Number(sold.rows[0].quantity), Number(harvest.quantity));
 
   const latest = inspection.rows[0];
+  const photoIds = await passportPhotoIds(harvest.id);
   return {
     passport: {
       code: harvest.passport_code,
+      // Photos the farmer took of this harvest.
+      photos: photoIds.map((id) => ({ id, url: `/api/passport/${harvest.passport_code}/photos/${id}` })),
       crop: harvest.crop,
       quantity: Number(harvest.quantity),
       unit: harvest.unit,

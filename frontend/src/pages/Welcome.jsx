@@ -1,8 +1,8 @@
-import { ArrowRight, ChevronRight, Store, Volume2 } from "lucide-react";
+import { ArrowRight, ChevronRight, CloudOff, ShieldCheck, Store, Volume2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
 import DemoAccessCard from "../components/DemoAccessCard.jsx";
-import { Photo, PhotoCredits } from "../components/Photo.jsx";
+import { Photo } from "../components/Photo.jsx";
 import WelcomeDesktop from "../components/WelcomeDesktop.jsx";
 import { SpeakButton, VoiceToggle, useSpeakOnOpen } from "../components/Voice.jsx";
 import { buttonClass } from "../components/ui.jsx";
@@ -10,21 +10,30 @@ import { PHOTOS } from "../lib/homePhotos.js";
 import { WORDS } from "../lib/words.js";
 
 // Short sentences in simple Liberian English. Each one can be heard.
-const POINTS = [
+const STORIES = [
   {
-    photo: PHOTOS.farmer,
+    photo: PHOTOS.journal,
     title: "Keep your farm work",
-    text: "Planting, weeding, feeding, all of it.",
-    say: "Keep all your farm work in your phone. Planting, weeding, feeding, all of it."
+    text: "Planting, weeding, spraying, feeding. Tap the pictures.",
+    say: "Keep all your farm work in your phone. Planting, weeding, spraying, feeding. Just tap the pictures."
   },
   {
-    photo: PHOTOS.transport,
+    photo: PHOTOS.passport,
+    title: "Show buyers your Harvest Passport",
+    text: "A QR tag tells buyers where your crop came from.",
+    say: "Your Harvest Passport. A QR tag tells buyers where your crop came from and that it was checked."
+  }
+];
+
+const POINTS = [
+  {
+    Icon: CloudOff,
     title: "No network? No problem",
     text: "It will stay on your phone and go later.",
     say: "Network not there? No problem. Your work will stay on your phone and go on the internet later."
   },
   {
-    photo: PHOTOS.plantain,
+    Icon: ShieldCheck,
     title: "Only you can see it",
     text: "Your phone number and secret PIN keep it safe.",
     say: "Only you can see your work. Your phone number and your secret PIN keep it safe."
@@ -42,7 +51,7 @@ export default function Welcome() {
 
       <div className="min-h-dvh bg-canvas lg:hidden">
         {/* Photo hero */}
-        <Photo photo={PHOTOS.rice} eager sizes="100vw" className="h-[60dvh] max-h-[560px] min-h-[400px]">
+        <Photo photo={{ ...PHOTOS.profit, position: "6% 40%" }} eager sizes="100vw" className="h-[60dvh] max-h-[560px] min-h-[400px]">
           <div
             aria-hidden="true"
             className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/80"
@@ -85,14 +94,23 @@ export default function Welcome() {
           </div>
 
           <h2 className="mt-9 text-lg font-bold text-ink">What FarmBok does for you</h2>
-          <ul className="mt-3 space-y-3">
-            {POINTS.map(({ photo, title, text, say }) => (
-              <li key={title} className="flex items-center gap-3 overflow-hidden rounded-2xl bg-white p-2 pr-4 shadow-card" data-say={say}>
-                <Photo photo={photo} sizes="96px" className="h-24 w-24 shrink-0 rounded-xl" />
-                <div>
+          <ul className="mt-3 space-y-4">
+            {STORIES.map(({ photo, title, text, say }) => (
+              <li key={title} className="overflow-hidden rounded-2xl bg-white shadow-card" data-say={say}>
+                <Photo photo={photo} sizes="(max-width: 448px) 100vw, 448px" className="aspect-[16/9]" />
+                <div className="p-4">
                   <p className="text-base font-bold text-ink">{title}</p>
                   <p className="mt-0.5 text-sm leading-snug text-ink-soft">{text}</p>
                 </div>
+              </li>
+            ))}
+          </ul>
+          <ul className="mt-4 grid grid-cols-2 gap-3">
+            {POINTS.map(({ Icon, title, text, say }) => (
+              <li key={title} className="rounded-2xl bg-white p-4 shadow-card" data-say={say}>
+                <Icon size={22} className="text-primary" aria-hidden="true" />
+                <p className="mt-2 text-sm font-bold leading-snug text-ink">{title}</p>
+                <p className="mt-0.5 text-xs leading-snug text-ink-soft">{text}</p>
               </li>
             ))}
           </ul>
@@ -103,7 +121,7 @@ export default function Welcome() {
             data-say="See harvests for sale and market prices."
             className="mt-6 block overflow-hidden rounded-2xl bg-white shadow-card"
           >
-            <Photo photo={PHOTOS.market} sizes="(max-width: 448px) 100vw, 448px" className="aspect-[3/2]" />
+            <Photo photo={PHOTOS.market} sizes="(max-width: 448px) 100vw, 448px" className="aspect-[16/9]" />
             <div className="flex items-center justify-between gap-3 p-4">
               <div>
                 <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
@@ -121,8 +139,7 @@ export default function Welcome() {
             <DemoAccessCard />
           </div>
 
-          {/* <p className="pt-6 text-center text-xs font-semibold text-ink-soft">FarmBok · Farm records for every season</p>
-          <PhotoCredits className="mt-2 text-center" /> */}
+          <p className="pt-6 text-center text-xs font-semibold text-ink-soft">FarmBok · Farm records for every season</p>
         </div>
       </div>
     </>

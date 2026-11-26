@@ -26,6 +26,7 @@ function serializeFarmer(row) {
     community: row.community,
     status: row.status,
     hasSecurityQuestion: Boolean(row.security_question),
+    photoId: row.photo_id ?? null,
     createdAt: row.created_at
   };
 }

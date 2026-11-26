@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { contactLimiter } from "../middleware/rateLimit.js";
 import { createBuyerRequest } from "../services/buyerRequestService.js";
 import { getPassport } from "../services/passportService.js";
+import { getPassportPhoto } from "../services/photoService.js";
 
 // Public: anyone who scans a batch's QR code. No sign-in needed.
 const router = Router();
@@ -12,6 +13,18 @@ const passportLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true"
+});
+
+// A photo of the harvest, only while its passport is public.
+router.get("/:code/photos/:id", passportLimiter, async (req, res) => {
+  const photo = await getPassportPhoto(req.params.code, req.params.id);
+  res.set("Content-Type", photo.content_type);
+  res.set("Cache-Control", "public, max-age=3600");
+  res.set("ETag", `"${photo.sha256}"`);
+  res.set("X-Content-Type-Options", "nosniff");
+  // The web app may be on another address than the API: let it show the photo.
+  res.set("Cross-Origin-Resource-Policy", "cross-origin");
+  res.send(photo.data);
 });
 
 router.get("/:code", passportLimiter, async (req, res) => {

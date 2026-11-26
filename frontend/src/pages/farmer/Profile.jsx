@@ -26,12 +26,13 @@ import {
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useSync } from "../../contexts/SyncContext.jsx";
 import { useToast } from "../../contexts/ToastContext.jsx";
-import { formatPhone, initials } from "../../lib/format.js";
+import { formatPhone } from "../../lib/format.js";
 import { SECURITY_QUESTIONS } from "../../lib/labels.js";
 import { api } from "../../lib/api.js";
 import { rememberOfflineLogin } from "../../lib/offlineAuth.js";
 import { VoiceToggle } from "../../components/Voice.jsx";
 import LanguagePicker from "../../components/LanguagePicker.jsx";
+import FarmerAvatar, { ProfilePhotoControls } from "../../components/FarmerAvatar.jsx";
 import { WORDS } from "../../lib/words.js";
 
 const EMPTY_PIN = { currentPin: "", newPin: "", confirmPin: "" };
@@ -143,9 +144,7 @@ export default function Profile() {
 
       <div className="rounded-2xl bg-white p-5 shadow-card lg:col-span-7">
         <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-white">
-            {initials(user.fullName)}
-          </span>
+          <FarmerAvatar className="h-20 w-20 rounded-2xl text-xl" />
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-ink">{user.fullName}</p>
             <p className="mt-0.5 flex items-center gap-1 text-sm text-ink-soft">
@@ -156,6 +155,7 @@ export default function Profile() {
             </p>
           </div>
         </div>
+        <ProfilePhotoControls />
       </div>
 
       {pendingAccount && (

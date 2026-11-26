@@ -60,6 +60,7 @@ FarmBok puts one simple record book on the phone the farmer already has:
 - **My farm insights:** what changed this season (last 6 months) next to the season before, in plain words: profit, costs that went up or down (for example "you spent 50% more on fertilizer"), harvest changes, selling below or above the county market price, and gaps in records. Simple rules always work; if `ANTHROPIC_API_KEY` is set, an AI model also writes a short summary from the same numbers (no name or phone is sent) and it is labelled "Written by AI".
 - **Voice menu (call FarmBok):** farmers call a FarmBok number and hear the same menu as USSD, pressing keys on any phone: weather, market prices, and, after typing their PIN, record farm work, messages, money and the weekly price SMS. Made for farmers who cannot read a screen. New callers are told to sign up by USSD (a name cannot be typed with keys). Uses Africa's Talking Voice; off until `VOICE_SECRET` is set.
 - **Show my record to a lender:** the farmer makes a private link (code `CR-…`) for a micro-finance group, bank, VSLA or cooperative. The lender sees, without signing in, the last 12 months: money in and costs month by month, profit, harvests, sales and how many were fully paid, quality grades, group membership and how regularly records are kept, ready to print or save as PDF. The farmer chooses whether to show full name and phone, how long the link works (1 week, 1 month or 3 months), sees how many times it was opened, and can stop it at any time.
+- **Harvest photos and profile photo:** when recording a harvest (or later on the harvest page) the farmer can take up to 4 photos as proof of the produce. They show on the Harvest Passport when it is public. Farmers can also add a profile photo (Me page; shown in the app, not to buyers). The phone makes photos small (about 1280 px, usually 100-300 KB) before sending, and the server removes hidden data such as GPS position. Photos taken without network wait on the phone and are sent after the harvest. Photos are kept in the database, so nothing extra is needed on Railway.
 - **Languages:** Me → Language lets each farmer choose the language of the words on screen. Kpelle, Bassa, Dan (Gio), Mano, Kru, Loma, Vai, Kissi, Grebo, Gola, Mandingo and Krahn appear as soon as native speakers fill in their word pack (`npm run i18n:export -- kpelle`, fill the sheet, `npm run i18n:import -- …`; see `frontend/public/i18n/README.md`). Untranslated words stay in English, and recorded clips in `public/audio/<language>/` are played by "Talk to me". No machine translation is used.
 - **Heavy-rain alerts:** a few times a day the server checks the forecast for every county with farmers. When heavy rain is coming in the next three days, each farmer there gets one message in the app, and one SMS if they allow SMS. The same rain day never alerts twice.
 - **USSD for any phone:** farmers without a smartphone dial a short code to make an account, sign in with their PIN, record farm work, and see the weather, market prices, their messages and their money. It is the same account as the app. Wrong PINs count toward the same lock.
@@ -299,9 +300,18 @@ The menu keeps no session on the server: each screen is worked out from the answ
 | King S. Gedegar       | Design Lead      |
 | Michael T. Butler     | Pitch Lead       |
 
-## Photo credits
+## Welcome page pictures
 
-The welcome page uses real photos of farming in Liberia from [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Agriculture_in_Liberia), all under free licences (CC BY / CC BY-SA). Each photo links to its Commons page, which names the photographer and licence, and the credits are shown in the page footer. The list lives in `frontend/src/lib/homePhotos.js`; to use your own photos, put them in `frontend/public/photos/` and change `src` there.
+The welcome page uses FarmBok's own pictures, stored with the app in `frontend/public/images/home/` (each in two sizes, 800 and 1600 pixels wide, as WebP, so phones download the small one and nothing comes from another website):
+
+| Picture | Where it is used |
+| --- | --- |
+| `profit` (harvest summary and profit) | Top of the page, phone and computer |
+| `journal` (farm work, day by day) | "Farm work, day by day" |
+| `passport` (Harvest Passport tag and QR check) | "Harvest Passport for buyers" |
+| `market` (harvests for sale and fair prices) | FarmBok market section |
+
+To change one, replace both files with the same names, or edit `frontend/src/lib/homePhotos.js`.
 
 ## License
 

@@ -18,17 +18,19 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { method = "GET", body, token, headers = {} } = {}) {
+// `rawBody` (a Blob, such as a photo) is sent as it is, with its own type.
+export async function request(path, { method = "GET", body, rawBody, token, headers = {} } = {}) {
   let response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       method,
       headers: {
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(rawBody ? { "Content-Type": rawBody.type || "application/octet-stream" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined
+      body: rawBody || (body !== undefined ? JSON.stringify(body) : undefined)
     });
   } catch {
     throw new ApiError(
@@ -107,3 +109,20 @@ export const api = {
   patch: (path, body, options = {}) => request(path, { ...options, method: "PATCH", body }),
   delete: (path, options = {}) => request(path, { ...options, method: "DELETE" })
 };
+
+// A picture or file that needs the farmer's session, as a Blob.
+export async function fetchBlob(path, { token } = {}) {
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "You appear to be offline.");
+  }
+  if (!response.ok) throw new ApiError(response.status, "REQUEST_FAILED", "Could not open this picture.");
+  return response.blob();
+}
+
+// Full address of an API path, for <img src> on public pages.
+export function apiUrl(path) {
+  return `${BASE_URL}${path}`;
+}

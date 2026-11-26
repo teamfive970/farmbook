@@ -50,7 +50,7 @@ async function sendWithAfricasTalking(phone, message) {
   const { AT_USERNAME: username, AT_API_KEY: apiKey, AT_SENDER_ID: from } = process.env;
   const body = new URLSearchParams({ username, to: phone, message });
   if (from) body.set("from", from);
-  const response = await fetch("https://api.africastalking.com/version1/messaging", {
+  const response = await fetch("https://api.sandbox.africastalking.com/version1/messaging", {
     method: "POST",
     headers: {
       apiKey,

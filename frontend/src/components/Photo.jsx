@@ -28,9 +28,10 @@ export function Photo({ photo, className = "", sizes = "100vw", eager = false, c
 }
 
 export function PhotoCredits({ className = "" }) {
+  if (!PHOTO_CREDITS.length) return null;
   return (
     <p className={`text-[11px] leading-relaxed text-ink-soft ${className}`}>
-      Photos from Wikimedia Commons, free licences:{" "}
+      Photo credits:{" "}
       {PHOTO_CREDITS.map(({ credit, page }, index) => (
         <span key={page}>
           <a href={page} target="_blank" rel="noreferrer" className="underline decoration-line hover:text-primary">
